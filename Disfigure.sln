@@ -1,0 +1,33 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Git", "Git", "{0F829B42-90AC-4454-AEC3-900AAF6DEB87}"
+ProjectSection(SolutionItems) = preProject
+	.gitignore = .gitignore
+EndProjectSection
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DisfigureServer", "DisfigureServer\DisfigureServer.csproj", "{D3106775-7C48-4BB0-90B1-8A2CD3E5E06A}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DisfigureClient", "DisfigureClient\DisfigureClient.csproj", "{A1AC879C-D0AF-4CE2-8322-A2E91BC9D17C}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DisfigureCore", "DisfigureCore\DisfigureCore.csproj", "{37B481EE-BFDA-43D3-8051-60F72852F251}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{D3106775-7C48-4BB0-90B1-8A2CD3E5E06A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D3106775-7C48-4BB0-90B1-8A2CD3E5E06A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D3106775-7C48-4BB0-90B1-8A2CD3E5E06A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D3106775-7C48-4BB0-90B1-8A2CD3E5E06A}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A1AC879C-D0AF-4CE2-8322-A2E91BC9D17C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A1AC879C-D0AF-4CE2-8322-A2E91BC9D17C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A1AC879C-D0AF-4CE2-8322-A2E91BC9D17C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A1AC879C-D0AF-4CE2-8322-A2E91BC9D17C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{37B481EE-BFDA-43D3-8051-60F72852F251}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{37B481EE-BFDA-43D3-8051-60F72852F251}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{37B481EE-BFDA-43D3-8051-60F72852F251}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{37B481EE-BFDA-43D3-8051-60F72852F251}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+EndGlobal
