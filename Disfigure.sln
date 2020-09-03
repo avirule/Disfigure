@@ -11,7 +11,10 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DisfigureClient", "Disfigur
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DisfigureCore", "DisfigureCore\DisfigureCore.csproj", "{37B481EE-BFDA-43D3-8051-60F72852F251}"
 EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Specification", "Specification", "{BA7FBC2A-D3E2-4107-9D69-49C7D2CBE871}"
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Base", "Base", "{916BC403-0FC1-4CA7-8E00-569CFAA593EC}"
+ProjectSection(SolutionItems) = preProject
+	Specification.md = Specification.md
+EndProjectSection
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

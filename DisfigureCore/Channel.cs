@@ -1,6 +1,9 @@
-using System;
+#region
+
 using System.Collections.Generic;
 using DisfigureCore.Message;
+
+#endregion
 
 namespace DisfigureCore
 {

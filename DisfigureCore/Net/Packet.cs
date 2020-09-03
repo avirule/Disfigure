@@ -1,7 +1,6 @@
 #region
 
 using System;
-using System.Collections.Generic;
 using System.Text;
 
 #endregion
@@ -20,10 +19,10 @@ namespace DisfigureCore.Net
 
     public readonly struct Packet
     {
-        public const int HEADER_LENGTH = sizeof(long)    // timestamp
-                                         + sizeof(byte)  // type
-                                         + 16            // guid
-                                         + sizeof(int);  // content length
+        public const int HEADER_LENGTH = sizeof(long) // timestamp
+                                         + sizeof(byte) // type
+                                         + 16 // guid
+                                         + sizeof(int); // content length
 
         public const int TIMESTAMP_HEADER_OFFSET = 0;
         public const int PACKET_TYPE_HEADER_OFFSET = TIMESTAMP_HEADER_OFFSET + sizeof(long);
