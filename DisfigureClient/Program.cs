@@ -1,11 +1,13 @@
 ﻿#region
 
 using System;
+using System.Linq;
 using System.Net;
-using System.Net.Sockets;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using DisfigureCore;
+using Serilog;
 
 #endregion
 
@@ -15,35 +17,19 @@ namespace DisfigureClient
     {
         private static async Task Main(string[] args)
         {
-            TcpClient tcpClient = new TcpClient();
+            Log.Logger = new LoggerConfiguration().WriteTo.Console().CreateLogger();
 
-            int tries = 0;
-            while (!tcpClient.Connected)
-            {
-                try
-                {
-                    await tcpClient.ConnectAsync(IPAddress.IPv6Loopback, 8898);
-                }
-                catch (Exception)
-                {
-                    tries += 1;
+            Client client = new Client();
+            await client.EstablishConnection(new IPEndPoint(IPAddress.IPv6Loopback, 8898), TimeSpan.FromSeconds(0.5d));
 
-                    if (tries > 10)
-                    {
-                        return;
-                    }
-                    else
-                    {
-                        await Task.Delay(1000);
-                    }
-                }
-            }
+            Packet packet = new Packet(DateTime.UtcNow, PacketType.Text, Encoding.Unicode.GetBytes("test message with emoji 🍑"));
+            Packet packet2 = new Packet(DateTime.UtcNow, PacketType.Text, Encoding.Unicode.GetBytes("test message with emoji2 🍑"));
+            Packet packet3 = new Packet(DateTime.UtcNow, PacketType.Text, Encoding.Unicode.GetBytes("test message with emoji3 🍑"));
+            Packet packet4 = new Packet(DateTime.UtcNow, PacketType.Text, Encoding.Unicode.GetBytes("test message with emoji4 🍑"));
+            Packet packet5 = new Packet(DateTime.UtcNow, PacketType.Text, Encoding.Unicode.GetBytes("test message with 🍑"));
+            await client.Connections.FirstOrDefault().Value.WriteAsync(CancellationToken.None, packet, packet2, packet3, packet4, packet5);
 
-            NetworkStream stream = tcpClient.GetStream();
-            Message message = new Message(DateTime.UtcNow, MessageType.Text, Encoding.Unicode.GetBytes("test message with emoji 🍑"));
-            await stream.WriteAsync(message.Serialize());
-            await stream.FlushAsync();
-            stream.Close();
+            Console.ReadLine();
         }
     }
 }

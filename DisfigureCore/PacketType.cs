@@ -1,6 +1,6 @@
 namespace DisfigureCore
 {
-    public enum MessageType
+    public enum PacketType
     {
         Admin,
         Text,

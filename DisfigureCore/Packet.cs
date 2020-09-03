@@ -7,15 +7,15 @@ using System.Text;
 
 namespace DisfigureCore
 {
-    public readonly struct Message
+    public readonly struct Packet
     {
         public const int HEADER_LENGTH = 35;
 
         public readonly DateTime UtcTimestamp;
-        public readonly MessageType Type;
+        public readonly PacketType Type;
         public readonly byte[] Content;
 
-        public Message(DateTime utcTimestamp, MessageType type, byte[] content)
+        public Packet(DateTime utcTimestamp, PacketType type, byte[] content)
         {
             UtcTimestamp = utcTimestamp;
             Type = type;
@@ -37,18 +37,18 @@ namespace DisfigureCore
             StringBuilder builder = new StringBuilder();
             builder.Append(UtcTimestamp.ToString("O"));
             builder.Append(' ');
-            builder.Append(Enum.GetName(typeof(MessageType), Type));
+            builder.Append(Enum.GetName(typeof(PacketType), Type));
             builder.Append(' ');
 
             switch (Type)
             {
-                case MessageType.Text:
+                case PacketType.Text:
                     builder.Append(Encoding.Unicode.GetString(Content));
                     break;
-                case MessageType.Admin:
-                case MessageType.Image:
-                case MessageType.Video:
-                case MessageType.Sound:
+                case PacketType.Admin:
+                case PacketType.Image:
+                case PacketType.Video:
+                case PacketType.Sound:
                     builder.Append(Content);
                     break;
                 default:

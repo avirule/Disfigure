@@ -14,14 +14,14 @@ using Serilog;
 
 namespace DisfigureServer
 {
-    public class Server
+    public class Server : IDisposable
     {
         private readonly TcpListener _Listener;
         private readonly Dictionary<Guid, Connection> _Connections;
 
-        private readonly Channel<Message> _Messages;
-        private readonly ChannelWriter<Message> _Writer;
-        private readonly ChannelReader<Message> _Reader;
+        private readonly Channel<Packet> _PacketBuffer;
+        private readonly ChannelWriter<Packet> _PacketWriter;
+        private readonly ChannelReader<Packet> _PacketReader;
 
         private readonly CancellationTokenSource _CancellationTokenSource;
         private readonly CancellationToken _CancellationToken;
@@ -29,16 +29,14 @@ namespace DisfigureServer
 
         public Server()
         {
-            Log.Logger = new LoggerConfiguration().WriteTo.Console().CreateLogger();
-
             const int port = 8898;
             IPAddress local = IPAddress.IPv6Loopback;
             _Listener = new TcpListener(local, port);
             _Connections = new Dictionary<Guid, Connection>();
 
-            _Messages = Channel.CreateUnbounded<Message>();
-            _Reader = _Messages.Reader;
-            _Writer = _Messages.Writer;
+            _PacketBuffer = Channel.CreateUnbounded<Packet>();
+            _PacketReader = _PacketBuffer.Reader;
+            _PacketWriter = _PacketBuffer.Writer;
 
             _CancellationTokenSource = new CancellationTokenSource();
             _CancellationToken = _CancellationTokenSource.Token;
@@ -64,18 +62,54 @@ namespace DisfigureServer
             {
                 Guid guid = Guid.NewGuid();
                 TcpClient client = await _Listener.AcceptTcpClientAsync();
+
+                Log.Information($"Accepted new connection from {client.Client.RemoteEndPoint} with auto-generated GUID {guid}.");
+
                 Connection connection = new Connection(guid, client);
                 connection.MessageReceived += OnMessageReceived;
                 _Connections.Add(guid, connection);
 
-                await Task.Run(() => connection.BeginListenAsync(_CancellationToken), _CancellationToken);
+                Log.Information($"Connection from client {connection.Guid} established.");
+
+                connection.BeginListen(_CancellationToken, Connection.DefaultLoopDelay);
             }
         }
 
-        private static ValueTask OnMessageReceived(Connection connection, Message message)
+        private static ValueTask OnMessageReceived(Connection connection, Packet packet)
         {
-            Log.Information(message.ToString());
+            Log.Information(packet.ToString());
             return default;
         }
+
+        #region Dispose
+
+        private bool _Disposed;
+
+        protected virtual void Dispose(bool disposing)
+        {
+            if (_Disposed)
+            {
+                return;
+            }
+
+            if (disposing)
+            {
+                foreach (Connection connection in _Connections.Values)
+                {
+                    connection?.Dispose();
+                }
+            }
+
+            _CancellationTokenSource.Cancel();
+            _Disposed = true;
+        }
+
+        public void Dispose()
+        {
+            Dispose(true);
+            GC.SuppressFinalize(this);
+        }
+
+        #endregion
     }
 }

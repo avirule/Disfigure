@@ -2,6 +2,7 @@
 
 using System;
 using System.Threading.Tasks;
+using Serilog;
 
 #endregion
 
@@ -11,11 +12,12 @@ namespace DisfigureServer
     {
         private static async Task Main(string[] args)
         {
-            // todo set up static logger
+            Log.Logger = new LoggerConfiguration().WriteTo.Console().CreateLogger();
 
-            Server server = new Server();
-
-            await server.Start();
+            using (Server server = new Server())
+            {
+                await server.Start();
+            }
 
             Console.ReadLine();
         }
