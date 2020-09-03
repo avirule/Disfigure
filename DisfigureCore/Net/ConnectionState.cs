@@ -1,4 +1,4 @@
-namespace DisfigureCore
+namespace DisfigureCore.Net
 {
     public enum ConnectionState
     {

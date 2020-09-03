@@ -5,9 +5,9 @@ using System.Collections.Generic;
 using System.Net;
 using System.Net.Sockets;
 using System.Threading;
-using System.Threading.Channels;
 using System.Threading.Tasks;
 using DisfigureCore;
+using DisfigureCore.Net;
 using Serilog;
 
 #endregion
@@ -18,10 +18,7 @@ namespace DisfigureServer
     {
         private readonly TcpListener _Listener;
         private readonly Dictionary<Guid, Connection> _Connections;
-
-        private readonly Channel<Packet> _PacketBuffer;
-        private readonly ChannelWriter<Packet> _PacketWriter;
-        private readonly ChannelReader<Packet> _PacketReader;
+        private readonly Dictionary<Guid, Channel> _Channels;
 
         private readonly CancellationTokenSource _CancellationTokenSource;
         private readonly CancellationToken _CancellationToken;
@@ -33,10 +30,8 @@ namespace DisfigureServer
             IPAddress local = IPAddress.IPv6Loopback;
             _Listener = new TcpListener(local, port);
             _Connections = new Dictionary<Guid, Connection>();
-
-            _PacketBuffer = Channel.CreateUnbounded<Packet>();
-            _PacketReader = _PacketBuffer.Reader;
-            _PacketWriter = _PacketBuffer.Writer;
+            _Channels = new Dictionary<Guid, Channel>();
+            _Channels.Add(Guid.NewGuid(), new Channel("Default, Test", true));
 
             _CancellationTokenSource = new CancellationTokenSource();
             _CancellationToken = _CancellationTokenSource.Token;
@@ -66,7 +61,7 @@ namespace DisfigureServer
                 Log.Information($"Accepted new connection from {client.Client.RemoteEndPoint} with auto-generated GUID {guid}.");
 
                 Connection connection = new Connection(guid, client);
-                connection.MessageReceived += OnMessageReceived;
+                connection.PacketReceived += OnPacketReceived;
                 _Connections.Add(guid, connection);
 
                 Log.Information($"Connection from client {connection.Guid} established.");
@@ -75,9 +70,9 @@ namespace DisfigureServer
             }
         }
 
-        private static ValueTask OnMessageReceived(Connection connection, Packet packet)
+        private static ValueTask OnPacketReceived(Connection connection, Packet packet)
         {
-            Log.Information(packet.ToString());
+            Log.Verbose(packet.ToString());
             return default;
         }
 

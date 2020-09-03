@@ -11,9 +11,9 @@ using Serilog;
 
 #endregion
 
-namespace DisfigureCore
+namespace DisfigureCore.Net
 {
-    public delegate ValueTask MessageReceivedCallback(Connection origin, Packet packet);
+    public delegate ValueTask PacketReceivedCallback(Connection origin, Packet packet);
 
     public class Connection : IDisposable
     {
@@ -27,7 +27,8 @@ namespace DisfigureCore
         private readonly NetworkStream _Stream;
 
         private byte[] _Buffer;
-        private List<byte> _PendingHeader;
+        private byte[] _Header;
+        private int _CurrentHeaderLength;
         private List<byte> _PendingContent;
 
         private int _BufferedLength;
@@ -44,7 +45,7 @@ namespace DisfigureCore
             Guid = guid;
 
             _Buffer = _Buffers.Rent(BUFFER_SIZE);
-            _PendingHeader = new List<byte>();
+            _Header = new byte[Packet.HEADER_LENGTH];
             _PendingContent = new List<byte>();
             _ReadPosition = 0;
         }
@@ -99,20 +100,21 @@ namespace DisfigureCore
         private void ReadHeader()
         {
             int startIndex = _ReadPosition;
-            int endIndex = _ReadPosition + (Packet.HEADER_LENGTH - _PendingHeader.Count);
+            int endIndex = _ReadPosition + (Packet.HEADER_LENGTH - _CurrentHeaderLength);
 
             if (endIndex > _Buffer.Length)
             {
                 endIndex = _Buffer.Length;
             }
 
-            _PendingHeader.AddRange(_Buffer[startIndex..endIndex]);
+            int indexCount = endIndex - startIndex;
+            Buffer.BlockCopy(_Buffer, startIndex, _Header, _CurrentHeaderLength, indexCount);
+            _CurrentHeaderLength += indexCount;
             _ReadPosition = endIndex;
 
-            if (_PendingHeader.Count == Packet.HEADER_LENGTH)
+            if (_CurrentHeaderLength == _Header.Length)
             {
-                string contentLength = Encoding.ASCII.GetString(_PendingHeader.GetRange(Packet.HEADER_LENGTH - 4, 4).ToArray());
-                _RemainingContentLength = int.Parse(contentLength);
+                _RemainingContentLength = BitConverter.ToInt32(_Header, Packet.CONTENT_LENGTH_HEADER_OFFSET);
                 State = ConnectionState.ReadingContent;
                 _ReadPosition += 1; // advance past the space delimiter between header and content
             }
@@ -131,7 +133,7 @@ namespace DisfigureCore
 
             if (_RemainingContentLength == 0)
             {
-                await CompileMessageAndCallbackAsync().ConfigureAwait(false);
+                await RebuildPacketAndCallbackAsync().ConfigureAwait(false);
             }
         }
 
@@ -188,35 +190,30 @@ namespace DisfigureCore
 
         #region Events
 
-        public event MessageReceivedCallback? MessageReceived;
+        public event PacketReceivedCallback? PacketReceived;
 
-        private async ValueTask CompileMessageAndCallbackAsync()
+        private async ValueTask RebuildPacketAndCallbackAsync()
         {
-            static (DateTime, PacketType, int) DeserializeHeaderInternal(List<byte> headerBytes)
+            static unsafe (DateTime, PacketType, Guid, int) DeserializeHeaderInternal(byte[] headerBytes)
             {
-                string[] headers = Encoding.ASCII.GetString(headerBytes.ToArray()).Split(' ');
+                long timestamp = BitConverter.ToInt64(headerBytes, Packet.TIMESTAMP_HEADER_OFFSET);
+                byte packetType = headerBytes[Packet.PACKET_TYPE_HEADER_OFFSET];
+                Guid channel = new Guid(headerBytes[Packet.CHANNEL_GUID_HEADER_OFFSET..(Packet.CHANNEL_GUID_HEADER_OFFSET + sizeof(Guid))]);
+                int contentLength = BitConverter.ToInt32(headerBytes, Packet.CONTENT_LENGTH_HEADER_OFFSET);
 
-                if ((headers.Length != 3)
-                    || !DateTime.TryParse(headers[0], out DateTime timestamp)
-                    || !int.TryParse(headers[1], out int messageType)
-                    || !Enum.IsDefined(typeof(PacketType), messageType)
-                    || !int.TryParse(headers[2], out int contentLength))
-                {
-                    throw new FormatException("Header has invalid format.");
-                }
-
-                return (timestamp, (PacketType)messageType, contentLength);
+                return (DateTime.FromBinary(timestamp), (PacketType)packetType, channel, contentLength);
             }
 
-            (DateTime timestamp, PacketType messageType, int _) = DeserializeHeaderInternal(_PendingHeader);
-            Packet packet = new Packet(timestamp, messageType, _PendingContent.ToArray());
+            (DateTime timestamp, PacketType packetType, Guid channel, int _) = DeserializeHeaderInternal(_Header);
+            Packet packet = new Packet(timestamp, packetType, channel, _PendingContent.ToArray());
 
-            _PendingHeader.Clear();
+            Array.Clear(_Header, 0, _Header.Length);
+            _CurrentHeaderLength = 0;
             _PendingContent.Clear();
 
-            if (!(MessageReceived is null))
+            if (!(PacketReceived is null))
             {
-                await MessageReceived.Invoke(this, packet).ConfigureAwait(false);
+                await PacketReceived.Invoke(this, packet).ConfigureAwait(false);
             }
 
             if (_ReadPosition == _BufferedLength)
@@ -248,7 +245,7 @@ namespace DisfigureCore
             }
 
             _Buffer = null!;
-            _PendingHeader = null!;
+            _Header = null!;
             _PendingContent = null!;
             _Disposed = true;
         }

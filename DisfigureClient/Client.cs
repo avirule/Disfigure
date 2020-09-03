@@ -7,6 +7,7 @@ using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
 using DisfigureCore;
+using DisfigureCore.Net;
 using Serilog;
 
 #endregion
@@ -71,11 +72,18 @@ namespace DisfigureClient
         private void FinalizeConnection(Guid guid, TcpClient tcpClient)
         {
             Connection connection = new Connection(guid, tcpClient);
+            connection.PacketReceived += OnPacketReceived;
             _Connections.Add(connection.Guid, connection);
 
             Log.Information($"Connection {connection.Guid} finalized.");
 
             connection.BeginListen(_CancellationToken, Connection.DefaultLoopDelay);
+        }
+
+        private static ValueTask OnPacketReceived(Connection connection, Packet packet)
+        {
+            Log.Verbose(packet.ToString());
+            return default;
         }
 
         #region Dispose
