@@ -36,7 +36,6 @@ namespace DisfigureCore.Net
         public Guid Guid { get; }
         public string Name { get; private set; }
 
-        public ConnectionState State => _ConnectionReader.State;
         public bool CompleteRemoteIdentity => Interlocked.Read(ref _CompleteRemoteIdentity) == 1;
 
         public Connection(Guid guid, TcpClient client)
@@ -118,8 +117,9 @@ namespace DisfigureCore.Net
         #endregion
 
 
-        #region MyRegion
+        #region Connection Events
 
+        public event ConnectionEventHandler? Opened;
         public event ConnectionEventHandler? Closed;
 
         #endregion

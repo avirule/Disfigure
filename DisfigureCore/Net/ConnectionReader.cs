@@ -27,8 +27,7 @@ namespace DisfigureCore.Net
         private int _ReadPosition;
         private int _CurrentHeaderLength;
         private int _RemainingContentLength;
-
-        public ConnectionState State { get; private set; }
+        private ConnectionState _State;
 
         public ConnectionReader(NetworkStream networkStream)
         {
@@ -47,7 +46,7 @@ namespace DisfigureCore.Net
                 await ReadIntoBufferAsync(cancellationToken).ConfigureAwait(false);
             }
 
-            switch (State)
+            switch (_State)
             {
                 case ConnectionState.Idle:
                     await ProcessIdleAsync(cancellationToken).ConfigureAwait(false);
@@ -56,7 +55,12 @@ namespace DisfigureCore.Net
                     ReadHeader();
                     break;
                 case ConnectionState.ReadingContent:
-                    await ReadContentAsync().ConfigureAwait(false);
+                    ReadContentAsync();
+
+                    if (_RemainingContentLength == 0)
+                    {
+                        await RebuildPacketAndCallbackAsync().ConfigureAwait(false);
+                    }
                     break;
                 default:
                     throw new ArgumentOutOfRangeException();
@@ -81,32 +85,23 @@ namespace DisfigureCore.Net
             if (_CurrentHeaderLength == _HeaderBuffer.Length)
             {
                 _RemainingContentLength = BitConverter.ToInt32(_HeaderBuffer, Packet.CONTENT_LENGTH_HEADER_OFFSET);
-                State = ConnectionState.ReadingContent;
+                _State = ConnectionState.ReadingContent;
             }
         }
 
-        private async ValueTask ReadContentAsync()
+        private void ReadContentAsync()
         {
-            // if no content, continue
-            if (_RemainingContentLength > 0)
+            int startIndex = _ReadPosition;
+            int endIndex = _ReadPosition + _RemainingContentLength;
+
+            if (endIndex > _BufferedLength)
             {
-                int startIndex = _ReadPosition;
-                int endIndex = _ReadPosition + _RemainingContentLength;
-
-                if (endIndex > _BufferedLength)
-                {
-                    endIndex = _BufferedLength;
-                }
-
-                _ContentBuffer.AddRange(_Buffer[_ReadPosition..endIndex]);
-                _RemainingContentLength -= endIndex - _ReadPosition;
-                _ReadPosition += endIndex - startIndex;
+                endIndex = _BufferedLength;
             }
 
-            if (_RemainingContentLength == 0)
-            {
-                await RebuildPacketAndCallbackAsync().ConfigureAwait(false);
-            }
+            _ContentBuffer.AddRange(_Buffer[_ReadPosition..endIndex]);
+            _RemainingContentLength -= endIndex - _ReadPosition;
+            _ReadPosition += endIndex - startIndex;
         }
 
 
@@ -120,7 +115,7 @@ namespace DisfigureCore.Net
         {
             await ReadIntoBufferAsync(cancellationToken);
 
-            State = ConnectionState.ReadingHeader;
+            _State = ConnectionState.ReadingHeader;
         }
 
         #region Events
@@ -154,7 +149,7 @@ namespace DisfigureCore.Net
                 _ReadPosition = 0;
             }
 
-            State = (_ReadPosition > 0) && (_ReadPosition < _Buffer.Length) ? ConnectionState.ReadingHeader : ConnectionState.Idle;
+            _State = (_ReadPosition > 0) && (_ReadPosition < _Buffer.Length) ? ConnectionState.ReadingHeader : ConnectionState.Idle;
         }
 
         #endregion
