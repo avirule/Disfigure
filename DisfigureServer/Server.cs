@@ -2,6 +2,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Net;
 using System.Net.Sockets;
 using System.Threading;
@@ -17,7 +18,7 @@ namespace DisfigureServer
     public class Server : IDisposable
     {
         private readonly TcpListener _Listener;
-        private readonly Dictionary<Guid, Connection> _Connections;
+        private readonly Dictionary<Guid, Connection> _ClientConnections;
         private readonly Dictionary<Guid, Channel> _Channels;
 
         private readonly CancellationTokenSource _CancellationTokenSource;
@@ -29,9 +30,10 @@ namespace DisfigureServer
             const int port = 8898;
             IPAddress local = IPAddress.IPv6Loopback;
             _Listener = new TcpListener(local, port);
-            _Connections = new Dictionary<Guid, Connection>();
+            _ClientConnections = new Dictionary<Guid, Connection>();
             _Channels = new Dictionary<Guid, Channel>();
-            _Channels.Add(Guid.NewGuid(), new Channel("Default, Test", true));
+            Guid guid = Guid.NewGuid();
+            _Channels.Add(guid, new Channel(guid, "Default, Test"));
 
             _CancellationTokenSource = new CancellationTokenSource();
             _CancellationToken = _CancellationTokenSource.Token;
@@ -48,7 +50,10 @@ namespace DisfigureServer
                     await AcceptPendingConnections();
                 }
             }
-            catch (Exception ex) { }
+            catch (Exception ex)
+            {
+                Log.Error(ex.ToString());
+            }
         }
 
         private async ValueTask AcceptPendingConnections()
@@ -62,12 +67,30 @@ namespace DisfigureServer
 
                 Connection connection = new Connection(guid, client);
                 connection.PacketReceived += OnPacketReceived;
-                _Connections.Add(guid, connection);
+                _ClientConnections.Add(guid, connection);
 
-                Log.Information($"Connection from client {connection.Guid} established.");
+                Log.Information($"Connection from client {connection.Guid} established. Communicating server information.");
+                await CommunicateServerInformation(connection);
 
                 connection.BeginListen(_CancellationToken, Connection.DefaultLoopDelay);
             }
+        }
+
+        private async ValueTask CommunicateServerInformation(Connection connection)
+        {
+            DateTime utcTimestamp = DateTime.UtcNow;
+            await connection.WriteAsync(_CancellationToken, new Packet(utcTimestamp, PacketType.BeginIdentity, new byte[0]));
+
+            await SendChannelList(connection);
+
+            await connection.WriteAsync(_CancellationToken, new Packet(utcTimestamp, PacketType.EndIdentity, new byte[0]));
+        }
+
+        private async ValueTask SendChannelList(Connection connection)
+        {
+            DateTime utcTimestamp = DateTime.UtcNow;
+            await connection.WriteAsync(_CancellationToken,
+                _Channels.Values.Select(channel => new Packet(utcTimestamp, PacketType.ChannelIdentity, channel.Serialize())));
         }
 
         private static ValueTask OnPacketReceived(Connection connection, Packet packet)
@@ -89,7 +112,7 @@ namespace DisfigureServer
 
             if (disposing)
             {
-                foreach (Connection connection in _Connections.Values)
+                foreach (Connection connection in _ClientConnections.Values)
                 {
                     connection?.Dispose();
                 }

@@ -12,6 +12,13 @@ using Serilog;
 
 namespace DisfigureCore.Net
 {
+    public enum ConnectionState
+    {
+        Idle,
+        ReadingHeader,
+        ReadingContent
+    }
+
     public delegate ValueTask PacketReceivedCallback(Connection origin, Packet packet);
 
     public class Connection : IDisposable
@@ -36,6 +43,7 @@ namespace DisfigureCore.Net
 
         public Guid Guid { get; }
         public ConnectionState State { get; private set; }
+        public bool CompleteRemoteIdentity { get; private set; }
 
         public Connection(Guid guid, TcpClient client)
         {
@@ -66,7 +74,10 @@ namespace DisfigureCore.Net
                     await Task.Delay(loopDelay, cancellationToken).ConfigureAwait(false);
                 }
             }
-            catch (Exception ex) { }
+            catch (Exception ex)
+            {
+                Log.Error(ex.ToString());
+            }
         }
 
         #endregion
@@ -115,7 +126,6 @@ namespace DisfigureCore.Net
             {
                 _RemainingContentLength = BitConverter.ToInt32(_Header, Packet.CONTENT_LENGTH_HEADER_OFFSET);
                 State = ConnectionState.ReadingContent;
-                _ReadPosition += 1; // advance past the space delimiter between header and content
             }
         }
 
@@ -157,7 +167,7 @@ namespace DisfigureCore.Net
             await _Stream.FlushAsync(cancellationToken);
         }
 
-        public async ValueTask WriteAsync(CancellationToken cancellationToken, params Packet[] packets)
+        public async ValueTask WriteAsync(CancellationToken cancellationToken, IEnumerable<Packet> packets)
         {
             foreach (Packet packet in packets)
             {
@@ -190,30 +200,26 @@ namespace DisfigureCore.Net
         #region Events
 
         public event PacketReceivedCallback? PacketReceived;
+        public event PacketReceivedCallback? BeginIdentityReceived;
+        public event PacketReceivedCallback? EndIdentityReceived;
 
         private async ValueTask RebuildPacketAndCallbackAsync()
         {
-            static unsafe (DateTime, PacketType, Guid, int) DeserializeHeaderInternal(byte[] headerBytes)
+            static (DateTime, PacketType, int) DeserializeHeaderInternal(byte[] headerBytes)
             {
                 long timestamp = BitConverter.ToInt64(headerBytes, Packet.TIMESTAMP_HEADER_OFFSET);
                 byte packetType = headerBytes[Packet.PACKET_TYPE_HEADER_OFFSET];
-                Guid channel = new Guid(headerBytes[Packet.CHANNEL_GUID_HEADER_OFFSET..(Packet.CHANNEL_GUID_HEADER_OFFSET + sizeof(Guid))]);
                 int contentLength = BitConverter.ToInt32(headerBytes, Packet.CONTENT_LENGTH_HEADER_OFFSET);
 
-                return (DateTime.FromBinary(timestamp), (PacketType)packetType, channel, contentLength);
+                return (DateTime.FromBinary(timestamp), (PacketType)packetType, contentLength);
             }
 
-            (DateTime timestamp, PacketType packetType, Guid channel, int _) = DeserializeHeaderInternal(_Header);
-            Packet packet = new Packet(timestamp, packetType, channel, _PendingContent.ToArray());
+            (DateTime timestamp, PacketType packetType, int _) = DeserializeHeaderInternal(_Header);
+            await OnPacketReceived(new Packet(timestamp, packetType, _PendingContent.ToArray()));
 
             Array.Clear(_Header, 0, _Header.Length);
             _CurrentHeaderLength = 0;
             _PendingContent.Clear();
-
-            if (!(PacketReceived is null))
-            {
-                await PacketReceived.Invoke(this, packet).ConfigureAwait(false);
-            }
 
             if (_ReadPosition == _BufferedLength)
             {
@@ -222,6 +228,37 @@ namespace DisfigureCore.Net
             }
 
             State = ConnectionState.Idle;
+        }
+
+        private async ValueTask OnPacketReceived(Packet packet)
+        {
+            if (PacketReceived is { })
+            {
+                await PacketReceived.Invoke(this, packet).ConfigureAwait(false);
+            }
+
+            await InvokePacketTypeEvent(packet).ConfigureAwait(false);
+        }
+
+        private async ValueTask InvokePacketTypeEvent(Packet packet)
+        {
+            switch (packet.Type)
+            {
+                case PacketType.BeginIdentity:
+                    if (BeginIdentityReceived is { })
+                    {
+                        await BeginIdentityReceived.Invoke(this, packet).ConfigureAwait(false);
+                    }
+
+                    break;
+                case PacketType.EndIdentity:
+                    if (EndIdentityReceived is { })
+                    {
+                        await EndIdentityReceived.Invoke(this, packet).ConfigureAwait(false);
+                    }
+
+                    break;
+            }
         }
 
         #endregion
