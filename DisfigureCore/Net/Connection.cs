@@ -2,6 +2,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
@@ -18,11 +19,13 @@ namespace DisfigureCore.Net
         ReadingContent
     }
 
-    public delegate ValueTask PacketReceivedCallback(Connection origin, Packet packet);
+    public delegate ValueTask ConnectionEventHandler(Connection connection);
+
+    public delegate ValueTask PacketEventHandler(Connection origin, Packet packet);
 
     public class Connection : IDisposable
     {
-        public static TimeSpan DefaultLoopDelay = TimeSpan.FromSeconds(0.5d);
+        public static TimeSpan DefaultLoopDelay = TimeSpan.FromMilliseconds(5d);
 
         private readonly TcpClient _Client;
         private readonly NetworkStream _Stream;
@@ -53,12 +56,12 @@ namespace DisfigureCore.Net
             Name = string.Empty;
         }
 
-        #region Connection Operations
+        #region Listening
 
-        public void BeginListen(CancellationToken cancellationToken, TimeSpan loopDelay) =>
-            Task.Run(() => BeginListenAsyncInternal(cancellationToken, loopDelay), cancellationToken);
+        public void BeginListen(CancellationToken cancellationToken) =>
+            Task.Run(() => BeginListenAsyncInternal(cancellationToken), cancellationToken);
 
-        private async Task BeginListenAsyncInternal(CancellationToken cancellationToken, TimeSpan loopDelay)
+        private async Task BeginListenAsyncInternal(CancellationToken cancellationToken)
         {
             try
             {
@@ -67,7 +70,18 @@ namespace DisfigureCore.Net
                 while (!cancellationToken.IsCancellationRequested)
                 {
                     await _ConnectionReader.ReadAsync(cancellationToken).ConfigureAwait(false);
-                    await Task.Delay(loopDelay, cancellationToken).ConfigureAwait(false);
+                }
+            }
+            catch (IOException ex)
+            {
+                if (ex.InnerException is SocketException)
+                {
+                    Log.Warning($"Connection at {_Client.Client.RemoteEndPoint} ({Guid}) forcibly closed connection.");
+
+                    if (Closed is { })
+                    {
+                        await Closed.Invoke(this);
+                    }
                 }
             }
             catch (Exception ex)
@@ -77,6 +91,7 @@ namespace DisfigureCore.Net
         }
 
         #endregion
+
 
         #region Writing Data
 
@@ -103,12 +118,19 @@ namespace DisfigureCore.Net
         #endregion
 
 
-        #region Events
+        #region MyRegion
 
-        public event PacketReceivedCallback? TextPacketReceived;
-        public event PacketReceivedCallback? BeginIdentityReceived;
-        public event PacketReceivedCallback? ChannelIdentityReceived;
-        public event PacketReceivedCallback? EndIdentityReceived;
+        public event ConnectionEventHandler? Closed;
+
+        #endregion
+
+
+        #region Packet Events
+
+        public event PacketEventHandler? TextPacketReceived;
+        public event PacketEventHandler? BeginIdentityReceived;
+        public event PacketEventHandler? ChannelIdentityReceived;
+        public event PacketEventHandler? EndIdentityReceived;
 
         private async ValueTask OnPacketReceived(Connection connection, Packet packet) => await InvokePacketTypeEvent(packet).ConfigureAwait(false);
 
@@ -132,6 +154,7 @@ namespace DisfigureCore.Net
         }
 
         #endregion
+
 
         #region Dispose
 

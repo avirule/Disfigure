@@ -82,7 +82,7 @@ namespace DisfigureClient
 
             Log.Information($"Connection {connection.Guid} finalized.");
 
-            connection.BeginListen(_CancellationToken, Connection.DefaultLoopDelay);
+            connection.BeginListen(_CancellationToken);
             return connection;
         }
 

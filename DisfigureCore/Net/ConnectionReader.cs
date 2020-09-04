@@ -13,15 +13,15 @@ namespace DisfigureCore.Net
 {
     public class ConnectionReader
     {
-        public const int BUFFER_SIZE = 1024;
+        public const int BUFFER_SIZE = 16;
 
         private static readonly ArrayPool<byte> _Buffers = ArrayPool<byte>.Create(BUFFER_SIZE, 8);
 
         private readonly NetworkStream _Stream;
 
         private readonly byte[] _Buffer;
-        private readonly byte[] _Header;
-        private readonly List<byte> _PendingContent;
+        private readonly byte[] _HeaderBuffer;
+        private readonly List<byte> _ContentBuffer;
 
         private int _BufferedLength;
         private int _ReadPosition;
@@ -35,8 +35,8 @@ namespace DisfigureCore.Net
             _Stream = networkStream;
 
             _Buffer = _Buffers.Rent(BUFFER_SIZE);
-            _Header = new byte[Packet.HEADER_LENGTH];
-            _PendingContent = new List<byte>();
+            _HeaderBuffer = new byte[Packet.HEADER_LENGTH];
+            _ContentBuffer = new List<byte>();
             _ReadPosition = 0;
         }
 
@@ -73,27 +73,34 @@ namespace DisfigureCore.Net
                 endIndex = _Buffer.Length;
             }
 
-            int indexCount = endIndex - startIndex;
-            Buffer.BlockCopy(_Buffer, startIndex, _Header, _CurrentHeaderLength, indexCount);
-            _CurrentHeaderLength += indexCount;
+            int copyLength = endIndex - startIndex;
+            Buffer.BlockCopy(_Buffer, startIndex, _HeaderBuffer, _CurrentHeaderLength, copyLength);
+            _CurrentHeaderLength += copyLength;
             _ReadPosition = endIndex;
 
-            if (_CurrentHeaderLength == _Header.Length)
+            if (_CurrentHeaderLength == _HeaderBuffer.Length)
             {
-                _RemainingContentLength = BitConverter.ToInt32(_Header, Packet.CONTENT_LENGTH_HEADER_OFFSET);
+                _RemainingContentLength = BitConverter.ToInt32(_HeaderBuffer, Packet.CONTENT_LENGTH_HEADER_OFFSET);
                 State = ConnectionState.ReadingContent;
             }
         }
 
         private async ValueTask ReadContentAsync()
         {
-            int startIndex = _ReadPosition;
-
-            for (int index = startIndex;
-                (index < _Buffer.Length) && (_RemainingContentLength > 0);
-                index++, _ReadPosition++, _RemainingContentLength--)
+            // if no content, continue
+            if (_RemainingContentLength > 0)
             {
-                _PendingContent.Add(_Buffer[index]);
+                int startIndex = _ReadPosition;
+                int endIndex = _ReadPosition + _RemainingContentLength;
+
+                if (endIndex > _BufferedLength)
+                {
+                    endIndex = _BufferedLength;
+                }
+
+                _ContentBuffer.AddRange(_Buffer[_ReadPosition..endIndex]);
+                _RemainingContentLength -= endIndex - _ReadPosition;
+                _ReadPosition += endIndex - startIndex;
             }
 
             if (_RemainingContentLength == 0)
@@ -111,16 +118,6 @@ namespace DisfigureCore.Net
 
         private async ValueTask ProcessIdleAsync(CancellationToken cancellationToken)
         {
-            if ((_ReadPosition > 0) && (_ReadPosition < _Buffer.Length))
-            {
-                State = ConnectionState.ReadingHeader;
-                return;
-            }
-            else if (!_Stream.DataAvailable)
-            {
-                return;
-            }
-
             await ReadIntoBufferAsync(cancellationToken);
 
             State = ConnectionState.ReadingHeader;
@@ -128,7 +125,7 @@ namespace DisfigureCore.Net
 
         #region Events
 
-        public event PacketReceivedCallback? PacketReceived;
+        public event PacketEventHandler? PacketReceived;
 
         private async ValueTask RebuildPacketAndCallbackAsync()
         {
@@ -143,13 +140,13 @@ namespace DisfigureCore.Net
 
             if (PacketReceived is { })
             {
-                (DateTime timestamp, PacketType packetType, int _) = DeserializeHeaderInternal(_Header);
-                await PacketReceived.Invoke(null!, new Packet(timestamp, packetType, _PendingContent.ToArray()));
+                (DateTime timestamp, PacketType packetType, int _) = DeserializeHeaderInternal(_HeaderBuffer);
+                await PacketReceived.Invoke(null!, new Packet(timestamp, packetType, _ContentBuffer.ToArray()));
             }
 
-            Array.Clear(_Header, 0, _Header.Length);
+            Array.Clear(_HeaderBuffer, 0, _HeaderBuffer.Length);
             _CurrentHeaderLength = 0;
-            _PendingContent.Clear();
+            _ContentBuffer.Clear();
 
             if (_ReadPosition == _BufferedLength)
             {
@@ -157,7 +154,7 @@ namespace DisfigureCore.Net
                 _ReadPosition = 0;
             }
 
-            State = ConnectionState.Idle;
+            State = (_ReadPosition > 0) && (_ReadPosition < _Buffer.Length) ? ConnectionState.ReadingHeader : ConnectionState.Idle;
         }
 
         #endregion

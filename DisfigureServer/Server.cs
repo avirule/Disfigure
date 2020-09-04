@@ -41,38 +41,36 @@ namespace DisfigureServer
 
         public async Task Start()
         {
+            _Listener.Start();
+
+            await AcceptConnections();
+        }
+
+        private async ValueTask AcceptConnections()
+        {
             try
             {
-                _Listener.Start();
-
                 while (!_CancellationToken.IsCancellationRequested)
                 {
-                    await AcceptPendingConnections();
+                    TcpClient client = await _Listener.AcceptTcpClientAsync();
+                    Log.Information($"Accepted new connection from {client.Client.RemoteEndPoint}.");
+
+                    Guid guid = Guid.NewGuid();
+                    Log.Information($"Auto-generated GUID for client {client.Client.RemoteEndPoint}: {guid}");
+                    Connection connection = new Connection(guid, client);
+                    connection.TextPacketReceived += OnTextPacketReceived;
+                    connection.Closed += OnClosed;
+                    _ClientConnections.Add(guid, connection);
+
+                    Log.Information($"Connection from client {connection.Guid} established. Transmitting server identity.");
+                    await CommunicateServerInformation(connection);
+
+                    connection.BeginListen(_CancellationToken);
                 }
             }
             catch (Exception ex)
             {
                 Log.Error(ex.ToString());
-            }
-        }
-
-        private async ValueTask AcceptPendingConnections()
-        {
-            while (_Listener.Pending())
-            {
-                Guid guid = Guid.NewGuid();
-                TcpClient client = await _Listener.AcceptTcpClientAsync();
-
-                Log.Information($"Accepted new connection from {client.Client.RemoteEndPoint} with auto-generated GUID {guid}.");
-
-                Connection connection = new Connection(guid, client);
-                connection.TextPacketReceived += OnTextPacketReceived;
-                _ClientConnections.Add(guid, connection);
-
-                Log.Information($"Connection from client {connection.Guid} established. Communicating server information.");
-                await CommunicateServerInformation(connection);
-
-                connection.BeginListen(_CancellationToken, Connection.DefaultLoopDelay);
             }
         }
 
@@ -94,6 +92,13 @@ namespace DisfigureServer
         }
 
         #region Events
+
+        private ValueTask OnClosed(Connection connection)
+        {
+            Log.Information($"Connection {connection.Guid} closed.");
+            _ClientConnections.Remove(connection.Guid);
+            return default;
+        }
 
         private static ValueTask OnTextPacketReceived(Connection connection, Packet packet)
         {
