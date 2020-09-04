@@ -43,7 +43,7 @@ namespace DisfigureClient
             TcpClient tcpClient = new TcpClient();
             int tries = 0;
 
-            Log.Information($"Attempting to establish connection to {ipEndPoint}.");
+            Log.Debug($"Attempting to establish connection to {ipEndPoint}.");
 
             while (!tcpClient.Connected)
             {
@@ -68,7 +68,7 @@ namespace DisfigureClient
 
             Guid guid = Guid.NewGuid();
 
-            Log.Information($"Established connection to {ipEndPoint} with auto-generated GUID {guid}");
+            Log.Debug($"Established connection to {ipEndPoint} with auto-generated GUID {guid}");
 
             return FinalizeConnection(guid, tcpClient);
         }
@@ -80,7 +80,7 @@ namespace DisfigureClient
             connection.TextPacketReceived += OnTextPacketReceived;
             _ServerConnections.Add(connection.Guid, connection);
 
-            Log.Information($"Connection {connection.Guid} finalized.");
+            Log.Debug($"Connection {connection.Guid} finalized.");
 
             connection.BeginListen(_CancellationToken);
             return connection;
@@ -100,7 +100,7 @@ namespace DisfigureClient
             manualResetEvent.WaitOne();
             connection.EndIdentityReceived -= ManualReset;
 
-            Log.Information("Server identity information received. Client may now operate freely.");
+            Log.Debug("Server identity information received. Client may now operate freely.");
 
             return default;
         }
@@ -115,7 +115,7 @@ namespace DisfigureClient
             Channel channel = new Channel(guid, name);
             _Channels.Add(channel.Guid, channel);
 
-            Log.Information($"Received identity information for channel: #{channel.Name} ({channel.Guid})");
+            Log.Debug($"Received identity information for channel: #{channel.Name} ({channel.Guid})");
             return default;
         }
 

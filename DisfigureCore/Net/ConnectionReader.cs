@@ -61,6 +61,7 @@ namespace DisfigureCore.Net
                     {
                         await RebuildPacketAndCallbackAsync().ConfigureAwait(false);
                     }
+
                     break;
                 default:
                     throw new ArgumentOutOfRangeException();

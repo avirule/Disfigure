@@ -56,13 +56,13 @@ namespace DisfigureServer
                     Log.Information($"Accepted new connection from {client.Client.RemoteEndPoint}.");
 
                     Guid guid = Guid.NewGuid();
-                    Log.Information($"Auto-generated GUID for client {client.Client.RemoteEndPoint}: {guid}");
+                    Log.Debug($"Auto-generated GUID for client {client.Client.RemoteEndPoint}: {guid}");
                     Connection connection = new Connection(guid, client);
                     connection.TextPacketReceived += OnTextPacketReceived;
-                    connection.Closed += OnClosed;
+                    connection.Disconnected += OnDisconnected;
                     _ClientConnections.Add(guid, connection);
 
-                    Log.Information($"Connection from client {connection.Guid} established. Transmitting server identity.");
+                    Log.Debug($"Connection from client {connection.Guid} established. Transmitting server identity.");
                     await CommunicateServerInformation(connection);
 
                     connection.BeginListen(_CancellationToken);
@@ -93,7 +93,7 @@ namespace DisfigureServer
 
         #region Events
 
-        private ValueTask OnClosed(Connection connection)
+        private ValueTask OnDisconnected(Connection connection)
         {
             Log.Information($"Connection {connection.Guid} closed.");
             _ClientConnections.Remove(connection.Guid);

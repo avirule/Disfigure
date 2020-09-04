@@ -64,7 +64,7 @@ namespace DisfigureCore.Net
         {
             try
             {
-                Log.Information($"Beginning read loop for connection {Guid}.");
+                Log.Debug($"Beginning read loop for connection {Guid}.");
 
                 while (!cancellationToken.IsCancellationRequested)
                 {
@@ -77,9 +77,9 @@ namespace DisfigureCore.Net
                 {
                     Log.Warning($"Connection at {_Client.Client.RemoteEndPoint} ({Guid}) forcibly closed connection.");
 
-                    if (Closed is { })
+                    if (Disconnected is { })
                     {
-                        await Closed.Invoke(this);
+                        await Disconnected.Invoke(this);
                     }
                 }
             }
@@ -119,8 +119,8 @@ namespace DisfigureCore.Net
 
         #region Connection Events
 
-        public event ConnectionEventHandler? Opened;
-        public event ConnectionEventHandler? Closed;
+        public event ConnectionEventHandler? Connected;
+        public event ConnectionEventHandler? Disconnected;
 
         #endregion
 
