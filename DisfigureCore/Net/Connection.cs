@@ -30,7 +30,7 @@ namespace DisfigureCore.Net
         private readonly TcpClient _Client;
         private readonly NetworkStream _Stream;
 
-        private ConnectionReader _ConnectionReader;
+        private PackerBuilder _PackerBuilder;
         private long _CompleteRemoteIdentity;
 
         public Guid Guid { get; }
@@ -42,8 +42,8 @@ namespace DisfigureCore.Net
         {
             _Client = client;
             _Stream = _Client.GetStream();
-            _ConnectionReader = new ConnectionReader(_Stream);
-            _ConnectionReader.PacketReceived += OnPacketReceived;
+            _PackerBuilder = new PackerBuilder(_Stream);
+            _PackerBuilder.PacketReceived += OnPacketReceived;
 
             EndIdentityReceived += (origin, packet) =>
             {
@@ -68,7 +68,7 @@ namespace DisfigureCore.Net
 
                 while (!cancellationToken.IsCancellationRequested)
                 {
-                    await _ConnectionReader.ReadAsync(cancellationToken).ConfigureAwait(false);
+                    await _PackerBuilder.ReadAsync(cancellationToken).ConfigureAwait(false);
                 }
             }
             catch (IOException ex)
@@ -173,7 +173,7 @@ namespace DisfigureCore.Net
                 _Stream.Dispose();
             }
 
-            _ConnectionReader = null;
+            _PackerBuilder = null;
             _Disposed = true;
         }
 

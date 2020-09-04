@@ -11,11 +11,11 @@ using System.Threading.Tasks;
 
 namespace DisfigureCore.Net
 {
-    public class ConnectionReader
+    public class PackerBuilder
     {
-        public const int BUFFER_SIZE = 16;
+        private const int _BUFFER_SIZE = 16;
 
-        private static readonly ArrayPool<byte> _Buffers = ArrayPool<byte>.Create(BUFFER_SIZE, 8);
+        private static readonly ArrayPool<byte> _Buffers = ArrayPool<byte>.Create(_BUFFER_SIZE, 8);
 
         private readonly NetworkStream _Stream;
 
@@ -29,11 +29,11 @@ namespace DisfigureCore.Net
         private int _RemainingContentLength;
         private ConnectionState _State;
 
-        public ConnectionReader(NetworkStream networkStream)
+        public PackerBuilder(NetworkStream networkStream)
         {
             _Stream = networkStream;
 
-            _Buffer = _Buffers.Rent(BUFFER_SIZE);
+            _Buffer = _Buffers.Rent(_BUFFER_SIZE);
             _HeaderBuffer = new byte[Packet.HEADER_LENGTH];
             _ContentBuffer = new List<byte>();
             _ReadPosition = 0;
@@ -59,7 +59,7 @@ namespace DisfigureCore.Net
 
                     if (_RemainingContentLength == 0)
                     {
-                        await RebuildPacketAndCallbackAsync().ConfigureAwait(false);
+                        await BuildPacketAndInvokeAsync().ConfigureAwait(false);
                     }
 
                     break;
@@ -123,7 +123,7 @@ namespace DisfigureCore.Net
 
         public event PacketEventHandler? PacketReceived;
 
-        private async ValueTask RebuildPacketAndCallbackAsync()
+        private async ValueTask BuildPacketAndInvokeAsync()
         {
             static (DateTime, PacketType, int) DeserializeHeaderInternal(byte[] headerBytes)
             {
