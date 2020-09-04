@@ -1,7 +1,6 @@
 #region
 
 using System;
-using System.Buffers;
 using System.Collections.Generic;
 using System.Net.Sockets;
 using System.Threading;
@@ -23,38 +22,35 @@ namespace DisfigureCore.Net
 
     public class Connection : IDisposable
     {
-        public const int BUFFER_SIZE = 1024;
-
-        private static readonly ArrayPool<byte> _Buffers = ArrayPool<byte>.Create(BUFFER_SIZE, 8);
-
         public static TimeSpan DefaultLoopDelay = TimeSpan.FromSeconds(0.5d);
 
         private readonly TcpClient _Client;
         private readonly NetworkStream _Stream;
 
-        private byte[] _Buffer;
-        private byte[] _Header;
-        private int _CurrentHeaderLength;
-        private List<byte> _PendingContent;
-
-        private int _BufferedLength;
-        private int _ReadPosition;
-        private int _RemainingContentLength;
+        private ConnectionReader _ConnectionReader;
+        private long _CompleteRemoteIdentity;
 
         public Guid Guid { get; }
-        public ConnectionState State { get; private set; }
-        public bool CompleteRemoteIdentity { get; private set; }
+        public string Name { get; private set; }
+
+        public ConnectionState State => _ConnectionReader.State;
+        public bool CompleteRemoteIdentity => Interlocked.Read(ref _CompleteRemoteIdentity) == 1;
 
         public Connection(Guid guid, TcpClient client)
         {
             _Client = client;
             _Stream = _Client.GetStream();
-            Guid = guid;
+            _ConnectionReader = new ConnectionReader(_Stream);
+            _ConnectionReader.PacketReceived += OnPacketReceived;
 
-            _Buffer = _Buffers.Rent(BUFFER_SIZE);
-            _Header = new byte[Packet.HEADER_LENGTH];
-            _PendingContent = new List<byte>();
-            _ReadPosition = 0;
+            EndIdentityReceived += (origin, packet) =>
+            {
+                Interlocked.Exchange(ref _CompleteRemoteIdentity, 1);
+                return default;
+            };
+
+            Guid = guid;
+            Name = string.Empty;
         }
 
         #region Connection Operations
@@ -70,7 +66,7 @@ namespace DisfigureCore.Net
 
                 while (!cancellationToken.IsCancellationRequested)
                 {
-                    await ReadAsync(cancellationToken).ConfigureAwait(false);
+                    await _ConnectionReader.ReadAsync(cancellationToken).ConfigureAwait(false);
                     await Task.Delay(loopDelay, cancellationToken).ConfigureAwait(false);
                 }
             }
@@ -78,79 +74,6 @@ namespace DisfigureCore.Net
             {
                 Log.Error(ex.ToString());
             }
-        }
-
-        #endregion
-
-        #region Reading Data
-
-        private async ValueTask ReadAsync(CancellationToken cancellationToken)
-        {
-            if (_ReadPosition >= _Buffer.Length)
-            {
-                await ReadIntoBufferAsync(cancellationToken).ConfigureAwait(false);
-            }
-
-            switch (State)
-            {
-                case ConnectionState.Idle:
-                    await ProcessIdleAsync(cancellationToken).ConfigureAwait(false);
-                    break;
-                case ConnectionState.ReadingHeader:
-                    ReadHeader();
-                    break;
-                case ConnectionState.ReadingContent:
-                    await ReadContentAsync().ConfigureAwait(false);
-                    break;
-                default:
-                    throw new ArgumentOutOfRangeException();
-            }
-        }
-
-        private void ReadHeader()
-        {
-            int startIndex = _ReadPosition;
-            int endIndex = _ReadPosition + (Packet.HEADER_LENGTH - _CurrentHeaderLength);
-
-            if (endIndex > _Buffer.Length)
-            {
-                endIndex = _Buffer.Length;
-            }
-
-            int indexCount = endIndex - startIndex;
-            Buffer.BlockCopy(_Buffer, startIndex, _Header, _CurrentHeaderLength, indexCount);
-            _CurrentHeaderLength += indexCount;
-            _ReadPosition = endIndex;
-
-            if (_CurrentHeaderLength == _Header.Length)
-            {
-                _RemainingContentLength = BitConverter.ToInt32(_Header, Packet.CONTENT_LENGTH_HEADER_OFFSET);
-                State = ConnectionState.ReadingContent;
-            }
-        }
-
-        private async ValueTask ReadContentAsync()
-        {
-            int startIndex = _ReadPosition;
-
-            for (int index = startIndex;
-                (index < _Buffer.Length) && (_RemainingContentLength > 0);
-                index++, _ReadPosition++, _RemainingContentLength--)
-            {
-                _PendingContent.Add(_Buffer[index]);
-            }
-
-            if (_RemainingContentLength == 0)
-            {
-                await RebuildPacketAndCallbackAsync().ConfigureAwait(false);
-            }
-        }
-
-
-        private async ValueTask ReadIntoBufferAsync(CancellationToken cancellationToken)
-        {
-            _BufferedLength = await _Stream.ReadAsync(_Buffer, cancellationToken).ConfigureAwait(false);
-            _ReadPosition = 0;
         }
 
         #endregion
@@ -179,84 +102,31 @@ namespace DisfigureCore.Net
 
         #endregion
 
-        private async ValueTask ProcessIdleAsync(CancellationToken cancellationToken)
-        {
-            if ((_ReadPosition > 0) && (_ReadPosition < _Buffer.Length))
-            {
-                State = ConnectionState.ReadingHeader;
-                return;
-            }
-            else if (!_Stream.DataAvailable)
-            {
-                return;
-            }
-
-            await ReadIntoBufferAsync(cancellationToken);
-
-            State = ConnectionState.ReadingHeader;
-        }
-
 
         #region Events
 
-        public event PacketReceivedCallback? PacketReceived;
+        public event PacketReceivedCallback? TextPacketReceived;
         public event PacketReceivedCallback? BeginIdentityReceived;
+        public event PacketReceivedCallback? ChannelIdentityReceived;
         public event PacketReceivedCallback? EndIdentityReceived;
 
-        private async ValueTask RebuildPacketAndCallbackAsync()
-        {
-            static (DateTime, PacketType, int) DeserializeHeaderInternal(byte[] headerBytes)
-            {
-                long timestamp = BitConverter.ToInt64(headerBytes, Packet.TIMESTAMP_HEADER_OFFSET);
-                byte packetType = headerBytes[Packet.PACKET_TYPE_HEADER_OFFSET];
-                int contentLength = BitConverter.ToInt32(headerBytes, Packet.CONTENT_LENGTH_HEADER_OFFSET);
-
-                return (DateTime.FromBinary(timestamp), (PacketType)packetType, contentLength);
-            }
-
-            (DateTime timestamp, PacketType packetType, int _) = DeserializeHeaderInternal(_Header);
-            await OnPacketReceived(new Packet(timestamp, packetType, _PendingContent.ToArray()));
-
-            Array.Clear(_Header, 0, _Header.Length);
-            _CurrentHeaderLength = 0;
-            _PendingContent.Clear();
-
-            if (_ReadPosition == _BufferedLength)
-            {
-                // reset read position in case are not moving on to new message in same buffer
-                _ReadPosition = 0;
-            }
-
-            State = ConnectionState.Idle;
-        }
-
-        private async ValueTask OnPacketReceived(Packet packet)
-        {
-            if (PacketReceived is { })
-            {
-                await PacketReceived.Invoke(this, packet).ConfigureAwait(false);
-            }
-
-            await InvokePacketTypeEvent(packet).ConfigureAwait(false);
-        }
+        private async ValueTask OnPacketReceived(Connection connection, Packet packet) => await InvokePacketTypeEvent(packet).ConfigureAwait(false);
 
         private async ValueTask InvokePacketTypeEvent(Packet packet)
         {
             switch (packet.Type)
             {
-                case PacketType.BeginIdentity:
-                    if (BeginIdentityReceived is { })
-                    {
-                        await BeginIdentityReceived.Invoke(this, packet).ConfigureAwait(false);
-                    }
-
+                case PacketType.Text when TextPacketReceived is { }:
+                    await TextPacketReceived.Invoke(this, packet).ConfigureAwait(false);
                     break;
-                case PacketType.EndIdentity:
-                    if (EndIdentityReceived is { })
-                    {
-                        await EndIdentityReceived.Invoke(this, packet).ConfigureAwait(false);
-                    }
-
+                case PacketType.BeginIdentity when BeginIdentityReceived is { }:
+                    await BeginIdentityReceived.Invoke(this, packet).ConfigureAwait(false);
+                    break;
+                case PacketType.EndIdentity when EndIdentityReceived is { }:
+                    await EndIdentityReceived.Invoke(this, packet).ConfigureAwait(false);
+                    break;
+                case PacketType.ChannelIdentity when ChannelIdentityReceived is { }:
+                    await ChannelIdentityReceived.Invoke(this, packet).ConfigureAwait(false);
                     break;
             }
         }
@@ -280,9 +150,7 @@ namespace DisfigureCore.Net
                 _Stream.Dispose();
             }
 
-            _Buffer = null!;
-            _Header = null!;
-            _PendingContent = null!;
+            _ConnectionReader = null;
             _Disposed = true;
         }
 

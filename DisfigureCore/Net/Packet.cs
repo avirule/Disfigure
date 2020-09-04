@@ -1,6 +1,9 @@
+#region
+
 using System;
-using System.Runtime.InteropServices;
 using System.Text;
+
+#endregion
 
 namespace DisfigureCore.Net
 {
@@ -13,6 +16,7 @@ namespace DisfigureCore.Net
         Administration,
         Operation,
         BeginIdentity,
+        Identity,
         ChannelIdentity,
         EndIdentity,
     }

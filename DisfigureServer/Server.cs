@@ -66,7 +66,7 @@ namespace DisfigureServer
                 Log.Information($"Accepted new connection from {client.Client.RemoteEndPoint} with auto-generated GUID {guid}.");
 
                 Connection connection = new Connection(guid, client);
-                connection.PacketReceived += OnPacketReceived;
+                connection.TextPacketReceived += OnTextPacketReceived;
                 _ClientConnections.Add(guid, connection);
 
                 Log.Information($"Connection from client {connection.Guid} established. Communicating server information.");
@@ -93,11 +93,15 @@ namespace DisfigureServer
                 _Channels.Values.Select(channel => new Packet(utcTimestamp, PacketType.ChannelIdentity, channel.Serialize())));
         }
 
-        private static ValueTask OnPacketReceived(Connection connection, Packet packet)
+        #region Events
+
+        private static ValueTask OnTextPacketReceived(Connection connection, Packet packet)
         {
             Log.Verbose(packet.ToString());
             return default;
         }
+
+        #endregion
 
         #region Dispose
 

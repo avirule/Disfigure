@@ -4,7 +4,6 @@ using System;
 using System.Collections.Generic;
 using System.Net;
 using System.Net.Sockets;
-using System.Runtime.Serialization.Json;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -77,7 +76,8 @@ namespace DisfigureClient
         private Connection FinalizeConnection(Guid guid, TcpClient tcpClient)
         {
             Connection connection = new Connection(guid, tcpClient);
-            connection.PacketReceived += OnPacketReceived;
+            connection.ChannelIdentityReceived += OnChannelIdentityReceived;
+            connection.TextPacketReceived += OnTextPacketReceived;
             _ServerConnections.Add(connection.Guid, connection);
 
             Log.Information($"Connection {connection.Guid} finalized.");
@@ -86,9 +86,10 @@ namespace DisfigureClient
             return connection;
         }
 
-        public static ValueTask WaitOnServerIdentityInformation(Connection connection)
+        public static ValueTask WaitOnCompleteIdentity(Connection connection)
         {
             ManualResetEvent manualResetEvent = new ManualResetEvent(connection.CompleteRemoteIdentity);
+
             ValueTask ManualReset(Connection connectionInternal, Packet packetInternal)
             {
                 manualResetEvent.Set();
@@ -106,24 +107,21 @@ namespace DisfigureClient
 
         #region Events
 
-        private unsafe ValueTask OnPacketReceived(Connection connection, Packet packet)
+        private unsafe ValueTask OnChannelIdentityReceived(Connection connection, Packet packet)
         {
-            switch (packet.Type)
-            {
-                case PacketType.ChannelIdentity:
-                    Guid guid = new Guid(packet.Content[0..sizeof(Guid)]);
-                    string name = Encoding.Unicode.GetString(packet.Content[sizeof(Guid)..]);
+            Guid guid = new Guid(packet.Content[..sizeof(Guid)]);
+            string name = Encoding.Unicode.GetString(packet.Content[sizeof(Guid)..]);
 
-                    Channel channel = new Channel(guid, name);
-                    _Channels.Add(channel.Guid, channel);
+            Channel channel = new Channel(guid, name);
+            _Channels.Add(channel.Guid, channel);
 
-                    Log.Information($"Received identity information for channel: #{channel.Name} ({channel.Guid})");
-                    break;
-                default:
-                    Log.Verbose(packet.ToString());
-                    break;
-            }
+            Log.Information($"Received identity information for channel: #{channel.Name} ({channel.Guid})");
+            return default;
+        }
 
+        private static ValueTask OnTextPacketReceived(Connection connection, Packet packet)
+        {
+            Log.Verbose(packet.ToString());
             return default;
         }
 

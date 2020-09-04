@@ -24,7 +24,7 @@ namespace DisfigureClient
             Client client = new Client();
             Connection server = await client.EstablishConnection(new IPEndPoint(IPAddress.IPv6Loopback, 8898), TimeSpan.FromSeconds(0.5d));
 
-            await Client.WaitOnServerIdentityInformation(server);
+            await Client.WaitOnCompleteIdentity(server);
 
             Channel channel = client.Channels.First();
             List<Packet> testPackets = new List<Packet>
