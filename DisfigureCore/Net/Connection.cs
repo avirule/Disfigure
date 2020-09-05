@@ -4,6 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Net.Sockets;
+using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 using Serilog;
@@ -30,7 +31,7 @@ namespace DisfigureCore.Net
         private readonly TcpClient _Client;
         private readonly NetworkStream _Stream;
 
-        private PackerBuilder _PackerBuilder;
+        private PackerReader _PackerReader;
         private long _CompleteRemoteIdentity;
 
         public Guid Guid { get; }
@@ -42,8 +43,8 @@ namespace DisfigureCore.Net
         {
             _Client = client;
             _Stream = _Client.GetStream();
-            _PackerBuilder = new PackerBuilder(_Stream);
-            _PackerBuilder.PacketReceived += OnPacketReceived;
+            _PackerReader = new PackerReader(_Stream);
+            _PackerReader.PacketReceived += OnPacketReceived;
 
             EndIdentityReceived += (origin, packet) =>
             {
@@ -68,7 +69,7 @@ namespace DisfigureCore.Net
 
                 while (!cancellationToken.IsCancellationRequested)
                 {
-                    await _PackerBuilder.ReadAsync(cancellationToken).ConfigureAwait(false);
+                    await _PackerReader.ReadPacketAsync(cancellationToken).ConfigureAwait(false);
                 }
             }
             catch (IOException ex)
@@ -113,6 +114,22 @@ namespace DisfigureCore.Net
 
             await _Stream.FlushAsync(cancellationToken);
         }
+
+        #if DEBUG
+
+        public async ValueTask WriteAsyncDebug(CancellationToken cancellationToken, IEnumerable<Packet> packets, TimeSpan writeDelay)
+        {
+            foreach (Packet packet in packets)
+            {
+                await _Stream.WriteAsync(packet.Serialize(), cancellationToken);
+                await _Stream.FlushAsync(cancellationToken);
+                await Task.Delay(writeDelay, cancellationToken);
+            }
+
+        }
+
+
+        #endif
 
         #endregion
 
@@ -173,7 +190,7 @@ namespace DisfigureCore.Net
                 _Stream.Dispose();
             }
 
-            _PackerBuilder = null;
+            _PackerReader = null;
             _Disposed = true;
         }
 

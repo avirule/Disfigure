@@ -53,6 +53,7 @@ namespace DisfigureClient
                 }
                 catch (Exception ex)
                 {
+                    Log.Debug(ex.Message);
                     Log.Warning($"Failed to establish connection to {ipEndPoint}. Retrying...");
                     await Task.Delay(retryDelay, _CancellationToken);
 
