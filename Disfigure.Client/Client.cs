@@ -7,13 +7,12 @@ using System.Net.Sockets;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using DisfigureCore;
-using DisfigureCore.Net;
+using Disfigure.Net;
 using Serilog;
 
 #endregion
 
-namespace DisfigureClient
+namespace Disfigure.Client
 {
     public class Client : IDisposable
     {

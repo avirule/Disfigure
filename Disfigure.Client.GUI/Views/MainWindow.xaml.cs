@@ -2,7 +2,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Markup.Xaml;
 
-namespace DisfigureClientGUI.Views
+namespace Disfigure.Client.GUI.Views
 {
     public class MainWindow : Window
     {

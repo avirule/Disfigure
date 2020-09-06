@@ -1,10 +1,10 @@
 using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
-using DisfigureClientGUI.ViewModels;
-using DisfigureClientGUI.Views;
+using Disfigure.Client.GUI.ViewModels;
+using Disfigure.Client.GUI.Views;
 
-namespace DisfigureClientGUI
+namespace Disfigure.Client.GUI
 {
     public class App : Application
     {

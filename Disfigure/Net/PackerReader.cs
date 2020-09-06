@@ -8,7 +8,7 @@ using System.Threading.Tasks;
 
 #endregion
 
-namespace DisfigureCore.Net
+namespace Disfigure.Net
 {
     public class PackerReader
     {

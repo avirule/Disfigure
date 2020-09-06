@@ -3,7 +3,6 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using System.Net.Sockets;
 using System.Runtime.CompilerServices;
 using System.Threading;
@@ -12,7 +11,7 @@ using Serilog;
 
 #endregion
 
-namespace DisfigureCore.Net
+namespace Disfigure.Net
 {
     public enum ConnectionState
     {

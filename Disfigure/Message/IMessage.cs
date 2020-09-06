@@ -4,12 +4,11 @@ using System;
 
 #endregion
 
-namespace DisfigureCore.Message
+namespace Disfigure.Message
 {
-    public class TextMessage : IMessage
+    public interface IMessage
     {
         public Guid Author { get; }
         public DateTime UtcTimestamp { get; }
-        public string Content { get; }
     }
 }

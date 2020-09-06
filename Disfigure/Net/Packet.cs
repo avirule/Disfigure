@@ -5,7 +5,7 @@ using System.Text;
 
 #endregion
 
-namespace DisfigureCore.Net
+namespace Disfigure.Net
 {
     public enum PacketType : byte
     {

@@ -7,12 +7,12 @@
     </PropertyGroup>
 
     <ItemGroup>
-      <ProjectReference Include="..\DisfigureCore\DisfigureCore.csproj" />
+      <PackageReference Include="Serilog" Version="2.9.0" />
+      <PackageReference Include="Serilog.Sinks.Console" Version="3.1.1" />
     </ItemGroup>
 
     <ItemGroup>
-      <PackageReference Include="Serilog" Version="2.9.0" />
-      <PackageReference Include="Serilog.Sinks.Console" Version="3.1.1" />
+      <ProjectReference Include="..\Disfigure\Disfigure.csproj" />
     </ItemGroup>
 
 </Project>

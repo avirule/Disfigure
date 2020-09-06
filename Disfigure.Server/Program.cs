@@ -6,7 +6,7 @@ using Serilog;
 
 #endregion
 
-namespace DisfigureServer
+namespace Disfigure.Server
 {
     internal class Program
     {

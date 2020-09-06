@@ -4,11 +4,12 @@ using System;
 
 #endregion
 
-namespace DisfigureCore.Message
+namespace Disfigure.Message
 {
-    public interface IMessage
+    public class ImageMessage : IMessage
     {
         public Guid Author { get; }
         public DateTime UtcTimestamp { get; }
+        public byte[] CompressedBytes { get; }
     }
 }

@@ -8,18 +8,18 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Git", "Git", "{0F829B42-90A
 		.gitignore = .gitignore
 	EndProjectSection
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "DisfigureServer", "DisfigureServer\DisfigureServer.csproj", "{D3106775-7C48-4BB0-90B1-8A2CD3E5E06A}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Disfigure.Server", "Disfigure.Server\Disfigure.Server.csproj", "{D3106775-7C48-4BB0-90B1-8A2CD3E5E06A}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "DisfigureClient", "DisfigureClient\DisfigureClient.csproj", "{A1AC879C-D0AF-4CE2-8322-A2E91BC9D17C}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Disfigure.Client", "Disfigure.Client\Disfigure.Client.csproj", "{A1AC879C-D0AF-4CE2-8322-A2E91BC9D17C}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "DisfigureCore", "DisfigureCore\DisfigureCore.csproj", "{37B481EE-BFDA-43D3-8051-60F72852F251}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Disfigure", "Disfigure\Disfigure.csproj", "{37B481EE-BFDA-43D3-8051-60F72852F251}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Base", "Base", "{916BC403-0FC1-4CA7-8E00-569CFAA593EC}"
 	ProjectSection(SolutionItems) = preProject
 		Specification.md = Specification.md
 	EndProjectSection
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DisfigureClientGUI", "DisfigureClientGUI\DisfigureClientGUI.csproj", "{50725EB0-6D27-437D-BBDD-B3637B257ED8}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Disfigure.Client.GUI", "Disfigure.Client.GUI\Disfigure.Client.GUI.csproj", "{50725EB0-6D27-437D-BBDD-B3637B257ED8}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

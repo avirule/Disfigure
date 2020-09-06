@@ -1,6 +1,6 @@
 <Application xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:local="clr-namespace:DisfigureClientGUI"
+             xmlns:local="clr-namespace:Disfigure.Client.GUI"
              x:Class="DisfigureClientGUI.App">
     <Application.DataTemplates>
         <local:ViewLocator/>

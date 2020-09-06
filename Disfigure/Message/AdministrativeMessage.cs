@@ -1,4 +1,4 @@
-namespace DisfigureCore.Message
+namespace Disfigure.Message
 {
     public class AdministrativeMessage : TextMessage { }
 }

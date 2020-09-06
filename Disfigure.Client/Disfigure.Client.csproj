@@ -5,16 +5,18 @@
         <TargetFramework>netcoreapp3.1</TargetFramework>
         <Nullable>enable</Nullable>
         <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+        <AssemblyName>Disfigure.Client</AssemblyName>
+        <RootNamespace>Disfigure.Client</RootNamespace>
     </PropertyGroup>
-
-    <ItemGroup>
-      <ProjectReference Include="..\DisfigureCore\DisfigureCore.csproj" />
-    </ItemGroup>
 
     <ItemGroup>
       <PackageReference Include="BenchmarkDotNet" Version="0.12.1" />
       <PackageReference Include="Serilog" Version="2.9.0" />
       <PackageReference Include="Serilog.Sinks.Console" Version="3.1.1" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <ProjectReference Include="..\Disfigure\Disfigure.csproj" />
     </ItemGroup>
 
 </Project>

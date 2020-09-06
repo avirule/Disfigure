@@ -7,13 +7,12 @@ using System.Net;
 using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
-using DisfigureCore;
-using DisfigureCore.Net;
+using Disfigure.Net;
 using Serilog;
 
 #endregion
 
-namespace DisfigureServer
+namespace Disfigure.Server
 {
     public class Server : IDisposable
     {

@@ -3,11 +3,11 @@
 using System;
 using System.Collections.Generic;
 using System.Text;
-using DisfigureCore.Message;
+using Disfigure.Message;
 
 #endregion
 
-namespace DisfigureCore
+namespace Disfigure
 {
     public class Channel
     {

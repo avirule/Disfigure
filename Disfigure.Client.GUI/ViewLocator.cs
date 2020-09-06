@@ -4,9 +4,9 @@
 using System;
 using Avalonia.Controls;
 using Avalonia.Controls.Templates;
-using DisfigureClientGUI.ViewModels;
+using Disfigure.Client.GUI.ViewModels;
 
-namespace DisfigureClientGUI
+namespace Disfigure.Client.GUI
 {
     public class ViewLocator : IDataTemplate
     {
