@@ -1,15 +1,13 @@
 #region
 
-using System;
+using System.Text;
 
 #endregion
 
 namespace Disfigure.Message
 {
-    public class TextMessage : IMessage
+    public class TextMessage : Message<string>
     {
-        public Guid Author { get; }
-        public DateTime UtcTimestamp { get; }
-        public string Content { get; }
+        public override string Deserialize() => Encoding.Unicode.GetString(Content);
     }
 }

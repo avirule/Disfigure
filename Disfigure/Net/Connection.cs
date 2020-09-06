@@ -28,12 +28,12 @@ namespace Disfigure.Net
     {
         private readonly TcpClient _Client;
         private readonly NetworkStream _Stream;
-
-        private PackerReader _PackerReader;
         private long _CompleteRemoteIdentity;
 
+        private PackerReader _PackerReader;
+
         public Guid Guid { get; }
-        public string Name { get; private set; }
+        public string Name { get; }
 
         public bool CompleteRemoteIdentity
         {

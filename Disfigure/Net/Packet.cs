@@ -18,7 +18,7 @@ namespace Disfigure.Net
         BeginIdentity,
         Identity,
         ChannelIdentity,
-        EndIdentity,
+        EndIdentity
     }
 
     public readonly struct Packet

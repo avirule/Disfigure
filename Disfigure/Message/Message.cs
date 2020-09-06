@@ -1,15 +1,13 @@
-#region
-
 using System;
-
-#endregion
 
 namespace Disfigure.Message
 {
-    public class ImageMessage : IMessage
+    public abstract class Message<T> : IMessage<T>
     {
         public Guid Author { get; }
         public DateTime UtcTimestamp { get; }
-        public byte[] CompressedBytes { get; }
+        public byte[] Content { get; }
+
+        public abstract T Deserialize();
     }
 }
