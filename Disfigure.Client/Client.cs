@@ -16,11 +16,11 @@ namespace Disfigure.Client
 {
     public class Client : IDisposable
     {
-        private readonly Dictionary<Guid, Connection> _ServerConnections;
-        private readonly Dictionary<Guid, Channel> _Channels;
+        private readonly CancellationToken _CancellationToken;
 
         private readonly CancellationTokenSource _CancellationTokenSource;
-        private readonly CancellationToken _CancellationToken;
+        private readonly Dictionary<Guid, Channel> _Channels;
+        private readonly Dictionary<Guid, Connection> _ServerConnections;
 
         public IEnumerable<Connection> ServerConnections => _ServerConnections.Values;
         public IEnumerable<Channel> Channels => _Channels.Values;
@@ -50,19 +50,22 @@ namespace Disfigure.Client
                 {
                     await tcpClient.ConnectAsync(ipEndPoint.Address, ipEndPoint.Port);
                 }
-                catch (Exception ex) when (tries >= maximum_retries)
+                catch (SocketException) when (tries >= maximum_retries)
                 {
                     Log.Error($"Failed to establish connection to {ipEndPoint}.");
-                    return null!;
+                    throw;
                 }
-                catch (Exception ex)
+                catch (SocketException exception)
                 {
-                    Log.Debug(ex.ToString());
-                    Log.Warning($"Failed to establish connection to {ipEndPoint}. Retrying...");
+                    tries += 1;
+
+                    Log.Warning($"{exception.Message}. Retrying ({tries}/{maximum_retries})...");
 
                     await Task.Delay(retryDelay, _CancellationToken);
+                }
+                catch (Exception exception)
+                {
 
-                    tries += 1;
                 }
             }
 

@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Net.Sockets;
 using System.Runtime.CompilerServices;
+using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
 using Serilog;
@@ -84,9 +85,9 @@ namespace Disfigure.Net
                     await Disconnected.Invoke(this);
                 }
             }
-            catch (Exception ex)
+            catch (Exception exception)
             {
-                Log.Error(ex.ToString());
+                Log.Error(exception.ToString());
             }
         }
 

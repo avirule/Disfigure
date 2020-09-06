@@ -16,12 +16,12 @@ namespace Disfigure.Server
 {
     public class Server : IDisposable
     {
-        private readonly TcpListener _Listener;
-        private readonly Dictionary<Guid, Connection> _ClientConnections;
-        private readonly Dictionary<Guid, Channel> _Channels;
+        private readonly CancellationToken _CancellationToken;
 
         private readonly CancellationTokenSource _CancellationTokenSource;
-        private readonly CancellationToken _CancellationToken;
+        private readonly Dictionary<Guid, Channel> _Channels;
+        private readonly Dictionary<Guid, Connection> _ClientConnections;
+        private readonly TcpListener _Listener;
 
 
         public Server()

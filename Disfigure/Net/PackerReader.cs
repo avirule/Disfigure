@@ -14,14 +14,14 @@ namespace Disfigure.Net
     {
         private const int _BUFFER_SIZE = 16;
 
-        private readonly NetworkStream _Stream;
-
         private readonly byte[] _Buffer;
-        private readonly List<byte> _HeaderBuffer;
         private readonly List<byte> _ContentBuffer;
+        private readonly List<byte> _HeaderBuffer;
+
+        private readonly NetworkStream _Stream;
+        private int _BufferedLength;
 
         private int _ReadIndex;
-        private int _BufferedLength;
         private int _RemainingContentLength;
 
         public PackerReader(NetworkStream networkStream)

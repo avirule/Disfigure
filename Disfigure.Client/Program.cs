@@ -32,7 +32,7 @@ namespace Disfigure.Client
                 Packet.BuildMMSPacket(channel, DateTime.UtcNow, PacketType.Text, Encoding.Unicode.GetBytes("test message with emoji2 🍑")),
                 Packet.BuildMMSPacket(channel, DateTime.UtcNow, PacketType.Text, Encoding.Unicode.GetBytes("test message with emoji3 🍑")),
                 Packet.BuildMMSPacket(channel, DateTime.UtcNow, PacketType.Text, Encoding.Unicode.GetBytes("test message with emoji4 🍑")),
-                Packet.BuildMMSPacket(channel, DateTime.UtcNow, PacketType.Text, Encoding.Unicode.GetBytes("test message with 🍑")),
+                Packet.BuildMMSPacket(channel, DateTime.UtcNow, PacketType.Text, Encoding.Unicode.GetBytes("test message with 🍑"))
             };
 
             await client.ServerConnections.First().WriteAsync(CancellationToken.None, testPackets);

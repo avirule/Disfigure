@@ -2,6 +2,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Runtime.Serialization;
 using System.Text;
 using Disfigure.Message;
 
@@ -11,7 +12,7 @@ namespace Disfigure
 {
     public class Channel
     {
-        private List<IMessage> _Messages;
+        private readonly List<IMessage> _Messages;
 
         public Guid Guid { get; }
         public string Name { get; }
