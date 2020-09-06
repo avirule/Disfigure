@@ -3,9 +3,7 @@ using System.Collections.Generic;
 using System.Text;
 using ReactiveUI;
 
-namespace Disfigure.ViewModels
+namespace DisfigureClientGUI.ViewModels
 {
-    public class ViewModelBase : ReactiveObject
-    {
-    }
+    public class ViewModelBase : ReactiveObject { }
 }

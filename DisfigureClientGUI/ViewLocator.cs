@@ -4,9 +4,9 @@
 using System;
 using Avalonia.Controls;
 using Avalonia.Controls.Templates;
-using Disfigure.ViewModels;
+using DisfigureClientGUI.ViewModels;
 
-namespace Disfigure
+namespace DisfigureClientGUI
 {
     public class ViewLocator : IDataTemplate
     {
@@ -23,7 +23,10 @@ namespace Disfigure
             }
             else
             {
-                return new TextBlock { Text = "Not Found: " + name };
+                return new TextBlock
+                {
+                    Text = "Not Found: " + name
+                };
             }
         }
 

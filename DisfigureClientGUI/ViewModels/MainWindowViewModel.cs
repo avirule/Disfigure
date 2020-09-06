@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Text;
 
-namespace Disfigure.ViewModels
+namespace DisfigureClientGUI.ViewModels
 {
     public class MainWindowViewModel : ViewModelBase
     {

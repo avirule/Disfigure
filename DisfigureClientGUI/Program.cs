@@ -4,7 +4,7 @@ using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Logging.Serilog;
 using Avalonia.ReactiveUI;
 
-namespace Disfigure
+namespace DisfigureClientGUI
 {
     class Program
     {
