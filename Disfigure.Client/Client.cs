@@ -63,10 +63,7 @@ namespace Disfigure.Client
 
                     await Task.Delay(retryDelay, _CancellationToken);
                 }
-                catch (Exception exception)
-                {
-
-                }
+                catch (Exception exception) { }
             }
 
             Guid guid = Guid.NewGuid();
