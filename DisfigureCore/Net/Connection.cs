@@ -3,6 +3,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Net.Sockets;
 using System.Runtime.CompilerServices;
 using System.Threading;
@@ -26,8 +27,6 @@ namespace DisfigureCore.Net
 
     public class Connection : IDisposable
     {
-        public static TimeSpan DefaultLoopDelay = TimeSpan.FromMilliseconds(5d);
-
         private readonly TcpClient _Client;
         private readonly NetworkStream _Stream;
 
@@ -37,7 +36,11 @@ namespace DisfigureCore.Net
         public Guid Guid { get; }
         public string Name { get; private set; }
 
-        public bool CompleteRemoteIdentity => Interlocked.Read(ref _CompleteRemoteIdentity) == 1;
+        public bool CompleteRemoteIdentity
+        {
+            get => Interlocked.Read(ref _CompleteRemoteIdentity) == 1;
+            private set => Interlocked.Exchange(ref _CompleteRemoteIdentity, Unsafe.As<bool, long>(ref value));
+        }
 
         public Connection(Guid guid, TcpClient client)
         {
@@ -48,7 +51,7 @@ namespace DisfigureCore.Net
 
             EndIdentityReceived += (origin, packet) =>
             {
-                Interlocked.Exchange(ref _CompleteRemoteIdentity, 1);
+                CompleteRemoteIdentity = true;
                 return default;
             };
 
@@ -72,16 +75,14 @@ namespace DisfigureCore.Net
                     await _PackerReader.ReadPacketAsync(cancellationToken).ConfigureAwait(false);
                 }
             }
-            catch (IOException ex)
+            catch (IOException ex) when (ex.InnerException is SocketException)
             {
-                if (ex.InnerException is SocketException)
-                {
-                    Log.Warning($"Connection at {_Client.Client.RemoteEndPoint} ({Guid}) forcibly closed connection.");
+                Log.Debug(ex.ToString());
+                Log.Warning($"Connection at {_Client.Client.RemoteEndPoint} ({Guid}) forcibly closed connection.");
 
-                    if (Disconnected is { })
-                    {
-                        await Disconnected.Invoke(this);
-                    }
+                if (Disconnected is { })
+                {
+                    await Disconnected.Invoke(this);
                 }
             }
             catch (Exception ex)
@@ -115,7 +116,7 @@ namespace DisfigureCore.Net
             await _Stream.FlushAsync(cancellationToken);
         }
 
-        #if DEBUG
+#if DEBUG
 
         public async ValueTask WriteAsyncDebug(CancellationToken cancellationToken, IEnumerable<Packet> packets, TimeSpan writeDelay)
         {
@@ -125,11 +126,9 @@ namespace DisfigureCore.Net
                 await _Stream.FlushAsync(cancellationToken);
                 await Task.Delay(writeDelay, cancellationToken);
             }
-
         }
 
-
-        #endif
+#endif
 
         #endregion
 
@@ -190,7 +189,7 @@ namespace DisfigureCore.Net
                 _Stream.Dispose();
             }
 
-            _PackerReader = null;
+            _PackerReader = null!;
             _Disposed = true;
         }
 

@@ -51,17 +51,17 @@ namespace DisfigureClient
                 {
                     await tcpClient.ConnectAsync(ipEndPoint.Address, ipEndPoint.Port);
                 }
+                catch (Exception ex) when (tries >= maximum_retries)
+                {
+                    Log.Error($"Failed to establish connection to {ipEndPoint}.");
+                    return null!;
+                }
                 catch (Exception ex)
                 {
-                    Log.Debug(ex.Message);
+                    Log.Debug(ex.ToString());
                     Log.Warning($"Failed to establish connection to {ipEndPoint}. Retrying...");
-                    await Task.Delay(retryDelay, _CancellationToken);
 
-                    if (tries == maximum_retries)
-                    {
-                        Log.Error($"Failed to establish connection to {ipEndPoint}.");
-                        return null!;
-                    }
+                    await Task.Delay(retryDelay, _CancellationToken);
 
                     tries += 1;
                 }
@@ -69,7 +69,7 @@ namespace DisfigureClient
 
             Guid guid = Guid.NewGuid();
 
-            Log.Debug($"Established connection to {ipEndPoint} with auto-generated GUID {guid}");
+            Log.Debug($"Established connection to {ipEndPoint} with auto-generated GUID {guid}.");
 
             return FinalizeConnection(guid, tcpClient);
         }

@@ -17,7 +17,7 @@ namespace DisfigureClient
 {
     internal class Program
     {
-        private static async Task Main(string[] args)
+        private static async Task Main()
         {
             Log.Logger = new LoggerConfiguration().WriteTo.Console().MinimumLevel.Verbose().CreateLogger();
 
@@ -36,7 +36,7 @@ namespace DisfigureClient
                 Packet.BuildMMSPacket(channel, DateTime.UtcNow, PacketType.Text, Encoding.Unicode.GetBytes("test message with 🍑")),
             };
 
-            await client.ServerConnections.First().WriteAsyncDebug(CancellationToken.None, testPackets, TimeSpan.FromSeconds(0.5d));
+            await client.ServerConnections.First().WriteAsync(CancellationToken.None, testPackets);
 
             Console.ReadLine();
         }
