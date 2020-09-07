@@ -7,6 +7,7 @@ using System.Net;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using Disfigure.Cryptography;
 using Disfigure.Net;
 using Serilog;
 
@@ -19,6 +20,8 @@ namespace Disfigure.Client
         private static async Task Main()
         {
             Log.Logger = new LoggerConfiguration().WriteTo.Console().MinimumLevel.Verbose().CreateLogger();
+
+EncryptionProvider e = new EncryptionProvider();
 
             Client client = new Client();
             Connection server = await client.EstablishConnection(new IPEndPoint(IPAddress.IPv6Loopback, 8898), TimeSpan.FromSeconds(0.5d));
@@ -34,6 +37,7 @@ namespace Disfigure.Client
                 Packet.BuildMMSPacket(channel, DateTime.UtcNow, PacketType.Text, Encoding.Unicode.GetBytes("test message with emoji4 🍑")),
                 Packet.BuildMMSPacket(channel, DateTime.UtcNow, PacketType.Text, Encoding.Unicode.GetBytes("test message with 🍑"))
             };
+
 
             await client.ServerConnections.First().WriteAsync(CancellationToken.None, testPackets);
 

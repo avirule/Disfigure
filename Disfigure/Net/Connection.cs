@@ -13,13 +13,6 @@ using Serilog;
 
 namespace Disfigure.Net
 {
-    public enum ConnectionState
-    {
-        Idle,
-        ReadingHeader,
-        ReadingContent
-    }
-
     public delegate ValueTask ConnectionEventHandler(Connection connection);
 
     public delegate ValueTask PacketEventHandler(Connection origin, Packet packet);
@@ -31,15 +24,6 @@ namespace Disfigure.Net
         private long _CompleteRemoteIdentity;
 
         private PackerReader _PackerReader;
-
-        public Guid Guid { get; }
-        public string Name { get; }
-
-        public bool CompleteRemoteIdentity
-        {
-            get => Interlocked.Read(ref _CompleteRemoteIdentity) == 1;
-            private set => Interlocked.Exchange(ref _CompleteRemoteIdentity, Unsafe.As<bool, long>(ref value));
-        }
 
         public Connection(Guid guid, TcpClient client)
         {
@@ -56,6 +40,15 @@ namespace Disfigure.Net
 
             Guid = guid;
             Name = string.Empty;
+        }
+
+        public Guid Guid { get; }
+        public string Name { get; }
+
+        public bool CompleteRemoteIdentity
+        {
+            get => Interlocked.Read(ref _CompleteRemoteIdentity) == 1;
+            private set => Interlocked.Exchange(ref _CompleteRemoteIdentity, Unsafe.As<bool, long>(ref value));
         }
 
         #region Listening

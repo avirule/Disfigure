@@ -12,7 +12,7 @@ namespace Disfigure.Net
 {
     public class PackerReader
     {
-        private const int _BUFFER_SIZE = 16;
+        private const int _BUFFER_SIZE = 1024;
 
         private readonly byte[] _Buffer;
         private readonly List<byte> _ContentBuffer;
@@ -20,7 +20,6 @@ namespace Disfigure.Net
 
         private readonly NetworkStream _Stream;
         private int _BufferedLength;
-
         private int _ReadIndex;
         private int _RemainingContentLength;
 
@@ -36,8 +35,8 @@ namespace Disfigure.Net
 
         public async ValueTask ReadPacketAsync(CancellationToken cancellationToken)
         {
-            await ReadHeaderAsync(cancellationToken);
-            await ReadContentAsync(cancellationToken);
+            await ReadHeaderAsync(cancellationToken).ConfigureAwait(false);
+            await ReadContentAsync(cancellationToken).ConfigureAwait(false);
             await BuildPacketAndInvokeAsync().ConfigureAwait(false);
         }
 
@@ -45,7 +44,7 @@ namespace Disfigure.Net
         {
             while (_HeaderBuffer.Count < Packet.HEADER_LENGTH)
             {
-                await AttemptRebuffer(cancellationToken);
+                await AttemptRebuffer(cancellationToken).ConfigureAwait(false);
 
                 int endIndex = Math.Min(_ReadIndex + (Packet.HEADER_LENGTH - _HeaderBuffer.Count), _BufferedLength);
 
@@ -60,7 +59,7 @@ namespace Disfigure.Net
         {
             while (_RemainingContentLength > 0)
             {
-                await AttemptRebuffer(cancellationToken);
+                await AttemptRebuffer(cancellationToken).ConfigureAwait(false);
 
                 int endIndex = Math.Min(_ReadIndex + _RemainingContentLength, _BufferedLength);
                 int readContentLength = endIndex - _ReadIndex;
@@ -101,7 +100,7 @@ namespace Disfigure.Net
             if (PacketReceived is { })
             {
                 (DateTime timestamp, PacketType packetType, int _) = DeserializeHeaderInternal(_HeaderBuffer.ToArray());
-                await PacketReceived.Invoke(null!, new Packet(timestamp, packetType, _ContentBuffer.ToArray()));
+                await PacketReceived.Invoke(null!, new Packet(timestamp, packetType, _ContentBuffer.ToArray())).ConfigureAwait(false);
             }
 
             _HeaderBuffer.Clear();
