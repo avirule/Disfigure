@@ -1,5 +1,6 @@
 using System;
 using System.Buffers;
+using System.Diagnostics;
 using System.IO;
 using System.Security.Cryptography;
 using System.Threading.Tasks;
@@ -41,12 +42,6 @@ namespace Disfigure.Cryptography
             }
         }
 
-        public void AssignRemoteIV(byte[] remoteIV)
-        {
-            _AES.IV = remoteIV;
-            EncryptionNegotiated = true;
-        }
-
         private unsafe void GenerateSharedKey(byte[] remotePublicKey, ref byte[] sharedKey)
         {
             fixed (byte* privateKey = _PrivateKey)
@@ -57,8 +52,21 @@ namespace Disfigure.Cryptography
             }
         }
 
+        public void AssignRemoteIV(byte[] remoteIV)
+        {
+            Debug.Assert(!EncryptionNegotiated, "Protocol requires that key exchanges happen ONLY ONCE.");
+
+            _AES.IV = remoteIV;
+            EncryptionNegotiated = true;
+        }
+
         public async ValueTask<byte[]> Encrypt(byte[] remotePublicKey, byte[] unencryptedPacket)
         {
+            if (!EncryptionNegotiated)
+            {
+                throw new CryptographicException("Key exchange has not been completed.");
+            }
+
             byte[] sharedKey = _SharedKeyPool.Rent(PUBLIC_KEY_SIZE);
             GenerateSharedKey(remotePublicKey, ref sharedKey);
             _AES.Key = sharedKey;
@@ -77,6 +85,11 @@ namespace Disfigure.Cryptography
 
         public async ValueTask<byte[]> Decrypt(byte[] remotePublicKey, byte[] encryptedPacket)
         {
+            if (!EncryptionNegotiated)
+            {
+                throw new CryptographicException("Key exchange has not been completed.");
+            }
+
             byte[] sharedKey = _SharedKeyPool.Rent(PUBLIC_KEY_SIZE);
             GenerateSharedKey(remotePublicKey, ref sharedKey);
 
