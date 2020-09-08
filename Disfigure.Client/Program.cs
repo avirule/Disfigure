@@ -2,13 +2,10 @@
 
 using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Linq.Expressions;
 using System.Net;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using Disfigure.Cryptography;
 using Disfigure.Net;
 using Serilog;
 
@@ -23,9 +20,9 @@ namespace Disfigure.Client
             Log.Logger = new LoggerConfiguration().WriteTo.Console().MinimumLevel.Verbose().CreateLogger();
 
             Client client = new Client();
-             Connection server = await client.EstablishConnection(new IPEndPoint(IPAddress.IPv6Loopback, 8898), TimeSpan.FromSeconds(0.5d));
+            Connection server = await client.EstablishConnection(new IPEndPoint(IPAddress.IPv6Loopback, 8898), TimeSpan.FromSeconds(0.5d));
 
-             List<Packet> testPackets = new List<Packet>
+            List<Packet> testPackets = new List<Packet>
             {
                 new Packet(PacketType.Text, server.PublicKey, DateTime.UtcNow, Encoding.Unicode.GetBytes("test message with emoji 🍑")),
                 new Packet(PacketType.Text, server.PublicKey, DateTime.UtcNow, Encoding.Unicode.GetBytes("test message with emoji2 🍑")),
