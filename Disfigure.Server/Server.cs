@@ -2,6 +2,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Net;
 using System.Net.Sockets;
 using System.Threading;
@@ -56,15 +57,12 @@ namespace Disfigure.Server
                     Guid guid = Guid.NewGuid();
                     Log.Debug($"Auto-generated GUID for client {client.Client.RemoteEndPoint}: {guid}");
 
-                    Connection connection = new Connection(guid, client);
-                    await connection.SendEncryptionKeys(true, _CancellationToken);
+                    Connection connection = new Connection(guid, client, true);
                     connection.TextPacketReceived += OnTextPacketReceived;
                     connection.Disconnected += OnDisconnected;
                     _ClientConnections.Add(guid, connection);
-                    connection.BeginListen(_CancellationToken);
-                    Log.Debug($"Connection from client {connection.Guid} established.");
 
-                    connection.PacketResetEvents[PacketType.EncryptionKeys].WaitOne();
+                    await connection.Finalize(_CancellationToken);
 
                     await CommunicateServerInformation(connection);
                 }
@@ -78,17 +76,18 @@ namespace Disfigure.Server
         private async ValueTask CommunicateServerInformation(Connection connection)
         {
             DateTime utcTimestamp = DateTime.UtcNow;
-            //await connection.WriteAsync(_CancellationToken, new Packet(utcTimestamp, PacketType.BeginIdentity, new byte[0]));
+            await connection.WriteAsync(PacketType.BeginIdentity, utcTimestamp, Array.Empty<byte>(), _CancellationToken);
 
             await SendChannelList(connection);
 
-            //await connection.WriteAsync(_CancellationToken, new Packet(utcTimestamp, PacketType.EndIdentity, new byte[0]));
+            await connection.WriteAsync(PacketType.EndIdentity, utcTimestamp, Array.Empty<byte>(), _CancellationToken);
         }
 
         private async ValueTask SendChannelList(Connection connection)
         {
             DateTime utcTimestamp = DateTime.UtcNow;
-            //await connection.WriteAsync(_CancellationToken, _Channels.Values.Select(channel => new Packet(utcTimestamp, PacketType.ChannelIdentity, channel.Serialize())));
+            await connection.WriteAsync(_Channels.Values.Select(channel => (PacketType.ChannelIdentity, utcTimestamp, channel.Serialize())),
+                _CancellationToken);
         }
 
         #region Events

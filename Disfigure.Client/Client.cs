@@ -77,14 +77,13 @@ namespace Disfigure.Client
 
         private async ValueTask<Connection> FinalizeConnection(Guid guid, TcpClient tcpClient)
         {
-            Connection connection = new Connection(guid, tcpClient);
-            await connection.SendEncryptionKeys(false, _CancellationToken);
+            Connection connection = new Connection(guid, tcpClient, false);
             connection.ChannelIdentityReceived += OnChannelIdentityReceived;
             connection.TextPacketReceived += OnTextPacketReceived;
             _ServerConnections.Add(connection.Guid, connection);
-            Log.Debug($"Connection {connection.Guid} finalized.");
 
-            connection.BeginListen(_CancellationToken);
+            await connection.Finalize(_CancellationToken);
+
             return connection;
         }
 

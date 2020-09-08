@@ -74,8 +74,8 @@ namespace Disfigure.Net
             StringBuilder builder = new StringBuilder();
             builder.Append(Type.ToString());
             builder.Append(" =");
-            builder.AppendJoin(' ', PublicKey);
-            builder.Append("= ");
+            builder.AppendJoin(' ', PublicKey[..5]);
+            builder.Append("..= ");
             builder.Append(UtcTimestamp.ToString("O"));
             builder.Append(' ');
 

@@ -22,13 +22,13 @@ namespace Disfigure.Client
             Client client = new Client();
             Connection server = await client.EstablishConnection(new IPEndPoint(IPAddress.IPv6Loopback, 8898), TimeSpan.FromSeconds(0.5d));
 
-            List<Packet> testPackets = new List<Packet>
+            List<(PacketType, DateTime, byte[])> testPackets = new List<(PacketType, DateTime, byte[])>
             {
-                new Packet(PacketType.Text, server.PublicKey, DateTime.UtcNow, Encoding.Unicode.GetBytes("test message with emoji 🍑")),
-                new Packet(PacketType.Text, server.PublicKey, DateTime.UtcNow, Encoding.Unicode.GetBytes("test message with emoji2 🍑")),
-                new Packet(PacketType.Text, server.PublicKey, DateTime.UtcNow, Encoding.Unicode.GetBytes("test message with emoji3 🍑")),
-                new Packet(PacketType.Text, server.PublicKey, DateTime.UtcNow, Encoding.Unicode.GetBytes("test message with emoji4 🍑")),
-                new Packet(PacketType.Text, server.PublicKey, DateTime.UtcNow, Encoding.Unicode.GetBytes("test message with 🍑"))
+                (PacketType.Text, DateTime.UtcNow, Encoding.Unicode.GetBytes("test message with emoji 🍑")),
+                (PacketType.Text, DateTime.UtcNow, Encoding.Unicode.GetBytes("test message with emoji2 🍑")),
+                (PacketType.Text, DateTime.UtcNow, Encoding.Unicode.GetBytes("test message with emoji3 🍑")),
+                (PacketType.Text, DateTime.UtcNow, Encoding.Unicode.GetBytes("test message with emoji4 🍑")),
+                (PacketType.Text, DateTime.UtcNow, Encoding.Unicode.GetBytes("test message with 🍑"))
             };
 
 

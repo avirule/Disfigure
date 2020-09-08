@@ -28,11 +28,12 @@ namespace Disfigure.Net
 
         public Guid Guid { get; }
         public string Name { get; }
+        public bool IsOwnerServer { get; }
         public Dictionary<PacketType, ManualResetEvent> PacketResetEvents { get; }
 
         public byte[] PublicKey => _EncryptionProvider.PublicKey;
 
-        public Connection(Guid guid, TcpClient client)
+        public Connection(Guid guid, TcpClient client, bool isOwnerServer)
         {
             _Client = client;
             _Stream = _Client.GetStream();
@@ -42,6 +43,7 @@ namespace Disfigure.Net
 
             Guid = guid;
             Name = string.Empty;
+            IsOwnerServer = isOwnerServer;
             PacketResetEvents = new Dictionary<PacketType, ManualResetEvent>
             {
                 { PacketType.EncryptionKeys, new ManualResetEvent(false) },
@@ -50,11 +52,23 @@ namespace Disfigure.Net
             };
         }
 
-        public async ValueTask SendEncryptionKeys(bool server, CancellationToken cancellationToken)
+        public async ValueTask Finalize(CancellationToken cancellationToken)
+        {
+            await SendEncryptionKeys(IsOwnerServer, cancellationToken);
+
+            BeginListen(cancellationToken);
+
+            Log.Debug($"Waiting for encryption keys from {_Client.Client.RemoteEndPoint}.");
+            PacketResetEvents[PacketType.EncryptionKeys].WaitOne();
+
+            Log.Debug($"Connection to {_Client.Client.RemoteEndPoint} finalized.");
+        }
+
+        private async ValueTask SendEncryptionKeys(bool server, CancellationToken cancellationToken)
         {
             Debug.Assert(!_EncryptionProvider.EncryptionNegotiated, "Protocol requires that key exchanges happen ONLY ONCE.");
 
-            Log.Debug($"Exchanging encryption keys with remote endpoint {_Client.Client.RemoteEndPoint}.");
+            Log.Debug($"Sending encryption keys to {_Client.Client.RemoteEndPoint}.");
 
             Packet packet = new Packet(PacketType.EncryptionKeys, _EncryptionProvider.PublicKey, DateTime.UtcNow,
                 server ? _EncryptionProvider.IV : Array.Empty<byte>());
@@ -71,7 +85,7 @@ namespace Disfigure.Net
         {
             try
             {
-                Log.Debug($"Beginning read loop for connection {Guid}.");
+                Log.Debug($"Beginning read loop for connection to {_Client.Client.RemoteEndPoint}.");
 
                 while (!cancellationToken.IsCancellationRequested)
                 {
@@ -138,17 +152,17 @@ namespace Disfigure.Net
 
         #region Writing Data
 
-        public async ValueTask WriteAsync(Packet packet, CancellationToken cancellationToken)
+        public async ValueTask WriteAsync(PacketType type, DateTime timestamp, byte[] content, CancellationToken cancellationToken)
         {
-            await WriteEncryptedAsync(packet, cancellationToken);
+            await WriteEncryptedAsync(new Packet(type, PublicKey, timestamp, content), cancellationToken);
             await _Input.FlushAsync(cancellationToken);
         }
 
-        public async ValueTask WriteAsync(IEnumerable<Packet> packets, CancellationToken cancellationToken)
+        public async ValueTask WriteAsync(IEnumerable<(PacketType, DateTime, byte[])> packets, CancellationToken cancellationToken)
         {
-            foreach (Packet packet in packets)
+            foreach ((PacketType type, DateTime timestamp, byte[] content) in packets)
             {
-                await WriteEncryptedAsync(packet, cancellationToken);
+                await WriteEncryptedAsync(new Packet(type, PublicKey, timestamp, content), cancellationToken);
             }
 
             await _Input.FlushAsync(cancellationToken);
@@ -214,8 +228,6 @@ namespace Disfigure.Net
                 case PacketType.ChannelIdentity when ChannelIdentityReceived is { }:
                     await ChannelIdentityReceived.Invoke(this, packet).ConfigureAwait(false);
                     break;
-                default:
-                    throw new ArgumentOutOfRangeException();
             }
         }
 
