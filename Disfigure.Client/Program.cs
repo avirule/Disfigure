@@ -20,23 +20,20 @@ namespace Disfigure.Client
         {
             Log.Logger = new LoggerConfiguration().WriteTo.Console().MinimumLevel.Verbose().CreateLogger();
 
-            Client client = new Client();
-            Connection server = await client.EstablishConnection(new IPEndPoint(IPAddress.IPv6Loopback, 8898), TimeSpan.FromSeconds(0.5d));
+             Client client = new Client();
+             Connection server = await client.EstablishConnection(new IPEndPoint(IPAddress.IPv6Loopback, 8898), TimeSpan.FromSeconds(0.5d));
 
-            await Task.Delay(3000); // wait for channel identities to be sent
+             List<Packet> testPackets = new List<Packet>
+            {
+                new Packet(PacketType.Text, server.PublicKey, DateTime.UtcNow, Encoding.Unicode.GetBytes("test message with emoji 🍑")),
+                new Packet(PacketType.Text, server.PublicKey, DateTime.UtcNow, Encoding.Unicode.GetBytes("test message with emoji2 🍑")),
+                new Packet(PacketType.Text, server.PublicKey, DateTime.UtcNow, Encoding.Unicode.GetBytes("test message with emoji3 🍑")),
+                new Packet(PacketType.Text, server.PublicKey, DateTime.UtcNow, Encoding.Unicode.GetBytes("test message with emoji4 🍑")),
+                new Packet(PacketType.Text, server.PublicKey, DateTime.UtcNow, Encoding.Unicode.GetBytes("test message with 🍑"))
+            };
 
-            // Channel channel = client.Channels.First();
-            // List<Packet> testPackets = new List<Packet>
-            // {
-            //     Packet.BuildMMSPacket(channel, DateTime.UtcNow, PacketType.Text, Encoding.Unicode.GetBytes("test message with emoji 🍑")),
-            //     Packet.BuildMMSPacket(channel, DateTime.UtcNow, PacketType.Text, Encoding.Unicode.GetBytes("test message with emoji2 🍑")),
-            //     Packet.BuildMMSPacket(channel, DateTime.UtcNow, PacketType.Text, Encoding.Unicode.GetBytes("test message with emoji3 🍑")),
-            //     Packet.BuildMMSPacket(channel, DateTime.UtcNow, PacketType.Text, Encoding.Unicode.GetBytes("test message with emoji4 🍑")),
-            //     Packet.BuildMMSPacket(channel, DateTime.UtcNow, PacketType.Text, Encoding.Unicode.GetBytes("test message with 🍑"))
-            // };
-            //
-            //
-            // await client.ServerConnections.First().WriteAsync(CancellationToken.None, testPackets);
+
+            await server.WriteAsync(testPackets, CancellationToken.None);
 
             Console.ReadLine();
         }

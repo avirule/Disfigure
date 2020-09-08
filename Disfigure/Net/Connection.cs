@@ -5,8 +5,9 @@ using System.Buffers;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.IO.Pipelines;
 using System.Net.Sockets;
-using System.Runtime.CompilerServices;
+using System.Reflection.Metadata.Ecma335;
 using System.Threading;
 using System.Threading.Tasks;
 using Disfigure.Cryptography;
@@ -20,28 +21,34 @@ namespace Disfigure.Net
 
     public class Connection : IDisposable
     {
-        private static readonly MemoryPool<byte> _EncryptedPacketPool = MemoryPool<byte>.Shared;
-
         private readonly TcpClient _Client;
         private readonly NetworkStream _Stream;
+        private readonly PipeWriter _Input;
+        private readonly PipeReader _Output;
         private readonly EncryptionProvider _EncryptionProvider;
-        private readonly PackerReader _PackerReader;
-        private readonly ManualResetEvent _KeysExchanged;
 
         public Guid Guid { get; }
         public string Name { get; }
+        public Dictionary<PacketType, ManualResetEvent> PacketResetEvents { get; }
+
+        public byte[] PublicKey => _EncryptionProvider.PublicKey;
 
         public Connection(Guid guid, TcpClient client)
         {
             _Client = client;
             _Stream = _Client.GetStream();
+            _Input = PipeWriter.Create(_Stream);
+            _Output = PipeReader.Create(_Stream);
             _EncryptionProvider = new EncryptionProvider();
-            _PackerReader = new PackerReader(_Stream);
-            _PackerReader.EncryptedPacketReceived += OnEncryptedPacketReceived;
 
             Guid = guid;
             Name = string.Empty;
-            _KeysExchanged = new ManualResetEvent(false);
+            PacketResetEvents = new Dictionary<PacketType, ManualResetEvent>
+            {
+                { PacketType.EncryptionKeys, new ManualResetEvent(false) },
+                { PacketType.BeginIdentity, new ManualResetEvent(false) },
+                { PacketType.EndIdentity, new ManualResetEvent(false) },
+            };
         }
 
         public async ValueTask SendEncryptionKeys(CancellationToken cancellationToken)
@@ -50,23 +57,17 @@ namespace Disfigure.Net
 
             Log.Debug($"Exchanging encryption keys with remote endpoint {_Client.Client.RemoteEndPoint}.");
 
-            byte[] keyExchangePacket = _EncryptionProvider.GenerateKeyExchangePacket();
-            await _Stream.WriteAsync(keyExchangePacket, cancellationToken).ConfigureAwait(false);
+            Packet packet = new Packet(PacketType.EncryptionKeys, _EncryptionProvider.PublicKey, DateTime.UtcNow, _EncryptionProvider.IV);
+            await _Stream.WriteAsync(packet.Serialize(), cancellationToken).ConfigureAwait(false);
             await _Stream.FlushAsync(cancellationToken).ConfigureAwait(false);
-        }
-
-        public void WaitForKeyExchange()
-        {
-            Log.Verbose($"Waiting for encryption keys from {_Client.Client.RemoteEndPoint}.");
-            _KeysExchanged.WaitOne();
         }
 
         #region Listening
 
         public void BeginListen(CancellationToken cancellationToken) =>
-            Task.Run(() => BeginListenAsyncInternal(cancellationToken), cancellationToken);
+            Task.Run(() => ListenAsyncInternal(cancellationToken), cancellationToken);
 
-        private async Task BeginListenAsyncInternal(CancellationToken cancellationToken)
+        private async Task ListenAsyncInternal(CancellationToken cancellationToken)
         {
             try
             {
@@ -74,7 +75,16 @@ namespace Disfigure.Net
 
                 while (!cancellationToken.IsCancellationRequested)
                 {
-                    await _PackerReader.ReadPacketAsync(cancellationToken).ConfigureAwait(false);
+                    ReadResult result = await _Output.ReadAsync(cancellationToken);
+                    ReadOnlySequence<byte> sequence = result.Buffer;
+
+                    if (!TryReadPacket(sequence, out SequencePosition consumed, out Packet packet))
+                    {
+                        continue;
+                    }
+
+                    await InvokePacketTypeEvent(packet);
+                    _Output.AdvanceTo(consumed, sequence.End);
                 }
             }
             catch (IOException ex) when (ex.InnerException is SocketException)
@@ -93,57 +103,61 @@ namespace Disfigure.Net
             }
         }
 
+        private static bool TryReadPacket(ReadOnlySequence<byte> sequence, out SequencePosition consumed, out Packet packet)
+        {
+            int packetLength = BitConverter.ToInt32(sequence.Slice(0, sizeof(int)).FirstSpan);
+
+            if (sequence.Length < packetLength)
+            {
+                consumed = sequence.Start;
+                packet = default;
+
+                return false;
+            }
+            else
+            {
+                ReadOnlySequence<byte> packetTypeSequence = sequence.Slice(Packet.OFFSET_PACKET_TYPE, sizeof(byte));
+                ReadOnlySequence<byte> publicKeySequence = sequence.Slice(Packet.OFFSET_PUBLIC_KEY, EncryptionProvider.PUBLIC_KEY_SIZE);
+                ReadOnlySequence<byte> timestampSequence = sequence.Slice(Packet.OFFSET_TIMESTAMP, sizeof(long));
+                ReadOnlySequence<byte> contentSequence = sequence.Slice(Packet.HEADER_LENGTH, packetLength - Packet.HEADER_LENGTH);
+
+                PacketType packetType = (PacketType)packetTypeSequence.FirstSpan[0];
+                byte[] publicKey = publicKeySequence.ToArray();
+                DateTime utcTimestamp = DateTime.FromBinary(BitConverter.ToInt64(timestampSequence.FirstSpan));
+                byte[] content = contentSequence.ToArray();
+
+                packet = new Packet(packetType, publicKey, utcTimestamp, content);
+                consumed = sequence.GetPosition(packetLength);
+
+                return true;
+            }
+        }
+
         #endregion
 
 
         #region Writing Data
 
-        public async ValueTask WriteAsync(CancellationToken cancellationToken, Packet packet)
+        public async ValueTask WriteAsync(Packet packet, CancellationToken cancellationToken)
         {
-            await EncryptWritePacketAsync(cancellationToken, packet).ConfigureAwait(false);
-            await _Stream.FlushAsync(cancellationToken).ConfigureAwait(false);
+            await WriteEncryptedAsync(packet, cancellationToken);
+            await _Input.FlushAsync(cancellationToken);
         }
 
-        public async ValueTask WriteAsync(CancellationToken cancellationToken, IEnumerable<Packet> packets)
+        public async ValueTask WriteAsync(IEnumerable<Packet> packets, CancellationToken cancellationToken)
         {
             foreach (Packet packet in packets)
             {
-                await EncryptWritePacketAsync(cancellationToken, packet).ConfigureAwait(false);
+                await WriteEncryptedAsync(packet, cancellationToken);
             }
 
-            await _Stream.FlushAsync(cancellationToken).ConfigureAwait(false);
+            await _Input.FlushAsync(cancellationToken);
         }
 
-        private async ValueTask EncryptWritePacketAsync(CancellationToken cancellationToken, Packet packet)
+        private async ValueTask WriteEncryptedAsync(Packet packet, CancellationToken cancellationToken)
         {
-            Debug.Assert(_EncryptionProvider.EncryptionNegotiated, "Encryption keys must have been exchanged for recipient to decrypt messages.");
-
-            int length = EncryptedPacket.ENCRYPTION_HEADER_LENGTH + Packet.HEADER_LENGTH + packet.Content.Length;
-
-            IMemoryOwner<byte>? encryptedPacket = _EncryptedPacketPool.Rent(length);
-_EncryptedPacketPool.
-            encryptedPacket.
-
-
-
-
-
-            byte[] encryptedPacket = await EncryptPacketAsync(packet).ConfigureAwait(false);
-            byte[] encryptionHeader = _EncryptionHeaderPool.Rent(EncryptedPacket.ENCRYPTION_HEADER_LENGTH);
-            _EncryptionProvider.SetEncryptionPacketHeader(ref encryptionHeader, encryptedPacket.Length);
-
-            await _Stream.WriteAsync(encryptedPacket, cancellationToken).ConfigureAwait(false);
-            _EncryptionHeaderPool.Return(encryptionHeader);
-        }
-
-        private async ValueTask<Memory<byte>> EncryptPacketAsync(Packet packet)
-        {
-            byte[] encryptedPacket = new byte[]; await _EncryptionProvider.Encrypt(packet.Serialize());
-            byte[] finalPacket = new byte[EncryptedPacket.ENCRYPTION_HEADER_LENGTH + encryptedPacket.Length];
-            Buffer.BlockCopy(_EncryptionProvider.SetEncryptionPacketHeader(encryptedPacket.Length), 0, finalPacket, 0, EncryptedPacket.ENCRYPTION_HEADER_LENGTH);
-            Buffer.BlockCopy(encryptedPacket, 0, finalPacket, EncryptedPacket.ENCRYPTION_HEADER_LENGTH, encryptedPacket.Length);
-
-            return encryptedPacket;
+            packet.Content = await _EncryptionProvider.Encrypt(packet.Content, cancellationToken);
+            await _Input.WriteAsync(packet.Serialize(), cancellationToken);
         }
 
         #endregion
@@ -151,7 +165,6 @@ _EncryptedPacketPool.
 
         #region Connection Events
 
-        public event ConnectionEventHandler? Connected;
         public event ConnectionEventHandler? Disconnected;
 
         #endregion
@@ -164,33 +177,21 @@ _EncryptedPacketPool.
         public event PacketEventHandler? ChannelIdentityReceived;
         public event PacketEventHandler? EndIdentityReceived;
 
-        private async ValueTask OnEncryptedPacketReceived(Connection connection, EncryptedPacket encryptedPacket)
-        {
-            switch (encryptedPacket.Type)
-            {
-                case EncryptedPacketType.Encrypted:
-                    byte[] packetDataDecrypted = await _EncryptionProvider.Decrypt(encryptedPacket.PublicKey, encryptedPacket.PacketData);
-                    Packet packet = Packet.Deserialize(packetDataDecrypted);
-                    await InvokePacketTypeEvent(packet);
-                    break;
-                case EncryptedPacketType.KeyExchange:
-                    Debug.Assert(!_EncryptionProvider.EncryptionNegotiated, "Protocol requires that key exchanges happen ONLY ONCE.");
-
-                    byte[] publicKey = encryptedPacket.PublicKey;
-                    byte[] iv = encryptedPacket.PacketData;
-
-                    _EncryptionProvider.AssignRemoteKeys(iv, publicKey);
-                    _KeysExchanged.Set();
-
-                    Log.Verbose($"Received encryption keys from {_Client.Client.RemoteEndPoint}.");
-                    break;
-                default:
-                    throw new ArgumentOutOfRangeException();
-            }
-        }
-
         private async ValueTask InvokePacketTypeEvent(Packet packet)
         {
+            if (packet.Type == PacketType.EncryptionKeys)
+            {
+                // todo error check keys
+
+                _EncryptionProvider.AssignRemoteKeys(packet.Content, packet.PublicKey);
+                Log.Debug($"Received encryption keys from {_Client.Client.RemoteEndPoint}.");
+                return;
+            }
+            else
+            {
+                packet.Content = await _EncryptionProvider.Decrypt(packet.PublicKey, packet.Content);
+            }
+
             switch (packet.Type)
             {
                 case PacketType.Text when TextPacketReceived is { }:
@@ -205,6 +206,13 @@ _EncryptedPacketPool.
                 case PacketType.ChannelIdentity when ChannelIdentityReceived is { }:
                     await ChannelIdentityReceived.Invoke(this, packet).ConfigureAwait(false);
                     break;
+                default:
+                    throw new ArgumentOutOfRangeException();
+            }
+
+            if (PacketResetEvents.TryGetValue(packet.Type, out ManualResetEvent? resetEvent))
+            {
+                resetEvent.Set();
             }
         }
 

@@ -65,7 +65,7 @@ namespace Disfigure.Server
                     connection.BeginListen(_CancellationToken);
                     Log.Debug($"Connection from client {connection.Guid} established.");
 
-                    connection.WaitForKeyExchange();
+                    connection.PacketResetEvents[PacketType.EncryptionKeys].WaitOne();
 
                     await CommunicateServerInformation(connection);
                 }
@@ -79,18 +79,17 @@ namespace Disfigure.Server
         private async ValueTask CommunicateServerInformation(Connection connection)
         {
             DateTime utcTimestamp = DateTime.UtcNow;
-            await connection.WriteAsync(_CancellationToken, new Packet(utcTimestamp, PacketType.BeginIdentity, new byte[0]));
+            //await connection.WriteAsync(_CancellationToken, new Packet(utcTimestamp, PacketType.BeginIdentity, new byte[0]));
 
             await SendChannelList(connection);
 
-            await connection.WriteAsync(_CancellationToken, new Packet(utcTimestamp, PacketType.EndIdentity, new byte[0]));
+            //await connection.WriteAsync(_CancellationToken, new Packet(utcTimestamp, PacketType.EndIdentity, new byte[0]));
         }
 
         private async ValueTask SendChannelList(Connection connection)
         {
             DateTime utcTimestamp = DateTime.UtcNow;
-            await connection.WriteAsync(_CancellationToken,
-                _Channels.Values.Select(channel => new Packet(utcTimestamp, PacketType.ChannelIdentity, channel.Serialize())));
+            //await connection.WriteAsync(_CancellationToken, _Channels.Values.Select(channel => new Packet(utcTimestamp, PacketType.ChannelIdentity, channel.Serialize())));
         }
 
         #region Events
