@@ -1,13 +1,11 @@
 #region
 
 using System;
-using System.Buffers;
 using System.Diagnostics;
 using System.IO;
 using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
-using Disfigure.Net;
 
 #endregion
 
@@ -78,7 +76,11 @@ namespace Disfigure.Cryptography
         {
             Debug.Assert(!EncryptionNegotiated, "Protocol requires that key exchanges happen ONLY ONCE.");
 
-            _AES.IV = remoteIV;
+            if (remoteIV.Length > 0)
+            {
+                _AES.IV = remoteIV;
+            }
+
             _RemotePublicKey = remotePublicKey;
             EncryptionNegotiated = true;
         }
@@ -91,6 +93,8 @@ namespace Disfigure.Cryptography
             }
 
             byte[] sharedKey = _DerivedKeyPool.Rent();
+            Array.Clear(sharedKey, 0, sharedKey.Length);
+
             DeriveKey(_RemotePublicKey, ref sharedKey);
             _AES.Key = sharedKey;
 
@@ -101,13 +105,12 @@ namespace Disfigure.Cryptography
                 await cryptoStream.WriteAsync(unencryptedPacket, cancellationToken);
             }
 
-            Array.Clear(sharedKey, 0, sharedKey.Length);
             _DerivedKeyPool.Return(sharedKey);
 
             return cipherBytes.ToArray();
         }
 
-        public async ValueTask<byte[]> Decrypt(byte[] remotePublicKey, byte[] encryptedPacket)
+        public async ValueTask<byte[]> Decrypt(byte[] remotePublicKey, byte[] encryptedPacket, CancellationToken cancellationToken)
         {
             if (!EncryptionNegotiated)
             {
@@ -115,18 +118,18 @@ namespace Disfigure.Cryptography
             }
 
             byte[] sharedKey = _DerivedKeyPool.Rent();
-            DeriveKey(remotePublicKey, ref sharedKey);
+            Array.Clear(sharedKey, 0, sharedKey.Length);
 
+            DeriveKey(remotePublicKey, ref sharedKey);
             _AES.Key = sharedKey;
 
             await using MemoryStream cipherBytes = new MemoryStream();
             using (ICryptoTransform? decryptor = _AES.CreateDecryptor())
             await using (CryptoStream cryptoStream = new CryptoStream(cipherBytes, decryptor, CryptoStreamMode.Write))
             {
-                await cryptoStream.WriteAsync(encryptedPacket, 0, encryptedPacket.Length);
+                await cryptoStream.WriteAsync(encryptedPacket, 0, encryptedPacket.Length, cancellationToken);
             }
 
-            Array.Clear(sharedKey, 0, sharedKey.Length);
             _DerivedKeyPool.Return(sharedKey);
 
             return cipherBytes.ToArray();

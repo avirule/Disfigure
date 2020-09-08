@@ -7,7 +7,6 @@ using System.Diagnostics;
 using System.IO;
 using System.IO.Pipelines;
 using System.Net.Sockets;
-using System.Reflection.Metadata.Ecma335;
 using System.Threading;
 using System.Threading.Tasks;
 using Disfigure.Cryptography;
@@ -51,13 +50,14 @@ namespace Disfigure.Net
             };
         }
 
-        public async ValueTask SendEncryptionKeys(CancellationToken cancellationToken)
+        public async ValueTask SendEncryptionKeys(bool server, CancellationToken cancellationToken)
         {
             Debug.Assert(!_EncryptionProvider.EncryptionNegotiated, "Protocol requires that key exchanges happen ONLY ONCE.");
 
             Log.Debug($"Exchanging encryption keys with remote endpoint {_Client.Client.RemoteEndPoint}.");
 
-            Packet packet = new Packet(PacketType.EncryptionKeys, _EncryptionProvider.PublicKey, DateTime.UtcNow, _EncryptionProvider.IV);
+            Packet packet = new Packet(PacketType.EncryptionKeys, _EncryptionProvider.PublicKey, DateTime.UtcNow,
+                server ? _EncryptionProvider.IV : Array.Empty<byte>());
             await _Stream.WriteAsync(packet.Serialize(), cancellationToken).ConfigureAwait(false);
             await _Stream.FlushAsync(cancellationToken).ConfigureAwait(false);
         }
@@ -83,7 +83,7 @@ namespace Disfigure.Net
                         continue;
                     }
 
-                    await InvokePacketTypeEvent(packet);
+                    await InvokePacketTypeEvent(packet, cancellationToken);
                     _Output.AdvanceTo(consumed, sequence.End);
                 }
             }
@@ -156,8 +156,11 @@ namespace Disfigure.Net
 
         private async ValueTask WriteEncryptedAsync(Packet packet, CancellationToken cancellationToken)
         {
+            Log.Verbose($"Local to Remote: {packet}");
+
             packet.Content = await _EncryptionProvider.Encrypt(packet.Content, cancellationToken);
-            await _Input.WriteAsync(packet.Serialize(), cancellationToken);
+            byte[] serialized = packet.Serialize();
+            await _Input.WriteAsync(serialized, cancellationToken);
         }
 
         #endregion
@@ -177,8 +180,13 @@ namespace Disfigure.Net
         public event PacketEventHandler? ChannelIdentityReceived;
         public event PacketEventHandler? EndIdentityReceived;
 
-        private async ValueTask InvokePacketTypeEvent(Packet packet)
+        private async ValueTask InvokePacketTypeEvent(Packet packet, CancellationToken cancellationToken)
         {
+            if (PacketResetEvents.TryGetValue(packet.Type, out ManualResetEvent? resetEvent))
+            {
+                resetEvent.Set();
+            }
+
             if (packet.Type == PacketType.EncryptionKeys)
             {
                 // todo error check keys
@@ -189,7 +197,7 @@ namespace Disfigure.Net
             }
             else
             {
-                packet.Content = await _EncryptionProvider.Decrypt(packet.PublicKey, packet.Content);
+                packet.Content = await _EncryptionProvider.Decrypt(packet.PublicKey, packet.Content, cancellationToken);
             }
 
             switch (packet.Type)
@@ -208,11 +216,6 @@ namespace Disfigure.Net
                     break;
                 default:
                     throw new ArgumentOutOfRangeException();
-            }
-
-            if (PacketResetEvents.TryGetValue(packet.Type, out ManualResetEvent? resetEvent))
-            {
-                resetEvent.Set();
             }
         }
 

@@ -1,6 +1,7 @@
 #region
 
 using System;
+using System.Text;
 using System.Threading.Tasks;
 using Disfigure.Cryptography;
 
@@ -29,10 +30,10 @@ namespace Disfigure.Net
     {
         #region Static
 
-        public const int HEADER_LENGTH = sizeof(int)
-                                         + EncryptionProvider.PUBLIC_KEY_SIZE
-                                         + sizeof(byte)
-                                         + sizeof(long);
+        public const int HEADER_LENGTH = sizeof(int) // packet length
+                                         + sizeof(byte) // packet type
+                                         + EncryptionProvider.PUBLIC_KEY_SIZE // public key
+                                         + sizeof(long); // timestamp
 
         public const int OFFSET_PACKET_LENGTH = 0;
         public const int OFFSET_PACKET_TYPE = OFFSET_PACKET_LENGTH + sizeof(int);
@@ -61,10 +62,34 @@ namespace Disfigure.Net
 
             BitConverter.GetBytes(packetLength).CopyTo(serialized, OFFSET_PACKET_LENGTH);
             serialized[OFFSET_PACKET_TYPE] = (byte)Type;
+            PublicKey.CopyTo(serialized, OFFSET_PUBLIC_KEY);
             BitConverter.GetBytes(UtcTimestamp.Ticks).CopyTo(serialized, OFFSET_TIMESTAMP);
             Content.CopyTo(serialized, HEADER_LENGTH);
 
             return serialized;
+        }
+
+        public override string ToString()
+        {
+            StringBuilder builder = new StringBuilder();
+            builder.Append(Type.ToString());
+            builder.Append(" =");
+            builder.AppendJoin(' ', PublicKey);
+            builder.Append("= ");
+            builder.Append(UtcTimestamp.ToString("O"));
+            builder.Append(' ');
+
+            switch (Type)
+            {
+                case PacketType.Text:
+                    builder.Append(Encoding.Unicode.GetString(Content));
+                    break;
+                default:
+                    builder.AppendJoin(' ', Content);
+                    break;
+            }
+
+            return builder.ToString();
         }
     }
 }

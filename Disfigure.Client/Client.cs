@@ -78,7 +78,7 @@ namespace Disfigure.Client
         private async ValueTask<Connection> FinalizeConnection(Guid guid, TcpClient tcpClient)
         {
             Connection connection = new Connection(guid, tcpClient);
-            await connection.SendEncryptionKeys(_CancellationToken);
+            await connection.SendEncryptionKeys(false, _CancellationToken);
             connection.ChannelIdentityReceived += OnChannelIdentityReceived;
             connection.TextPacketReceived += OnTextPacketReceived;
             _ServerConnections.Add(connection.Guid, connection);

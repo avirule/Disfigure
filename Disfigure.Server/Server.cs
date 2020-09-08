@@ -58,7 +58,7 @@ namespace Disfigure.Server
                     Log.Debug($"Auto-generated GUID for client {client.Client.RemoteEndPoint}: {guid}");
 
                     Connection connection = new Connection(guid, client);
-                    await connection.SendEncryptionKeys(_CancellationToken);
+                    await connection.SendEncryptionKeys(true, _CancellationToken);
                     connection.TextPacketReceived += OnTextPacketReceived;
                     connection.Disconnected += OnDisconnected;
                     _ClientConnections.Add(guid, connection);
