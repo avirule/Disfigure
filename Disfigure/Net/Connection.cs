@@ -83,21 +83,7 @@ namespace Disfigure.Net
         {
             try
             {
-                Log.Debug($"Beginning read loop for connection to {_Client.Client.RemoteEndPoint}.");
-
-                while (!cancellationToken.IsCancellationRequested)
-                {
-                    ReadResult result = await _Output.ReadAsync(cancellationToken);
-                    ReadOnlySequence<byte> sequence = result.Buffer;
-
-                    if (!TryReadPacket(sequence, out SequencePosition consumed, out Packet? packet))
-                    {
-                        continue;
-                    }
-
-                    await OnPacketReceived(packet, cancellationToken);
-                    _Output.AdvanceTo(consumed, sequence.End);
-                }
+                await ReadLoopAsync(cancellationToken);
             }
             catch (IOException ex) when (ex.InnerException is SocketException)
             {
@@ -115,6 +101,25 @@ namespace Disfigure.Net
             }
         }
 
+        private async ValueTask ReadLoopAsync(CancellationToken cancellationToken)
+        {
+            Log.Debug($"Beginning read loop for connection to {_Client.Client.RemoteEndPoint}.");
+
+            while (!cancellationToken.IsCancellationRequested)
+            {
+                ReadResult result = await _Output.ReadAsync(cancellationToken);
+                ReadOnlySequence<byte> sequence = result.Buffer;
+
+                if (!TryReadPacket(sequence, out SequencePosition consumed, out Packet? packet))
+                {
+                    continue;
+                }
+
+                await OnPacketReceived(packet, cancellationToken);
+                _Output.AdvanceTo(consumed, sequence.End);
+            }
+        }
+
         private static bool TryReadPacket(ReadOnlySequence<byte> sequence, [NotNull] out SequencePosition consumed,
             [NotNullWhen(true)] out Packet? packet)
         {
@@ -129,18 +134,8 @@ namespace Disfigure.Net
             }
             else
             {
-                ReadOnlySequence<byte> packetTypeSequence = sequence.Slice(Packet.OFFSET_PACKET_TYPE, sizeof(byte));
-                ReadOnlySequence<byte> publicKeySequence = sequence.Slice(Packet.OFFSET_PUBLIC_KEY, EncryptionProvider.PUBLIC_KEY_SIZE);
-                ReadOnlySequence<byte> timestampSequence = sequence.Slice(Packet.OFFSET_TIMESTAMP, sizeof(long));
-                ReadOnlySequence<byte> contentSequence = sequence.Slice(Packet.HEADER_LENGTH, packetLength - Packet.HEADER_LENGTH);
-
-                PacketType packetType = (PacketType)packetTypeSequence.FirstSpan[0];
-                byte[] publicKey = publicKeySequence.ToArray();
-                DateTime utcTimestamp = DateTime.FromBinary(BitConverter.ToInt64(timestampSequence.FirstSpan));
-                byte[] content = contentSequence.ToArray();
-
-                packet = new Packet(packetType, publicKey, utcTimestamp, content);
                 consumed = sequence.GetPosition(packetLength);
+                packet = new Packet(sequence, packetLength);
 
                 return true;
             }
@@ -169,11 +164,11 @@ namespace Disfigure.Net
 
         private async ValueTask WriteEncryptedAsync(Packet packet, CancellationToken cancellationToken)
         {
-            Log.Verbose($"OUT {packet}");
-
             packet.Content = await _EncryptionProvider.Encrypt(packet.Content, cancellationToken);
             byte[] serialized = packet.Serialize();
             await _Input.WriteAsync(serialized, cancellationToken);
+
+            Log.Verbose($"OUT {packet}");
         }
 
         #endregion
@@ -245,7 +240,7 @@ namespace Disfigure.Net
         #endregion
 
 
-        #region Dispose
+        #region IDisposable
 
         private bool _Disposed;
 

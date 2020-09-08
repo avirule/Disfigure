@@ -108,7 +108,7 @@ namespace Disfigure.Client
 
         #endregion
 
-        #region Dispose
+        #region IDisposable
 
         private bool _Disposed;
 

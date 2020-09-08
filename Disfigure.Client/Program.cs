@@ -1,7 +1,6 @@
 ﻿#region
 
 using System;
-using System.Collections.Generic;
 using System.Net;
 using System.Text;
 using System.Threading;
@@ -20,9 +19,10 @@ namespace Disfigure.Client
             Log.Logger = new LoggerConfiguration().WriteTo.Console().MinimumLevel.Verbose().CreateLogger();
 
             Client client = new Client();
-            Connection server = await client.EstablishConnection(new IPEndPoint(IPAddress.IPv6Loopback, 8898), TimeSpan.FromSeconds(0.5d));    
+            Connection server = await client.EstablishConnection(new IPEndPoint(IPAddress.IPv6Loopback, 8898), TimeSpan.FromSeconds(0.5d));
 
-            await server.WriteAsync(PacketType.Text, DateTime.UtcNow, Encoding.Unicode.GetBytes("test message with emoji 🍑"), CancellationToken.None);
+            await server.WriteAsync(PacketType.Text, DateTime.UtcNow, Encoding.Unicode.GetBytes("test message with emoji 🍑"),
+                CancellationToken.None);
 
             Console.ReadLine();
         }

@@ -1,6 +1,7 @@
 #region
 
 using System;
+using System.Buffers;
 using System.Text;
 using System.Threading.Tasks;
 using Disfigure.Cryptography;
@@ -53,6 +54,24 @@ namespace Disfigure.Net
             PublicKey = publicKey;
             UtcTimestamp = utcTimestamp;
             Content = content;
+        }
+
+        public Packet(ReadOnlySequence<byte> sequence, int packetLength)
+        {
+            if (sequence.Length < packetLength)
+            {
+                throw new ArgumentOutOfRangeException(nameof(sequence), $"Sequence does not contain enough bytes to construct the {nameof(Packet)}.");
+            }
+
+            ReadOnlySequence<byte> packetTypeSequence = sequence.Slice(OFFSET_PACKET_TYPE, sizeof(byte));
+            ReadOnlySequence<byte> publicKeySequence = sequence.Slice(OFFSET_PUBLIC_KEY, EncryptionProvider.PUBLIC_KEY_SIZE);
+            ReadOnlySequence<byte> timestampSequence = sequence.Slice(OFFSET_TIMESTAMP, sizeof(long));
+            ReadOnlySequence<byte> contentSequence = sequence.Slice(HEADER_LENGTH, packetLength - HEADER_LENGTH);
+
+            Type = (PacketType)packetTypeSequence.FirstSpan[0];
+            PublicKey = publicKeySequence.ToArray();
+            UtcTimestamp = DateTime.FromBinary(BitConverter.ToInt64(timestampSequence.FirstSpan));
+            Content = contentSequence.ToArray();
         }
 
         public byte[] Serialize()
