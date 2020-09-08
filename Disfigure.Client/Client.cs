@@ -70,16 +70,18 @@ namespace Disfigure.Client
 
             Log.Debug($"Established connection to {ipEndPoint} with auto-generated GUID {guid}.");
 
-            return FinalizeConnection(guid, tcpClient);
+            Connection connection = await FinalizeConnection(guid, tcpClient);
+            connection.WaitForKeyExchange();
+            return connection;
         }
 
-        private Connection FinalizeConnection(Guid guid, TcpClient tcpClient)
+        private async ValueTask<Connection> FinalizeConnection(Guid guid, TcpClient tcpClient)
         {
             Connection connection = new Connection(guid, tcpClient);
+            await connection.SendEncryptionKeys(_CancellationToken);
             connection.ChannelIdentityReceived += OnChannelIdentityReceived;
             connection.TextPacketReceived += OnTextPacketReceived;
             _ServerConnections.Add(connection.Guid, connection);
-
             Log.Debug($"Connection {connection.Guid} finalized.");
 
             connection.BeginListen(_CancellationToken);

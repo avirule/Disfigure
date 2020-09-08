@@ -2,11 +2,13 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Net.Sockets;
 using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
+using Disfigure.Cryptography;
 using Serilog;
 
 #endregion
@@ -15,22 +17,32 @@ namespace Disfigure.Net
 {
     public delegate ValueTask ConnectionEventHandler(Connection connection);
 
-    public delegate ValueTask PacketEventHandler(Connection origin, Packet packet);
-
     public class Connection : IDisposable
     {
         private readonly TcpClient _Client;
         private readonly NetworkStream _Stream;
+        private readonly EncryptionProvider _EncryptionProvider;
+        private readonly PackerReader _PackerReader;
+        private readonly ManualResetEvent _KeysExchanged;
+
         private long _CompleteRemoteIdentity;
 
-        private PackerReader _PackerReader;
+        public Guid Guid { get; }
+        public string Name { get; }
+
+        public bool CompleteRemoteIdentity
+        {
+            get => Interlocked.Read(ref _CompleteRemoteIdentity) == 1;
+            private set => Interlocked.Exchange(ref _CompleteRemoteIdentity, Unsafe.As<bool, long>(ref value));
+        }
 
         public Connection(Guid guid, TcpClient client)
         {
             _Client = client;
             _Stream = _Client.GetStream();
+            _EncryptionProvider = new EncryptionProvider();
             _PackerReader = new PackerReader(_Stream);
-            _PackerReader.PacketReceived += OnPacketReceived;
+            _PackerReader.EncryptedPacketReceived += OnEncryptedPacketReceived;
 
             EndIdentityReceived += (origin, packet) =>
             {
@@ -40,15 +52,24 @@ namespace Disfigure.Net
 
             Guid = guid;
             Name = string.Empty;
+            _KeysExchanged = new ManualResetEvent(false);
         }
 
-        public Guid Guid { get; }
-        public string Name { get; }
-
-        public bool CompleteRemoteIdentity
+        public async ValueTask SendEncryptionKeys(CancellationToken cancellationToken)
         {
-            get => Interlocked.Read(ref _CompleteRemoteIdentity) == 1;
-            private set => Interlocked.Exchange(ref _CompleteRemoteIdentity, Unsafe.As<bool, long>(ref value));
+            Debug.Assert(!_EncryptionProvider.EncryptionNegotiated, "Protocol requires that key exchanges happen ONLY ONCE.");
+
+            Log.Debug($"Exchanging encryption keys with remote endpoint {_Client.Client.RemoteEndPoint}.");
+
+            byte[] keyExchangePacket = _EncryptionProvider.GenerateKeyExchangePacket();
+            await _Stream.WriteAsync(keyExchangePacket, cancellationToken).ConfigureAwait(false);
+            await _Stream.FlushAsync(cancellationToken).ConfigureAwait(false);
+        }
+
+        public void WaitForKeyExchange()
+        {
+            Log.Verbose($"Waiting for encryption keys from {_Client.Client.RemoteEndPoint}.");
+            _KeysExchanged.WaitOne();
         }
 
         #region Listening
@@ -88,39 +109,39 @@ namespace Disfigure.Net
 
         #region Writing Data
 
-        // Ensure that write operations (which are usually called from outside the `Connection`
-        //     object) do not use `.ConfigureAwait(false)`. This is so any external contexts are
-        //    maintained.
-
         public async ValueTask WriteAsync(CancellationToken cancellationToken, Packet packet)
         {
-            await _Stream.WriteAsync(packet.Serialize(), cancellationToken);
-            await _Stream.FlushAsync(cancellationToken);
+            await EncryptWritePacketAsync(cancellationToken, packet).ConfigureAwait(false);
+            await _Stream.FlushAsync(cancellationToken).ConfigureAwait(false);
         }
 
         public async ValueTask WriteAsync(CancellationToken cancellationToken, IEnumerable<Packet> packets)
         {
             foreach (Packet packet in packets)
             {
-                await _Stream.WriteAsync(packet.Serialize(), cancellationToken);
+                await EncryptWritePacketAsync(cancellationToken, packet).ConfigureAwait(false);
             }
 
-            await _Stream.FlushAsync(cancellationToken);
+            await _Stream.FlushAsync(cancellationToken).ConfigureAwait(false);
         }
 
-#if DEBUG
-
-        public async ValueTask WriteAsyncDebug(CancellationToken cancellationToken, IEnumerable<Packet> packets, TimeSpan writeDelay)
+        private async ValueTask EncryptWritePacketAsync(CancellationToken cancellationToken, Packet packet)
         {
-            foreach (Packet packet in packets)
-            {
-                await _Stream.WriteAsync(packet.Serialize(), cancellationToken);
-                await _Stream.FlushAsync(cancellationToken);
-                await Task.Delay(writeDelay, cancellationToken);
-            }
+            Debug.Assert(_EncryptionProvider.EncryptionNegotiated, "Encryption keys must have been exchanged for recipient to decrypt messages.");
+
+            byte[] encryptedPacket = await EncryptPacketAsync(packet).ConfigureAwait(false);
+            await _Stream.WriteAsync(encryptedPacket, cancellationToken).ConfigureAwait(false);
         }
 
-#endif
+        private async ValueTask<byte[]> EncryptPacketAsync(Packet packet)
+        {
+            byte[] encryptedPacket = await _EncryptionProvider.Encrypt(packet.Serialize()).ConfigureAwait(false);
+            byte[] finalPacket = new byte[EncryptedPacket.ENCRYPTION_HEADER_LENGTH + encryptedPacket.Length];
+            Buffer.BlockCopy(_EncryptionProvider.GenerateHeader(encryptedPacket.Length), 0, finalPacket, 0, EncryptedPacket.ENCRYPTION_HEADER_LENGTH);
+            Buffer.BlockCopy(encryptedPacket, 0, finalPacket, EncryptedPacket.ENCRYPTION_HEADER_LENGTH, encryptedPacket.Length);
+
+            return encryptedPacket;
+        }
 
         #endregion
 
@@ -140,7 +161,30 @@ namespace Disfigure.Net
         public event PacketEventHandler? ChannelIdentityReceived;
         public event PacketEventHandler? EndIdentityReceived;
 
-        private async ValueTask OnPacketReceived(Connection connection, Packet packet) => await InvokePacketTypeEvent(packet).ConfigureAwait(false);
+        private async ValueTask OnEncryptedPacketReceived(Connection connection, EncryptedPacket encryptedPacket)
+        {
+            switch (encryptedPacket.Type)
+            {
+                case EncryptedPacketType.Encrypted:
+                    byte[] packetDataDecrypted = await _EncryptionProvider.Decrypt(encryptedPacket.PublicKey, encryptedPacket.PacketData);
+                    Packet packet = Packet.Deserialize(packetDataDecrypted);
+                    await InvokePacketTypeEvent(packet);
+                    break;
+                case EncryptedPacketType.KeyExchange:
+                    Debug.Assert(!_EncryptionProvider.EncryptionNegotiated, "Protocol requires that key exchanges happen ONLY ONCE.");
+
+                    byte[] publicKey = encryptedPacket.PublicKey;
+                    byte[] iv = encryptedPacket.PacketData;
+
+                    _EncryptionProvider.AssignRemoteKeys(iv, publicKey);
+                    _KeysExchanged.Set();
+
+                    Log.Verbose($"Received encryption keys from {_Client.Client.RemoteEndPoint}.");
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException();
+            }
+        }
 
         private async ValueTask InvokePacketTypeEvent(Packet packet)
         {
@@ -181,7 +225,6 @@ namespace Disfigure.Net
                 _Stream.Dispose();
             }
 
-            _PackerReader = null!;
             _Disposed = true;
         }
 

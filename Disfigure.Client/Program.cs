@@ -4,6 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
+using System.Security.Cryptography;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -21,8 +22,6 @@ namespace Disfigure.Client
         {
             Log.Logger = new LoggerConfiguration().WriteTo.Console().MinimumLevel.Verbose().CreateLogger();
 
-EncryptionProvider e = new EncryptionProvider();
-
             Client client = new Client();
             Connection server = await client.EstablishConnection(new IPEndPoint(IPAddress.IPv6Loopback, 8898), TimeSpan.FromSeconds(0.5d));
 
@@ -39,7 +38,7 @@ EncryptionProvider e = new EncryptionProvider();
             };
 
 
-            await client.ServerConnections.First().WriteAsync(CancellationToken.None, testPackets);
+           // await client.ServerConnections.First().WriteAsync(CancellationToken.None, testPackets);
 
             Console.ReadLine();
         }

@@ -1,7 +1,10 @@
 #region
 
 using System;
+using System.Runtime.CompilerServices;
 using System.Text;
+using System.Threading.Tasks;
+using Disfigure.Cryptography;
 
 #endregion
 
@@ -15,11 +18,14 @@ namespace Disfigure.Net
         Video,
         Administration,
         Operation,
+        EncryptionKeys,
         BeginIdentity,
         Identity,
         ChannelIdentity,
         EndIdentity
     }
+
+    public delegate ValueTask PacketEventHandler(Connection origin, Packet packet);
 
     public readonly struct Packet
     {
@@ -67,6 +73,14 @@ namespace Disfigure.Net
             Buffer.BlockCopy(Content, 0, serialized, HEADER_LENGTH, Content.Length);
 
             return serialized;
+        }
+
+        public static Packet Deserialize(byte[] data)
+        {
+            long timestamp = BitConverter.ToInt64(data, TIMESTAMP_HEADER_OFFSET);
+            byte packetType = data[PACKET_TYPE_HEADER_OFFSET];
+
+            return new Packet(DateTime.FromBinary(timestamp), (PacketType)packetType, data[HEADER_LENGTH..]);
         }
 
         public override unsafe string ToString()

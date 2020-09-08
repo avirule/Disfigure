@@ -56,15 +56,19 @@ namespace Disfigure.Server
 
                     Guid guid = Guid.NewGuid();
                     Log.Debug($"Auto-generated GUID for client {client.Client.RemoteEndPoint}: {guid}");
+
                     Connection connection = new Connection(guid, client);
+                    await connection.SendEncryptionKeys(_CancellationToken);
                     connection.TextPacketReceived += OnTextPacketReceived;
                     connection.Disconnected += OnDisconnected;
                     _ClientConnections.Add(guid, connection);
+                    connection.BeginListen(_CancellationToken);
+                    Log.Debug($"Connection from client {connection.Guid} established.");
 
-                    Log.Debug($"Connection from client {connection.Guid} established. Transmitting server identity.");
+                    connection.WaitForKeyExchange();
+
                     await CommunicateServerInformation(connection);
 
-                    connection.BeginListen(_CancellationToken);
                 }
             }
             catch (Exception ex)
@@ -86,8 +90,7 @@ namespace Disfigure.Server
         private async ValueTask SendChannelList(Connection connection)
         {
             DateTime utcTimestamp = DateTime.UtcNow;
-            await connection.WriteAsync(_CancellationToken,
-                _Channels.Values.Select(channel => new Packet(utcTimestamp, PacketType.ChannelIdentity, channel.Serialize())));
+            await connection.WriteAsync(_CancellationToken,_Channels.Values.Select(channel => new Packet(utcTimestamp, PacketType.ChannelIdentity, channel.Serialize())));
         }
 
         #region Events

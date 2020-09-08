@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
+using Disfigure.Cryptography;
 
 #endregion
 
@@ -14,61 +15,71 @@ namespace Disfigure.Net
     {
         private const int _BUFFER_SIZE = 1024;
 
-        private readonly byte[] _Buffer;
-        private readonly List<byte> _ContentBuffer;
-        private readonly List<byte> _HeaderBuffer;
-
         private readonly NetworkStream _Stream;
-        private int _BufferedLength;
+
+        private readonly byte[] _Buffer;
+        private readonly List<byte> _EncryptionHeaderBuffer;
+        private readonly List<byte> _PacketDataBuffer;
+
         private int _ReadIndex;
-        private int _RemainingContentLength;
+        private int _BufferedLength;
+        private int _RemainingPacketDataLength;
 
         public PackerReader(NetworkStream networkStream)
         {
             _Stream = networkStream;
 
             _Buffer = new byte[_BUFFER_SIZE];
-            _HeaderBuffer = new List<byte>();
-            _ContentBuffer = new List<byte>();
+            _EncryptionHeaderBuffer = new List<byte>();
+            _PacketDataBuffer = new List<byte>();
             _ReadIndex = 0;
         }
 
         public async ValueTask ReadPacketAsync(CancellationToken cancellationToken)
         {
-            await ReadHeaderAsync(cancellationToken).ConfigureAwait(false);
-            await ReadContentAsync(cancellationToken).ConfigureAwait(false);
-            await BuildPacketAndInvokeAsync().ConfigureAwait(false);
+            EncryptedPacket BuildEncryptedPacketInternal()
+            {
+                EncryptedPacketType type = (EncryptedPacketType)_EncryptionHeaderBuffer[EncryptedPacket.ENCRYPTION_PACKET_TYPE_OFFSET];
+                byte[] publicKey = new byte[EncryptionProvider.PUBLIC_KEY_SIZE];
+                _EncryptionHeaderBuffer.CopyTo(EncryptedPacket.PUBLIC_KEY_OFFSET, publicKey, 0, publicKey.Length);
+
+                return new EncryptedPacket(type, publicKey, _PacketDataBuffer.ToArray());
+            }
+
+            await ReadEncryptionHeaderAsync(cancellationToken).ConfigureAwait(false);
+            await ReadPacketDataAsync(cancellationToken).ConfigureAwait(false);
+
+            EncryptedPacket encryptedPacket = BuildEncryptedPacketInternal();
+            await CallbackEncryptedPacket(encryptedPacket).ConfigureAwait(false);
         }
 
-        private async ValueTask ReadHeaderAsync(CancellationToken cancellationToken)
+        private async ValueTask ReadEncryptionHeaderAsync(CancellationToken cancellationToken)
         {
-            while (_HeaderBuffer.Count < Packet.HEADER_LENGTH)
+            while (_EncryptionHeaderBuffer.Count < EncryptedPacket.ENCRYPTION_HEADER_LENGTH)
             {
                 await AttemptRebuffer(cancellationToken).ConfigureAwait(false);
 
-                int endIndex = Math.Min(_ReadIndex + (Packet.HEADER_LENGTH - _HeaderBuffer.Count), _BufferedLength);
+                int endIndex = Math.Min(_ReadIndex + (EncryptedPacket.ENCRYPTION_HEADER_LENGTH - _EncryptionHeaderBuffer.Count), _BufferedLength);
 
-                _HeaderBuffer.AddRange(_Buffer[_ReadIndex..endIndex]);
+                _EncryptionHeaderBuffer.AddRange(_Buffer[_ReadIndex..endIndex]);
                 _ReadIndex = endIndex;
             }
 
-            _RemainingContentLength = BitConverter.ToInt32(_HeaderBuffer.ToArray(), Packet.CONTENT_LENGTH_HEADER_OFFSET);
+            _RemainingPacketDataLength = BitConverter.ToInt32(_EncryptionHeaderBuffer.ToArray(), EncryptedPacket.PACKET_DATA_LENGTH_OFFSET);
         }
 
-        private async ValueTask ReadContentAsync(CancellationToken cancellationToken)
+        private async ValueTask ReadPacketDataAsync(CancellationToken cancellationToken)
         {
-            while (_RemainingContentLength > 0)
+            while (_RemainingPacketDataLength > 0)
             {
                 await AttemptRebuffer(cancellationToken).ConfigureAwait(false);
 
-                int endIndex = Math.Min(_ReadIndex + _RemainingContentLength, _BufferedLength);
-                int readContentLength = endIndex - _ReadIndex;
+                int endIndex = Math.Min(_ReadIndex + _RemainingPacketDataLength, _BufferedLength);
+                int readPacketDataLength = endIndex - _ReadIndex;
 
-                if ((_ReadIndex < 0) || (endIndex < 0)) { }
-
-                _ContentBuffer.AddRange(_Buffer[_ReadIndex..endIndex]);
-                _RemainingContentLength -= readContentLength;
-                _ReadIndex += readContentLength;
+                _PacketDataBuffer.AddRange(_Buffer[_ReadIndex..endIndex]);
+                _RemainingPacketDataLength -= readPacketDataLength;
+                _ReadIndex += readPacketDataLength;
             }
         }
 
@@ -84,27 +95,17 @@ namespace Disfigure.Net
 
         #region Events
 
-        public event PacketEventHandler? PacketReceived;
+        public event EncryptedPacketEventHandler? EncryptedPacketReceived;
 
-        private async ValueTask BuildPacketAndInvokeAsync()
+        private async ValueTask CallbackEncryptedPacket(EncryptedPacket encryptedPacket)
         {
-            static (DateTime, PacketType, int) DeserializeHeaderInternal(byte[] headerBytes)
+            if (EncryptedPacketReceived is { })
             {
-                long timestamp = BitConverter.ToInt64(headerBytes, Packet.TIMESTAMP_HEADER_OFFSET);
-                byte packetType = headerBytes[Packet.PACKET_TYPE_HEADER_OFFSET];
-                int contentLength = BitConverter.ToInt32(headerBytes, Packet.CONTENT_LENGTH_HEADER_OFFSET);
-
-                return (DateTime.FromBinary(timestamp), (PacketType)packetType, contentLength);
+                await EncryptedPacketReceived.Invoke(null!, encryptedPacket).ConfigureAwait(false);
             }
 
-            if (PacketReceived is { })
-            {
-                (DateTime timestamp, PacketType packetType, int _) = DeserializeHeaderInternal(_HeaderBuffer.ToArray());
-                await PacketReceived.Invoke(null!, new Packet(timestamp, packetType, _ContentBuffer.ToArray())).ConfigureAwait(false);
-            }
-
-            _HeaderBuffer.Clear();
-            _ContentBuffer.Clear();
+            _EncryptionHeaderBuffer.Clear();
+            _PacketDataBuffer.Clear();
         }
 
         #endregion
