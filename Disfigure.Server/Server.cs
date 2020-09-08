@@ -68,7 +68,6 @@ namespace Disfigure.Server
                     connection.WaitForKeyExchange();
 
                     await CommunicateServerInformation(connection);
-
                 }
             }
             catch (Exception ex)
@@ -90,7 +89,8 @@ namespace Disfigure.Server
         private async ValueTask SendChannelList(Connection connection)
         {
             DateTime utcTimestamp = DateTime.UtcNow;
-            await connection.WriteAsync(_CancellationToken,_Channels.Values.Select(channel => new Packet(utcTimestamp, PacketType.ChannelIdentity, channel.Serialize())));
+            await connection.WriteAsync(_CancellationToken,
+                _Channels.Values.Select(channel => new Packet(utcTimestamp, PacketType.ChannelIdentity, channel.Serialize())));
         }
 
         #region Events

@@ -1,5 +1,9 @@
+#region
+
 using System;
 using System.Runtime.InteropServices;
+
+#endregion
 
 namespace Disfigure.Cryptography
 {
@@ -10,6 +14,5 @@ namespace Disfigure.Cryptography
 
         [DllImport("tiny_ecdh.dll", EntryPoint = "ecdh_shared_secret")]
         public static extern int GenerateSharedKey(IntPtr privateKey, IntPtr remotePublicKey, IntPtr sharedKey);
-
     }
 }

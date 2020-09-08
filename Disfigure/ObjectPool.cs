@@ -1,5 +1,9 @@
+#region
+
 using System;
 using System.Collections.Concurrent;
+
+#endregion
 
 namespace Disfigure
 {
