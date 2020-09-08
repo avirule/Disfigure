@@ -5,7 +5,7 @@ using System.Collections.Concurrent;
 
 #endregion
 
-namespace Disfigure
+namespace Disfigure.Collections
 {
     public class ObjectPool<T>
     {
