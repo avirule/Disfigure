@@ -101,10 +101,9 @@ namespace Disfigure.Client
             return default;
         }
 
-        private static ValueTask OnTextPacketReceived(Connection connection, Packet packet)
+        private async ValueTask OnTextPacketReceived(Connection connection, Packet packet)
         {
-            Log.Verbose(packet.ToString());
-            return default;
+            await connection.WriteAsync(packet.Type, DateTime.UtcNow, packet.Content, _CancellationToken);
         }
 
         #endregion

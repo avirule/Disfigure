@@ -20,19 +20,9 @@ namespace Disfigure.Client
             Log.Logger = new LoggerConfiguration().WriteTo.Console().MinimumLevel.Verbose().CreateLogger();
 
             Client client = new Client();
-            Connection server = await client.EstablishConnection(new IPEndPoint(IPAddress.IPv6Loopback, 8898), TimeSpan.FromSeconds(0.5d));
+            Connection server = await client.EstablishConnection(new IPEndPoint(IPAddress.IPv6Loopback, 8898), TimeSpan.FromSeconds(0.5d));    
 
-            List<(PacketType, DateTime, byte[])> testPackets = new List<(PacketType, DateTime, byte[])>
-            {
-                (PacketType.Text, DateTime.UtcNow, Encoding.Unicode.GetBytes("test message with emoji 🍑")),
-                (PacketType.Text, DateTime.UtcNow, Encoding.Unicode.GetBytes("test message with emoji2 🍑")),
-                (PacketType.Text, DateTime.UtcNow, Encoding.Unicode.GetBytes("test message with emoji3 🍑")),
-                (PacketType.Text, DateTime.UtcNow, Encoding.Unicode.GetBytes("test message with emoji4 🍑")),
-                (PacketType.Text, DateTime.UtcNow, Encoding.Unicode.GetBytes("test message with 🍑"))
-            };
-
-
-            await server.WriteAsync(testPackets, CancellationToken.None);
+            await server.WriteAsync(PacketType.Text, DateTime.UtcNow, Encoding.Unicode.GetBytes("test message with emoji 🍑"), CancellationToken.None);
 
             Console.ReadLine();
         }

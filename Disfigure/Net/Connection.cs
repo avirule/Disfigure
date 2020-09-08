@@ -4,6 +4,7 @@ using System;
 using System.Buffers;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.IO.Pipelines;
 using System.Net.Sockets;
@@ -56,7 +57,7 @@ namespace Disfigure.Net
         {
             await SendEncryptionKeys(IsOwnerServer, cancellationToken);
 
-            BeginListen(cancellationToken);
+            await Task.Run(() => BeginListenAsync(cancellationToken), cancellationToken);
 
             Log.Debug($"Waiting for encryption keys from {_Client.Client.RemoteEndPoint}.");
             PacketResetEvents[PacketType.EncryptionKeys].WaitOne();
@@ -78,10 +79,7 @@ namespace Disfigure.Net
 
         #region Listening
 
-        public void BeginListen(CancellationToken cancellationToken) =>
-            Task.Run(() => ListenAsyncInternal(cancellationToken), cancellationToken);
-
-        private async Task ListenAsyncInternal(CancellationToken cancellationToken)
+        private async Task BeginListenAsync(CancellationToken cancellationToken)
         {
             try
             {
@@ -92,12 +90,12 @@ namespace Disfigure.Net
                     ReadResult result = await _Output.ReadAsync(cancellationToken);
                     ReadOnlySequence<byte> sequence = result.Buffer;
 
-                    if (!TryReadPacket(sequence, out SequencePosition consumed, out Packet packet))
+                    if (!TryReadPacket(sequence, out SequencePosition consumed, out Packet? packet))
                     {
                         continue;
                     }
 
-                    await InvokePacketTypeEvent(packet, cancellationToken);
+                    await OnPacketReceived(packet, cancellationToken);
                     _Output.AdvanceTo(consumed, sequence.End);
                 }
             }
@@ -117,14 +115,15 @@ namespace Disfigure.Net
             }
         }
 
-        private static bool TryReadPacket(ReadOnlySequence<byte> sequence, out SequencePosition consumed, out Packet packet)
+        private static bool TryReadPacket(ReadOnlySequence<byte> sequence, [NotNull] out SequencePosition consumed,
+            [NotNullWhen(true)] out Packet? packet)
         {
             int packetLength = BitConverter.ToInt32(sequence.Slice(0, sizeof(int)).FirstSpan);
 
             if (sequence.Length < packetLength)
             {
                 consumed = sequence.Start;
-                packet = default;
+                packet = null;
 
                 return false;
             }
@@ -170,7 +169,7 @@ namespace Disfigure.Net
 
         private async ValueTask WriteEncryptedAsync(Packet packet, CancellationToken cancellationToken)
         {
-            Log.Verbose($"Local to Remote: {packet}");
+            Log.Verbose($"OUT {packet}");
 
             packet.Content = await _EncryptionProvider.Encrypt(packet.Content, cancellationToken);
             byte[] serialized = packet.Serialize();
@@ -189,12 +188,13 @@ namespace Disfigure.Net
 
         #region Packet Events
 
+        public event PacketEventHandler? PacketReceived;
         public event PacketEventHandler? TextPacketReceived;
         public event PacketEventHandler? BeginIdentityReceived;
         public event PacketEventHandler? ChannelIdentityReceived;
         public event PacketEventHandler? EndIdentityReceived;
 
-        private async ValueTask InvokePacketTypeEvent(Packet packet, CancellationToken cancellationToken)
+        private async ValueTask OnPacketReceived(Packet packet, CancellationToken cancellationToken)
         {
             if (PacketResetEvents.TryGetValue(packet.Type, out ManualResetEvent? resetEvent))
             {
@@ -207,11 +207,22 @@ namespace Disfigure.Net
 
                 _EncryptionProvider.AssignRemoteKeys(packet.Content, packet.PublicKey);
                 Log.Debug($"Received encryption keys from {_Client.Client.RemoteEndPoint}.");
-                return;
             }
             else
             {
                 packet.Content = await _EncryptionProvider.Decrypt(packet.PublicKey, packet.Content, cancellationToken);
+
+                await InvokePacketTypeEvent(packet);
+            }
+
+            Log.Verbose($"INC {packet}");
+        }
+
+        private async ValueTask InvokePacketTypeEvent(Packet packet)
+        {
+            if (PacketReceived is { })
+            {
+                await PacketReceived.Invoke(this, packet);
             }
 
             switch (packet.Type)
