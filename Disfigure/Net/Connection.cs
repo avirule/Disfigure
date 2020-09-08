@@ -1,6 +1,7 @@
 #region
 
 using System;
+using System.Buffers;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
@@ -19,22 +20,16 @@ namespace Disfigure.Net
 
     public class Connection : IDisposable
     {
+        private static readonly MemoryPool<byte> _EncryptedPacketPool = MemoryPool<byte>.Shared;
+
         private readonly TcpClient _Client;
         private readonly NetworkStream _Stream;
         private readonly EncryptionProvider _EncryptionProvider;
         private readonly PackerReader _PackerReader;
         private readonly ManualResetEvent _KeysExchanged;
 
-        private long _CompleteRemoteIdentity;
-
         public Guid Guid { get; }
         public string Name { get; }
-
-        public bool CompleteRemoteIdentity
-        {
-            get => Interlocked.Read(ref _CompleteRemoteIdentity) == 1;
-            private set => Interlocked.Exchange(ref _CompleteRemoteIdentity, Unsafe.As<bool, long>(ref value));
-        }
 
         public Connection(Guid guid, TcpClient client)
         {
@@ -43,12 +38,6 @@ namespace Disfigure.Net
             _EncryptionProvider = new EncryptionProvider();
             _PackerReader = new PackerReader(_Stream);
             _PackerReader.EncryptedPacketReceived += OnEncryptedPacketReceived;
-
-            EndIdentityReceived += (origin, packet) =>
-            {
-                CompleteRemoteIdentity = true;
-                return default;
-            };
 
             Guid = guid;
             Name = string.Empty;
@@ -129,15 +118,29 @@ namespace Disfigure.Net
         {
             Debug.Assert(_EncryptionProvider.EncryptionNegotiated, "Encryption keys must have been exchanged for recipient to decrypt messages.");
 
+            int length = EncryptedPacket.ENCRYPTION_HEADER_LENGTH + Packet.HEADER_LENGTH + packet.Content.Length;
+
+            IMemoryOwner<byte>? encryptedPacket = _EncryptedPacketPool.Rent(length);
+_EncryptedPacketPool.
+            encryptedPacket.
+
+
+
+
+
             byte[] encryptedPacket = await EncryptPacketAsync(packet).ConfigureAwait(false);
+            byte[] encryptionHeader = _EncryptionHeaderPool.Rent(EncryptedPacket.ENCRYPTION_HEADER_LENGTH);
+            _EncryptionProvider.SetEncryptionPacketHeader(ref encryptionHeader, encryptedPacket.Length);
+
             await _Stream.WriteAsync(encryptedPacket, cancellationToken).ConfigureAwait(false);
+            _EncryptionHeaderPool.Return(encryptionHeader);
         }
 
-        private async ValueTask<byte[]> EncryptPacketAsync(Packet packet)
+        private async ValueTask<Memory<byte>> EncryptPacketAsync(Packet packet)
         {
-            byte[] encryptedPacket = await _EncryptionProvider.Encrypt(packet.Serialize()).ConfigureAwait(false);
+            byte[] encryptedPacket = new byte[]; await _EncryptionProvider.Encrypt(packet.Serialize());
             byte[] finalPacket = new byte[EncryptedPacket.ENCRYPTION_HEADER_LENGTH + encryptedPacket.Length];
-            Buffer.BlockCopy(_EncryptionProvider.GenerateHeader(encryptedPacket.Length), 0, finalPacket, 0, EncryptedPacket.ENCRYPTION_HEADER_LENGTH);
+            Buffer.BlockCopy(_EncryptionProvider.SetEncryptionPacketHeader(encryptedPacket.Length), 0, finalPacket, 0, EncryptedPacket.ENCRYPTION_HEADER_LENGTH);
             Buffer.BlockCopy(encryptedPacket, 0, finalPacket, EncryptedPacket.ENCRYPTION_HEADER_LENGTH, encryptedPacket.Length);
 
             return encryptedPacket;

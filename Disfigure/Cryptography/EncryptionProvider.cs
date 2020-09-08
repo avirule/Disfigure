@@ -1,9 +1,11 @@
 #region
 
 using System;
+using System.Buffers;
 using System.Diagnostics;
 using System.IO;
 using System.Security.Cryptography;
+using System.Threading;
 using System.Threading.Tasks;
 using Disfigure.Net;
 
@@ -23,6 +25,7 @@ namespace Disfigure.Cryptography
         private readonly AesCryptoServiceProvider _AES;
         private readonly byte[] _PrivateKey;
         private readonly byte[] _PublicKey;
+        private readonly byte[] _EncryptionHeader;
 
         private byte[]? _RemotePublicKey;
 
@@ -36,9 +39,11 @@ namespace Disfigure.Cryptography
             _AES = new AesCryptoServiceProvider();
             _PrivateKey = new byte[PRIVATE_KEY_SIZE];
             _PublicKey = new byte[PUBLIC_KEY_SIZE];
+            _EncryptionHeader = new byte[EncryptedPacket.ENCRYPTION_HEADER_LENGTH];
 
             GeneratePrivateKey();
             GeneratePublicKey();
+            GenerateEncryptionHeader();
         }
 
 
@@ -51,6 +56,12 @@ namespace Disfigure.Cryptography
             {
                 int result = TinyECDH.GenerateKeys((IntPtr)publicKey, (IntPtr)privateKey);
             }
+        }
+
+        private void GenerateEncryptionHeader()
+        {
+            _EncryptionHeader[EncryptedPacket.ENCRYPTION_PACKET_TYPE_OFFSET] = (byte)EncryptedPacketType.Encrypted;
+            Buffer.BlockCopy(PublicKey, 0, _EncryptionHeader, EncryptedPacket.PUBLIC_KEY_OFFSET, PublicKey.Length);
         }
 
         private unsafe void DeriveKey(byte[] remotePublicKey, ref byte[] derivedKey)
@@ -72,7 +83,7 @@ namespace Disfigure.Cryptography
             EncryptionNegotiated = true;
         }
 
-        public async ValueTask<byte[]> Encrypt(byte[] unencryptedPacket)
+        public async ValueTask<Memory<byte>> Encrypt(Memory<byte> unencryptedPacket, CancellationToken cancellationToken)
         {
             if (!EncryptionNegotiated || _RemotePublicKey is null)
             {
@@ -87,13 +98,13 @@ namespace Disfigure.Cryptography
             using (ICryptoTransform? encryptor = _AES.CreateEncryptor())
             await using (CryptoStream cryptoStream = new CryptoStream(cipherBytes, encryptor, CryptoStreamMode.Write))
             {
-                await cryptoStream.WriteAsync(unencryptedPacket, 0, unencryptedPacket.Length);
+                await cryptoStream.WriteAsync(unencryptedPacket, cancellationToken);
             }
 
             Array.Clear(sharedKey, 0, sharedKey.Length);
             _DerivedKeyPool.Return(sharedKey);
 
-            return cipherBytes.ToArray();
+            return new Memory<byte>(cipherBytes.ToArray());
         }
 
         public async ValueTask<byte[]> Decrypt(byte[] remotePublicKey, byte[] encryptedPacket)
@@ -121,15 +132,10 @@ namespace Disfigure.Cryptography
             return cipherBytes.ToArray();
         }
 
-        public byte[] GenerateHeader(int packetDataLength)
+        public void SetEncryptionPacketHeader(ref Memory<byte> encryptedPacket, int packetDataLength)
         {
-            byte[] encryptionHeader = new byte[EncryptedPacket.ENCRYPTION_HEADER_LENGTH];
-
-            encryptionHeader[EncryptedPacket.ENCRYPTION_PACKET_TYPE_OFFSET] = 0;
-            Buffer.BlockCopy(PublicKey, 0, encryptionHeader, EncryptedPacket.PUBLIC_KEY_OFFSET, PUBLIC_KEY_SIZE);
-            Buffer.BlockCopy(BitConverter.GetBytes(packetDataLength), 0, encryptionHeader, EncryptedPacket.PACKET_DATA_LENGTH_OFFSET, sizeof(int));
-
-            return encryptionHeader;
+            new Memory<byte>(_EncryptionHeader).CopyTo(encryptedPacket.Slice(0, _EncryptionHeader.Length));
+            new Memory<byte>(BitConverter.GetBytes(packetDataLength)).CopyTo(encryptedPacket.Slice(EncryptedPacket.PACKET_DATA_LENGTH_OFFSET, sizeof(int)));
         }
 
         public byte[] GenerateKeyExchangePacket()

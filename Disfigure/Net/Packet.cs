@@ -73,6 +73,16 @@ namespace Disfigure.Net
             return serialized;
         }
 
+        public unsafe void Serialize(ref Span<byte> serialized)
+        {
+            long ticks = UtcTimestamp.Ticks;
+            int contentLength = Content.Length;
+
+            new Span<byte>(&ticks, sizeof(long)).CopyTo(serialized.Slice(TIMESTAMP_HEADER_OFFSET, sizeof(long)));
+            new Span<byte>(&contentLength, sizeof(int)).CopyTo(serialized.Slice(CONTENT_LENGTH_HEADER_OFFSET, sizeof(int)));
+            serialized[PACKET_TYPE_HEADER_OFFSET] = (byte)Type;
+        }
+
         public static Packet Deserialize(byte[] data)
         {
             long timestamp = BitConverter.ToInt64(data, TIMESTAMP_HEADER_OFFSET);

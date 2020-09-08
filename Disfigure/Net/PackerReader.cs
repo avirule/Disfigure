@@ -6,6 +6,7 @@ using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
 using Disfigure.Cryptography;
+using Serilog;
 
 #endregion
 
@@ -27,12 +28,12 @@ namespace Disfigure.Net
 
         public PackerReader(NetworkStream networkStream)
         {
-            _Stream = networkStream;
-
             _Buffer = new byte[_BUFFER_SIZE];
             _EncryptionHeaderBuffer = new List<byte>();
             _PacketDataBuffer = new List<byte>();
             _ReadIndex = 0;
+
+            _Stream = networkStream;
         }
 
         public async ValueTask ReadPacketAsync(CancellationToken cancellationToken)

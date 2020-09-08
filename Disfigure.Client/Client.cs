@@ -88,25 +88,6 @@ namespace Disfigure.Client
             return connection;
         }
 
-        public static ValueTask WaitOnCompleteIdentity(Connection connection)
-        {
-            ManualResetEvent manualResetEvent = new ManualResetEvent(connection.CompleteRemoteIdentity);
-
-            ValueTask ManualReset(Connection connectionInternal, Packet packetInternal)
-            {
-                manualResetEvent.Set();
-                return default;
-            }
-
-            connection.EndIdentityReceived += ManualReset;
-            manualResetEvent.WaitOne();
-            connection.EndIdentityReceived -= ManualReset;
-
-            Log.Debug("Server identity information received. Client may now operate freely.");
-
-            return default;
-        }
-
         #region Events
 
         private unsafe ValueTask OnChannelIdentityReceived(Connection connection, Packet packet)
