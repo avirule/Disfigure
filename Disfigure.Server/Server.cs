@@ -33,18 +33,13 @@ namespace Disfigure.Server
             {
                 while (!CancellationToken.IsCancellationRequested)
                 {
-                    TcpClient client = await _Listener.AcceptTcpClientAsync();
-                    Log.Information($"Accepted new connection from {client.Client.RemoteEndPoint}.");
+                    TcpClient tcpClient = await _Listener.AcceptTcpClientAsync();
+                    Log.Information($"Accepted new connection from {tcpClient.Client.RemoteEndPoint}.");
 
-                    Guid guid = Guid.NewGuid();
-                    Log.Debug($"Auto-generated GUID for client {client.Client.RemoteEndPoint}: {guid}");
-
-                    Connection connection = new Connection(guid, client, true);
+                    Connection connection = await EstablishConnectionAsync(tcpClient, true);
                     connection.TextPacketReceived += OnTextPacketReceived;
 
-                    await connection.Finalize(CancellationToken);
-
-                    await CommunicateServerInformation(connection);
+                    await CommunicateServerIdentities(connection);
                 }
             }
             catch (Exception ex)
@@ -53,7 +48,7 @@ namespace Disfigure.Server
             }
         }
 
-        private async ValueTask CommunicateServerInformation(Connection connection)
+        private async ValueTask CommunicateServerIdentities(Connection connection)
         {
             DateTime utcTimestamp = DateTime.UtcNow;
             await connection.WriteAsync(PacketType.BeginIdentity, utcTimestamp, Array.Empty<byte>(), CancellationToken);

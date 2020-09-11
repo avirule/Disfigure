@@ -23,7 +23,7 @@ namespace Disfigure.Client
             TcpClient tcpClient = new TcpClient();
             int tries = 0;
 
-            Log.Debug($"Attempting to establish connection to {ipEndPoint}.");
+            Log.Debug($"Connecting to {ipEndPoint}.");
 
             while (!tcpClient.Connected)
             {
@@ -33,7 +33,7 @@ namespace Disfigure.Client
                 }
                 catch (SocketException) when (tries >= maximum_retries)
                 {
-                    Log.Error($"Failed to establish connection to {ipEndPoint}.");
+                    Log.Error($"Connection to {ipEndPoint} failed.");
                     throw;
                 }
                 catch (SocketException exception)
