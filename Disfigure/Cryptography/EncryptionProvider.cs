@@ -24,7 +24,6 @@ namespace Disfigure.Cryptography
         private readonly AesCryptoServiceProvider _AES;
         private readonly byte[] _PrivateKey;
         private readonly byte[] _PublicKey;
-        private readonly byte[] _EncryptionHeader;
 
         private byte[]? _RemotePublicKey;
 
@@ -38,11 +37,9 @@ namespace Disfigure.Cryptography
             _AES = new AesCryptoServiceProvider();
             _PrivateKey = new byte[PRIVATE_KEY_SIZE];
             _PublicKey = new byte[PUBLIC_KEY_SIZE];
-            //_EncryptionHeader = new byte[EncryptedPacket.ENCRYPTION_HEADER_LENGTH];
 
             GeneratePrivateKey();
             GeneratePublicKey();
-            GenerateEncryptionHeader();
         }
 
 
@@ -55,12 +52,6 @@ namespace Disfigure.Cryptography
             {
                 int result = TinyECDH.GenerateKeys((IntPtr)publicKey, (IntPtr)privateKey);
             }
-        }
-
-        private void GenerateEncryptionHeader()
-        {
-            // _EncryptionHeader[EncryptedPacket.ENCRYPTION_PACKET_TYPE_OFFSET] = (byte)EncryptedPacketType.Encrypted;
-            // Buffer.BlockCopy(PublicKey, 0, _EncryptionHeader, EncryptedPacket.PUBLIC_KEY_OFFSET, PublicKey.Length);
         }
 
         private unsafe void DeriveKey(byte[] remotePublicKey, ref byte[] derivedKey)
@@ -135,22 +126,5 @@ namespace Disfigure.Cryptography
 
             return cipherBytes.ToArray();
         }
-
-        // public void SetEncryptionPacketHeader(ref Memory<byte> encryptedPacket, int packetDataLength)
-        // {
-        //     new Memory<byte>(_EncryptionHeader).CopyTo(encryptedPacket.Slice(0, _EncryptionHeader.Length));
-        //     new Memory<byte>(BitConverter.GetBytes(packetDataLength)).CopyTo(encryptedPacket.Slice(EncryptedPacket.PACKET_DATA_LENGTH_OFFSET, sizeof(int)));
-        // }
-        //
-        // public byte[] GenerateKeyExchangePacket()
-        // {
-        //     byte[] keyPacket = new byte[EncryptedPacket.ENCRYPTION_HEADER_LENGTH + _AES.IV.Length];
-        //     keyPacket[EncryptedPacket.ENCRYPTION_PACKET_TYPE_OFFSET] = (byte)EncryptedPacketType.KeyExchange;
-        //     Buffer.BlockCopy(PublicKey, 0, keyPacket, EncryptedPacket.PUBLIC_KEY_OFFSET, PUBLIC_KEY_SIZE);
-        //     Buffer.BlockCopy(BitConverter.GetBytes(_AES.IV.Length), 0, keyPacket, EncryptedPacket.PACKET_DATA_LENGTH_OFFSET, sizeof(int));
-        //     Buffer.BlockCopy(_AES.IV, 0, keyPacket, EncryptedPacket.ENCRYPTION_HEADER_LENGTH, _AES.IV.Length);
-        //
-        //     return keyPacket;
-        // }
     }
 }

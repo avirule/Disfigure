@@ -28,7 +28,7 @@ namespace Disfigure.Net
 
     public delegate ValueTask PacketEventHandler(Connection origin, Packet packet);
 
-    public class Packet
+    public struct Packet
     {
         #region Static
 

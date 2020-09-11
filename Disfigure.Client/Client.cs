@@ -71,7 +71,6 @@ namespace Disfigure.Client
             Log.Debug($"Established connection to {ipEndPoint} with auto-generated GUID {guid}.");
 
             Connection connection = await FinalizeConnection(guid, tcpClient);
-            connection.PacketResetEvents[PacketType.EncryptionKeys].WaitOne();
             return connection;
         }
 
@@ -83,6 +82,7 @@ namespace Disfigure.Client
             _ServerConnections.Add(connection.Guid, connection);
 
             await connection.Finalize(_CancellationToken);
+            connection.WaitForPacket(PacketType.EndIdentity);
 
             return connection;
         }

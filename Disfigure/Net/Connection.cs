@@ -7,10 +7,12 @@ using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.IO.Pipelines;
+using System.Linq;
 using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
 using Disfigure.Cryptography;
+using Disfigure.Diagnostics;
 using Serilog;
 
 #endregion
@@ -26,11 +28,11 @@ namespace Disfigure.Net
         private readonly PipeWriter _Input;
         private readonly PipeReader _Output;
         private readonly EncryptionProvider _EncryptionProvider;
+        private readonly Dictionary<PacketType, ManualResetEvent> _PacketResetEvents;
 
         public Guid Guid { get; }
         public string Name { get; }
         public bool IsOwnerServer { get; }
-        public Dictionary<PacketType, ManualResetEvent> PacketResetEvents { get; }
 
         public byte[] PublicKey => _EncryptionProvider.PublicKey;
 
@@ -45,7 +47,7 @@ namespace Disfigure.Net
             Guid = guid;
             Name = string.Empty;
             IsOwnerServer = isOwnerServer;
-            PacketResetEvents = new Dictionary<PacketType, ManualResetEvent>
+            _PacketResetEvents = new Dictionary<PacketType, ManualResetEvent>
             {
                 { PacketType.EncryptionKeys, new ManualResetEvent(false) },
                 { PacketType.BeginIdentity, new ManualResetEvent(false) },
@@ -59,10 +61,15 @@ namespace Disfigure.Net
 
             BeginListen(cancellationToken);
 
-            Log.Debug($"Waiting for encryption keys from {_Client.Client.RemoteEndPoint}.");
-            PacketResetEvents[PacketType.EncryptionKeys].WaitOne();
+            Log.Debug($"Waiting for {nameof(PacketType.EncryptionKeys)} packet from {_Client.Client.RemoteEndPoint}.");
+            WaitForPacket(PacketType.EncryptionKeys);
 
             Log.Debug($"Connection to {_Client.Client.RemoteEndPoint} finalized.");
+        }
+
+        public void WaitForPacket(PacketType packetType)
+        {
+            _PacketResetEvents[packetType].WaitOne();
         }
 
         private async ValueTask SendEncryptionKeys(bool server, CancellationToken cancellationToken)
@@ -91,7 +98,7 @@ namespace Disfigure.Net
             catch (IOException ex) when (ex.InnerException is SocketException)
             {
                 Log.Debug(ex.ToString());
-                Log.Warning($"Connection at {_Client.Client.RemoteEndPoint} ({Guid}) forcibly closed connection.");
+                Log.Warning($"Connection to {_Client.Client.RemoteEndPoint} forcibly closed connection.");
 
                 if (Disconnected is { })
                 {
@@ -108,30 +115,37 @@ namespace Disfigure.Net
         {
             Log.Debug($"Beginning read loop for connection to {_Client.Client.RemoteEndPoint}.");
 
+            Stopwatch stopwatch = new Stopwatch();
+
             while (!cancellationToken.IsCancellationRequested)
             {
                 ReadResult result = await _Output.ReadAsync(cancellationToken).ConfigureAwait(false);
                 ReadOnlySequence<byte> sequence = result.Buffer;
 
-                if (!TryReadPacket(sequence, out SequencePosition consumed, out Packet? packet))
+                stopwatch.Restart();
+
+                if (!TryReadPacket(sequence, out SequencePosition consumed, out Packet packet))
                 {
                     continue;
                 }
 
-                await OnPacketReceived(packet, cancellationToken).ConfigureAwait(false);
+                stopwatch.Stop();
+                DiagnosticsProvider.CommitData<PacketDiagnosticGroup, TimeSpan>(new ConstructionTime(stopwatch.Elapsed));
+
+                await OnPacketReceived(packet, cancellationToken, stopwatch).ConfigureAwait(false);
                 _Output.AdvanceTo(consumed, sequence.End);
             }
         }
 
         private static bool TryReadPacket(ReadOnlySequence<byte> sequence, [NotNull] out SequencePosition consumed,
-            [NotNullWhen(true)] out Packet? packet)
+            [NotNullWhen(true)] out Packet packet)
         {
             int packetLength = BitConverter.ToInt32(sequence.Slice(0, sizeof(int)).FirstSpan);
 
             if (sequence.Length < packetLength)
             {
                 consumed = sequence.Start;
-                packet = null;
+                packet = default;
 
                 return false;
             }
@@ -192,9 +206,9 @@ namespace Disfigure.Net
         public event PacketEventHandler? ChannelIdentityReceived;
         public event PacketEventHandler? EndIdentityReceived;
 
-        private async ValueTask OnPacketReceived(Packet packet, CancellationToken cancellationToken)
+        private async ValueTask OnPacketReceived(Packet packet, CancellationToken cancellationToken, Stopwatch stopwatch)
         {
-            if (PacketResetEvents.TryGetValue(packet.Type, out ManualResetEvent? resetEvent))
+            if (_PacketResetEvents.TryGetValue(packet.Type, out ManualResetEvent? resetEvent))
             {
                 resetEvent.Set();
             }
@@ -204,11 +218,16 @@ namespace Disfigure.Net
                 // todo error check keys
 
                 _EncryptionProvider.AssignRemoteKeys(packet.Content, packet.PublicKey);
-                Log.Debug($"Received encryption keys from {_Client.Client.RemoteEndPoint}.");
             }
             else
             {
+                stopwatch.Restart();
+
                 packet.Content = await _EncryptionProvider.Decrypt(packet.PublicKey, packet.Content, cancellationToken);
+
+                stopwatch.Stop();
+                DiagnosticsProvider.CommitData<PacketDiagnosticGroup, TimeSpan>(new DecryptionTime(stopwatch.Elapsed));
+
                 await InvokePacketTypeEvent(packet);
             }
 
@@ -258,6 +277,16 @@ namespace Disfigure.Net
                 _Client.Dispose();
                 _Stream.Dispose();
             }
+
+            #if DEBUG
+
+            PacketDiagnosticGroup packetDiagnosticGroup = DiagnosticsProvider.GetGroup<PacketDiagnosticGroup>();
+            double avgConstruction = packetDiagnosticGroup.ConstructionTimes.Average(time => ((TimeSpan)time).TotalMilliseconds);
+            double avgDecryption = packetDiagnosticGroup.DecryptionTimes.Average(time => ((TimeSpan)time).TotalMilliseconds);
+            Log.Information($"Construction: {avgConstruction:0.00}ms");
+            Log.Information($"Decryption: {avgDecryption:0.00}ms");
+
+            #endif
 
             _Disposed = true;
         }

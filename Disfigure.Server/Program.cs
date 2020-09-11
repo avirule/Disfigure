@@ -14,10 +14,8 @@ namespace Disfigure.Server
         {
             Log.Logger = new LoggerConfiguration().WriteTo.Console().MinimumLevel.Verbose().CreateLogger();
 
-            using (Server server = new Server())
-            {
-                await server.Start();
-            }
+            using Server server = new Server();
+            await server.Start();
 
             Console.ReadLine();
         }
