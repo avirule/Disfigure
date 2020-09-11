@@ -1,9 +1,7 @@
 ﻿#region
 
-using System;
 using System.Net;
-using System.Threading.Tasks;
-using Serilog;
+using Serilog.Events;
 
 #endregion
 
@@ -11,16 +9,13 @@ namespace Disfigure.Server
 {
     internal class Program
     {
-        private static async Task Main()
+        private static void Main()
         {
             const int port = 8898;
 
-            Log.Logger = new LoggerConfiguration().WriteTo.Console().MinimumLevel.Verbose().CreateLogger();
 
-            using Server server = new Server(IPAddress.IPv6Loopback, port);
-            await server.Start();
-
-            Console.ReadLine();
+            using Server server = new Server(LogEventLevel.Verbose, IPAddress.IPv6Loopback, port);
+            server.Start();
         }
     }
 }

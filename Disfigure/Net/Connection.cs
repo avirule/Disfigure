@@ -7,7 +7,6 @@ using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.IO.Pipelines;
-using System.Linq;
 using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
@@ -57,6 +56,8 @@ namespace Disfigure.Net
 
         public async ValueTask Finalize(CancellationToken cancellationToken)
         {
+            await OnConnected();
+
             await SendEncryptionKeys(IsOwnerServer, cancellationToken);
 
             BeginListen(cancellationToken);
@@ -100,10 +101,7 @@ namespace Disfigure.Net
                 Log.Debug(ex.ToString());
                 Log.Warning($"Connection to {_Client.Client.RemoteEndPoint} forcibly closed connection.");
 
-                if (Disconnected is { })
-                {
-                    await Disconnected.Invoke(this);
-                }
+                await OnDisconnected();
             }
             catch (Exception exception)
             {
@@ -193,7 +191,24 @@ namespace Disfigure.Net
 
         #region Connection Events
 
+        public event ConnectionEventHandler? Connected;
         public event ConnectionEventHandler? Disconnected;
+
+        private async ValueTask OnConnected()
+        {
+            if (Connected is { })
+            {
+                await Connected.Invoke(this);
+            }
+        }
+
+        private async ValueTask OnDisconnected()
+        {
+            if (Disconnected is { })
+            {
+                await Disconnected.Invoke(this);
+            }
+        }
 
         #endregion
 
@@ -213,22 +228,21 @@ namespace Disfigure.Net
                 resetEvent.Set();
             }
 
-            if (packet.Type == PacketType.EncryptionKeys)
+            switch (packet.Type)
             {
-                // todo error check keys
+                case PacketType.EncryptionKeys:
+                    _EncryptionProvider.AssignRemoteKeys(packet.Content, packet.PublicKey);
+                    break;
+                default:
+                    stopwatch.Restart();
 
-                _EncryptionProvider.AssignRemoteKeys(packet.Content, packet.PublicKey);
-            }
-            else
-            {
-                stopwatch.Restart();
+                    packet.Content = await _EncryptionProvider.Decrypt(packet.PublicKey, packet.Content, cancellationToken);
 
-                packet.Content = await _EncryptionProvider.Decrypt(packet.PublicKey, packet.Content, cancellationToken);
+                    stopwatch.Stop();
+                    DiagnosticsProvider.CommitData<PacketDiagnosticGroup, TimeSpan>(new DecryptionTime(stopwatch.Elapsed));
 
-                stopwatch.Stop();
-                DiagnosticsProvider.CommitData<PacketDiagnosticGroup, TimeSpan>(new DecryptionTime(stopwatch.Elapsed));
-
-                await InvokePacketTypeEvent(packet);
+                    await InvokePacketTypeEvent(packet);
+                    break;
             }
 
             Log.Verbose($"INC {packet}");
@@ -277,16 +291,6 @@ namespace Disfigure.Net
                 _Client.Dispose();
                 _Stream.Dispose();
             }
-
-#if DEBUG
-
-            PacketDiagnosticGroup packetDiagnosticGroup = DiagnosticsProvider.GetGroup<PacketDiagnosticGroup>();
-            double avgConstruction = packetDiagnosticGroup.ConstructionTimes.Average(time => ((TimeSpan)time).TotalMilliseconds);
-            double avgDecryption = packetDiagnosticGroup.DecryptionTimes.Average(time => ((TimeSpan)time).TotalMilliseconds);
-            Log.Information($"Construction: {avgConstruction:0.00}ms");
-            Log.Information($"Decryption: {avgDecryption:0.00}ms");
-
-#endif
 
             _Disposed = true;
         }

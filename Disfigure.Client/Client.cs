@@ -7,13 +7,16 @@ using System.Text;
 using System.Threading.Tasks;
 using Disfigure.Net;
 using Serilog;
+using Serilog.Events;
 
 #endregion
 
 namespace Disfigure.Client
 {
-    public class Client : Module, IDisposable
+    public class Client : Module
     {
+        public Client(LogEventLevel minimumLogLevel) : base(minimumLogLevel) { }
+
         public async ValueTask<Connection> ConnectAsync(IPEndPoint ipEndPoint, TimeSpan retryDelay)
         {
             const int maximum_retries = 5;

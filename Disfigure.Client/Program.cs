@@ -6,7 +6,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Disfigure.Net;
-using Serilog;
+using Serilog.Events;
 
 #endregion
 
@@ -16,9 +16,7 @@ namespace Disfigure.Client
     {
         private static async Task Main()
         {
-            Log.Logger = new LoggerConfiguration().WriteTo.Console().MinimumLevel.Verbose().CreateLogger();
-
-            using Client client = new Client();
+            using Client client = new Client(LogEventLevel.Verbose);
             Connection server = await client.ConnectAsync(new IPEndPoint(IPAddress.IPv6Loopback, 8898), TimeSpan.FromSeconds(0.5d));
 
             await server.WriteAsync(PacketType.Text, DateTime.UtcNow, Encoding.Unicode.GetBytes("test message with emoji 🍑"),
