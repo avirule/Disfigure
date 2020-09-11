@@ -1,11 +1,9 @@
 ﻿#region
 
 using System;
-using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using System.Net.Sockets;
-using System.Threading;
 using System.Threading.Tasks;
 using Disfigure.Net;
 using Serilog;
@@ -66,8 +64,6 @@ namespace Disfigure.Server
         }
 
         #region Events
-
-
 
         private async ValueTask OnTextPacketReceived(Connection connection, Packet packet)
         {

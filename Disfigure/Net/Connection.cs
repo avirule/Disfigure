@@ -278,7 +278,7 @@ namespace Disfigure.Net
                 _Stream.Dispose();
             }
 
-            #if DEBUG
+#if DEBUG
 
             PacketDiagnosticGroup packetDiagnosticGroup = DiagnosticsProvider.GetGroup<PacketDiagnosticGroup>();
             double avgConstruction = packetDiagnosticGroup.ConstructionTimes.Average(time => ((TimeSpan)time).TotalMilliseconds);
@@ -286,7 +286,7 @@ namespace Disfigure.Net
             Log.Information($"Construction: {avgConstruction:0.00}ms");
             Log.Information($"Decryption: {avgDecryption:0.00}ms");
 
-            #endif
+#endif
 
             _Disposed = true;
         }
