@@ -14,28 +14,9 @@ using Serilog;
 
 namespace Disfigure.Client
 {
-    public class Client : IDisposable
+    public class Client : Module, IDisposable
     {
-        private readonly CancellationToken _CancellationToken;
-
-        private readonly CancellationTokenSource _CancellationTokenSource;
-        private readonly Dictionary<Guid, Channel> _Channels;
-        private readonly Dictionary<Guid, Connection> _ServerConnections;
-
-        public IEnumerable<Connection> ServerConnections => _ServerConnections.Values;
-        public IEnumerable<Channel> Channels => _Channels.Values;
-
-        public Client()
-        {
-            // todo perhaps use a server descriptor or something
-            _ServerConnections = new Dictionary<Guid, Connection>();
-            _Channels = new Dictionary<Guid, Channel>();
-
-            _CancellationTokenSource = new CancellationTokenSource();
-            _CancellationToken = _CancellationTokenSource.Token;
-        }
-
-        public async ValueTask<Connection> EstablishConnection(IPEndPoint ipEndPoint, TimeSpan retryDelay)
+        public async ValueTask<Connection> ConnectAsync(IPEndPoint ipEndPoint, TimeSpan retryDelay)
         {
             const int maximum_retries = 5;
 
@@ -61,29 +42,14 @@ namespace Disfigure.Client
 
                     Log.Warning($"{exception.Message}. Retrying ({tries}/{maximum_retries})...");
 
-                    await Task.Delay(retryDelay, _CancellationToken);
+                    await Task.Delay(retryDelay, CancellationToken);
                 }
-                catch (Exception exception) { }
             }
 
-            Guid guid = Guid.NewGuid();
-
-            Log.Debug($"Established connection to {ipEndPoint} with auto-generated GUID {guid}.");
-
-            Connection connection = await FinalizeConnection(guid, tcpClient);
-            return connection;
-        }
-
-        private async ValueTask<Connection> FinalizeConnection(Guid guid, TcpClient tcpClient)
-        {
-            Connection connection = new Connection(guid, tcpClient, false);
+            Connection connection = await EstablishConnectionAsync(tcpClient, false);
             connection.ChannelIdentityReceived += OnChannelIdentityReceived;
             connection.TextPacketReceived += OnTextPacketReceived;
-            _ServerConnections.Add(connection.Guid, connection);
-
-            await connection.Finalize(_CancellationToken);
             connection.WaitForPacket(PacketType.EndIdentity);
-
             return connection;
         }
 
@@ -95,7 +61,7 @@ namespace Disfigure.Client
             string name = Encoding.Unicode.GetString(packet.Content[sizeof(Guid)..]);
 
             Channel channel = new Channel(guid, name);
-            _Channels.Add(channel.Guid, channel);
+            Channels.Add(channel.Guid, channel);
 
             Log.Debug($"Received identity information for channel: #{channel.Name} ({channel.Guid})");
             return default;
@@ -103,38 +69,7 @@ namespace Disfigure.Client
 
         private async ValueTask OnTextPacketReceived(Connection connection, Packet packet)
         {
-            await connection.WriteAsync(packet.Type, DateTime.UtcNow, packet.Content, _CancellationToken);
-        }
-
-        #endregion
-
-        #region IDisposable
-
-        private bool _Disposed;
-
-        protected virtual void Dispose(bool disposing)
-        {
-            if (_Disposed)
-            {
-                return;
-            }
-
-            if (disposing)
-            {
-                foreach (Connection connection in _ServerConnections.Values)
-                {
-                    connection?.Dispose();
-                }
-            }
-
-            _CancellationTokenSource.Cancel();
-            _Disposed = true;
-        }
-
-        public void Dispose()
-        {
-            Dispose(true);
-            GC.SuppressFinalize(this);
+            await connection.WriteAsync(packet.Type, DateTime.UtcNow, packet.Content, CancellationToken);
         }
 
         #endregion

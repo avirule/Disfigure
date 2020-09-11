@@ -19,7 +19,7 @@ namespace Disfigure.Client
             Log.Logger = new LoggerConfiguration().WriteTo.Console().MinimumLevel.Verbose().CreateLogger();
 
             using Client client = new Client();
-            Connection server = await client.EstablishConnection(new IPEndPoint(IPAddress.IPv6Loopback, 8898), TimeSpan.FromSeconds(0.5d));
+            Connection server = await client.ConnectAsync(new IPEndPoint(IPAddress.IPv6Loopback, 8898), TimeSpan.FromSeconds(0.5d));
 
             await server.WriteAsync(PacketType.Text, DateTime.UtcNow, Encoding.Unicode.GetBytes("test message with emoji 🍑"),
                 CancellationToken.None);

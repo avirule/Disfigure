@@ -14,29 +14,11 @@ using Serilog;
 
 namespace Disfigure.Server
 {
-    public class Server : IDisposable
+    public class Server : Module
     {
-        private readonly CancellationToken _CancellationToken;
-
-        private readonly CancellationTokenSource _CancellationTokenSource;
-        private readonly Dictionary<Guid, Channel> _Channels;
-        private readonly Dictionary<Guid, Connection> _ClientConnections;
         private readonly TcpListener _Listener;
 
-
-        public Server()
-        {
-            const int port = 8898;
-            IPAddress local = IPAddress.IPv6Loopback;
-            _Listener = new TcpListener(local, port);
-            _ClientConnections = new Dictionary<Guid, Connection>();
-            _Channels = new Dictionary<Guid, Channel>();
-            Guid guid = Guid.NewGuid();
-            _Channels.Add(guid, new Channel(guid, "Default, Test"));
-
-            _CancellationTokenSource = new CancellationTokenSource();
-            _CancellationToken = _CancellationTokenSource.Token;
-        }
+        public Server(IPAddress ip, int port) => _Listener = new TcpListener(ip, port);
 
         public async Task Start()
         {
@@ -49,7 +31,7 @@ namespace Disfigure.Server
         {
             try
             {
-                while (!_CancellationToken.IsCancellationRequested)
+                while (!CancellationToken.IsCancellationRequested)
                 {
                     TcpClient client = await _Listener.AcceptTcpClientAsync();
                     Log.Information($"Accepted new connection from {client.Client.RemoteEndPoint}.");
@@ -59,10 +41,8 @@ namespace Disfigure.Server
 
                     Connection connection = new Connection(guid, client, true);
                     connection.TextPacketReceived += OnTextPacketReceived;
-                    connection.Disconnected += OnDisconnected;
-                    _ClientConnections.Add(guid, connection);
 
-                    await connection.Finalize(_CancellationToken);
+                    await connection.Finalize(CancellationToken);
 
                     await CommunicateServerInformation(connection);
                 }
@@ -76,63 +56,27 @@ namespace Disfigure.Server
         private async ValueTask CommunicateServerInformation(Connection connection)
         {
             DateTime utcTimestamp = DateTime.UtcNow;
-            await connection.WriteAsync(PacketType.BeginIdentity, utcTimestamp, Array.Empty<byte>(), _CancellationToken);
+            await connection.WriteAsync(PacketType.BeginIdentity, utcTimestamp, Array.Empty<byte>(), CancellationToken);
 
             await SendChannelList(connection);
 
-            await connection.WriteAsync(PacketType.EndIdentity, utcTimestamp, Array.Empty<byte>(), _CancellationToken);
+            await connection.WriteAsync(PacketType.EndIdentity, utcTimestamp, Array.Empty<byte>(), CancellationToken);
         }
 
         private async ValueTask SendChannelList(Connection connection)
         {
             DateTime utcTimestamp = DateTime.UtcNow;
-            await connection.WriteAsync(_Channels.Values.Select(channel => (PacketType.ChannelIdentity, utcTimestamp, channel.Serialize())),
-                _CancellationToken);
+            await connection.WriteAsync(Channels.Values.Select(channel => (PacketType.ChannelIdentity, utcTimestamp, channel.Serialize())),
+                CancellationToken);
         }
 
         #region Events
 
-        private ValueTask OnDisconnected(Connection connection)
-        {
-            Log.Information($"Connection {connection.Guid} closed.");
-            _ClientConnections.Remove(connection.Guid);
-            return default;
-        }
+
 
         private async ValueTask OnTextPacketReceived(Connection connection, Packet packet)
         {
-            await connection.WriteAsync(packet.Type, DateTime.UtcNow, packet.Content, _CancellationToken);
-        }
-
-        #endregion
-
-        #region IDisposable
-
-        private bool _Disposed;
-
-        protected virtual void Dispose(bool disposing)
-        {
-            if (_Disposed)
-            {
-                return;
-            }
-
-            if (disposing)
-            {
-                foreach (Connection connection in _ClientConnections.Values)
-                {
-                    connection?.Dispose();
-                }
-            }
-
-            _CancellationTokenSource.Cancel();
-            _Disposed = true;
-        }
-
-        public void Dispose()
-        {
-            Dispose(true);
-            GC.SuppressFinalize(this);
+            await connection.WriteAsync(packet.Type, DateTime.UtcNow, packet.Content, CancellationToken);
         }
 
         #endregion
