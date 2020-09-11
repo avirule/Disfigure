@@ -57,7 +57,7 @@ namespace Disfigure.Net
         {
             await SendEncryptionKeys(IsOwnerServer, cancellationToken);
 
-            await Task.Run(() => BeginListenAsync(cancellationToken), cancellationToken);
+            BeginListen(cancellationToken);
 
             Log.Debug($"Waiting for encryption keys from {_Client.Client.RemoteEndPoint}.");
             PacketResetEvents[PacketType.EncryptionKeys].WaitOne();
@@ -79,11 +79,14 @@ namespace Disfigure.Net
 
         #region Listening
 
-        private async Task BeginListenAsync(CancellationToken cancellationToken)
+        private void BeginListen(CancellationToken cancellationToken) =>
+            Task.Run(() => BeginListenAsyncInternal(cancellationToken), cancellationToken);
+
+        private async Task BeginListenAsyncInternal(CancellationToken cancellationToken)
         {
             try
             {
-                await ReadLoopAsync(cancellationToken);
+                await ReadLoopAsync(cancellationToken).ConfigureAwait(false);
             }
             catch (IOException ex) when (ex.InnerException is SocketException)
             {
@@ -107,7 +110,7 @@ namespace Disfigure.Net
 
             while (!cancellationToken.IsCancellationRequested)
             {
-                ReadResult result = await _Output.ReadAsync(cancellationToken);
+                ReadResult result = await _Output.ReadAsync(cancellationToken).ConfigureAwait(false);
                 ReadOnlySequence<byte> sequence = result.Buffer;
 
                 if (!TryReadPacket(sequence, out SequencePosition consumed, out Packet? packet))
@@ -115,7 +118,7 @@ namespace Disfigure.Net
                     continue;
                 }
 
-                await OnPacketReceived(packet, cancellationToken);
+                await OnPacketReceived(packet, cancellationToken).ConfigureAwait(false);
                 _Output.AdvanceTo(consumed, sequence.End);
             }
         }
@@ -206,7 +209,6 @@ namespace Disfigure.Net
             else
             {
                 packet.Content = await _EncryptionProvider.Decrypt(packet.PublicKey, packet.Content, cancellationToken);
-
                 await InvokePacketTypeEvent(packet);
             }
 
