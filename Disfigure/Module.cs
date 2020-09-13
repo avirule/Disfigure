@@ -5,7 +5,6 @@ using System.Collections.Generic;
 using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
-using Disfigure.Diagnostics;
 using Disfigure.Net;
 using Serilog;
 using Serilog.Events;
@@ -33,7 +32,6 @@ namespace Disfigure
             Channels = new Dictionary<Guid, Channel>();
 
 #if DEBUG
-
             DiagnosticsProvider.EnableGroup<PacketDiagnosticGroup>();
 
 #endif
@@ -96,7 +94,6 @@ namespace Disfigure
             }
 
 #if DEBUG
-
             PacketDiagnosticGroup packetDiagnosticGroup = DiagnosticsProvider.GetGroup<PacketDiagnosticGroup>();
 
             if (packetDiagnosticGroup is { })

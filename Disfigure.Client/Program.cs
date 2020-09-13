@@ -3,7 +3,6 @@
 using System;
 using System.Net;
 using System.Threading.Tasks;
-using Disfigure.Net;
 using Serilog;
 using Serilog.Events;
 
