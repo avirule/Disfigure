@@ -79,11 +79,11 @@ namespace Disfigure.Net
             int packetLength = HEADER_LENGTH + Content.Length;
             byte[] serialized = new byte[packetLength];
 
-            BitConverter.GetBytes(packetLength).CopyTo(serialized, OFFSET_PACKET_LENGTH);
+            Buffer.BlockCopy(BitConverter.GetBytes(packetLength), 0, serialized, OFFSET_PACKET_LENGTH, sizeof(int));
             serialized[OFFSET_PACKET_TYPE] = (byte)Type;
-            PublicKey.CopyTo(serialized, OFFSET_PUBLIC_KEY);
-            BitConverter.GetBytes(UtcTimestamp.Ticks).CopyTo(serialized, OFFSET_TIMESTAMP);
-            Content.CopyTo(serialized, HEADER_LENGTH);
+            Buffer.BlockCopy(PublicKey, 0, serialized, OFFSET_PUBLIC_KEY, PublicKey.Length);
+            Buffer.BlockCopy(BitConverter.GetBytes(UtcTimestamp.Ticks), 0, serialized, OFFSET_TIMESTAMP, sizeof(long));
+            Buffer.BlockCopy(Content, 0, serialized, HEADER_LENGTH, Content.Length);
 
             return serialized;
         }

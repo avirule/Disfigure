@@ -182,7 +182,7 @@ namespace Disfigure.Net
             packet.Content = await _EncryptionProvider.Encrypt(packet.Content, cancellationToken).ConfigureAwait(false);
             byte[] serialized = packet.Serialize();
 
-            await _Input.WriteAsync(serialized, cancellationToken);
+            await _Input.WriteAsync(serialized, cancellationToken).ConfigureAwait(false);
 
             Log.Verbose($"OUT {packet}");
         }
