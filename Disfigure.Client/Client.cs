@@ -15,7 +15,7 @@ namespace Disfigure.Client
 {
     public class Client : Module
     {
-        public Client(LogEventLevel minimumLogLevel) : base(minimumLogLevel) { }
+        public Client(LogEventLevel minimumLogLevel) : base(minimumLogLevel) => ConsoleLineRead += OnConsoleLineRead;
 
         public async ValueTask<Connection> ConnectAsync(IPEndPoint ipEndPoint, TimeSpan retryDelay)
         {
@@ -49,9 +49,13 @@ namespace Disfigure.Client
 
             Connection connection = await EstablishConnectionAsync(tcpClient, false);
             connection.ChannelIdentityReceived += OnChannelIdentityReceived;
-            connection.TextPacketReceived += OnTextPacketReceived;
             connection.WaitForPacket(PacketType.EndIdentity);
             return connection;
+        }
+
+        public override void Start()
+        {
+            ReadConsoleLoop();
         }
 
         #region Events
@@ -68,9 +72,15 @@ namespace Disfigure.Client
             return default;
         }
 
-        private async ValueTask OnTextPacketReceived(Connection connection, Packet packet)
+        private void OnConsoleLineRead(string line)
         {
-            await connection.WriteAsync(packet.Type, DateTime.UtcNow, packet.Content, CancellationToken);
+            DateTime utcTimestamp = DateTime.UtcNow;
+            byte[] bytes = Encoding.Unicode.GetBytes(line);
+
+            foreach (Connection connection in Connections)
+            {
+                Task.Run(() => connection.WriteAsync(PacketType.Text, utcTimestamp, bytes, CancellationToken));
+            }
         }
 
         #endregion

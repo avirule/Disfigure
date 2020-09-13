@@ -2,10 +2,9 @@
 
 using System;
 using System.Net;
-using System.Text;
-using System.Threading;
 using System.Threading.Tasks;
 using Disfigure.Net;
+using Serilog;
 using Serilog.Events;
 
 #endregion
@@ -16,13 +15,17 @@ namespace Disfigure.Client
     {
         private static async Task Main()
         {
-            using Client client = new Client(LogEventLevel.Verbose);
-            Connection server = await client.ConnectAsync(new IPEndPoint(IPAddress.IPv6Loopback, 8898), TimeSpan.FromSeconds(0.5d));
-
-            await server.WriteAsync(PacketType.Text, DateTime.UtcNow, Encoding.Unicode.GetBytes("test message with emoji 🍑"),
-                CancellationToken.None);
-
-            Console.ReadLine();
+            try
+            {
+                using Client client = new Client(LogEventLevel.Verbose);
+                await client.ConnectAsync(new IPEndPoint(IPAddress.IPv6Loopback, 8898), TimeSpan.FromSeconds(0.5d));
+                client.Start();
+            }
+            finally
+            {
+                Log.Information("Press any key to exit.");
+                Console.ReadKey();
+            }
         }
     }
 }

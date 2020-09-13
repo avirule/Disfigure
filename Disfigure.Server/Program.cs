@@ -1,6 +1,8 @@
 ﻿#region
 
+using System;
 using System.Net;
+using Serilog;
 using Serilog.Events;
 
 #endregion
@@ -13,9 +15,16 @@ namespace Disfigure.Server
         {
             const int port = 8898;
 
-
-            using Server server = new Server(LogEventLevel.Verbose, IPAddress.IPv6Loopback, port);
-            server.Start();
+            try
+            {
+                using Server server = new Server(LogEventLevel.Verbose, IPAddress.IPv6Loopback, port);
+                server.Start();
+            }
+            finally
+            {
+                Log.Information("Press any key to exit.");
+                Console.ReadKey();
+            }
         }
     }
 }

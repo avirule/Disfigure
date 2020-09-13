@@ -20,7 +20,7 @@ namespace Disfigure.Net
 {
     public delegate ValueTask ConnectionEventHandler(Connection connection);
 
-    public class Connection : IDisposable
+    public class Connection : IDisposable, IEquatable<Connection>
     {
         private readonly TcpClient _Client;
         private readonly NetworkStream _Stream;
@@ -99,7 +99,7 @@ namespace Disfigure.Net
             catch (IOException ex) when (ex.InnerException is SocketException)
             {
                 Log.Debug(ex.ToString());
-                Log.Warning($"Connection to {_Client.Client.RemoteEndPoint} forcibly closed connection.");
+                Log.Warning($"Connection to {_Client.Client.RemoteEndPoint} forcibly closed.");
 
                 await OnDisconnected();
             }
@@ -163,24 +163,25 @@ namespace Disfigure.Net
 
         public async ValueTask WriteAsync(PacketType type, DateTime timestamp, byte[] content, CancellationToken cancellationToken)
         {
-            await WriteEncryptedAsync(new Packet(type, PublicKey, timestamp, content), cancellationToken);
-            await _Input.FlushAsync(cancellationToken);
+            await WriteEncryptedAsync(new Packet(type, PublicKey, timestamp, content), cancellationToken).ConfigureAwait(false);
+            await _Input.FlushAsync(cancellationToken).ConfigureAwait(false);
         }
 
         public async ValueTask WriteAsync(IEnumerable<(PacketType, DateTime, byte[])> packets, CancellationToken cancellationToken)
         {
             foreach ((PacketType type, DateTime timestamp, byte[] content) in packets)
             {
-                await WriteEncryptedAsync(new Packet(type, PublicKey, timestamp, content), cancellationToken);
+                await WriteEncryptedAsync(new Packet(type, PublicKey, timestamp, content), cancellationToken).ConfigureAwait(false);
             }
 
-            await _Input.FlushAsync(cancellationToken);
+            await _Input.FlushAsync(cancellationToken).ConfigureAwait(false);
         }
 
         private async ValueTask WriteEncryptedAsync(Packet packet, CancellationToken cancellationToken)
         {
-            packet.Content = await _EncryptionProvider.Encrypt(packet.Content, cancellationToken);
+            packet.Content = await _EncryptionProvider.Encrypt(packet.Content, cancellationToken).ConfigureAwait(false);
             byte[] serialized = packet.Serialize();
+
             await _Input.WriteAsync(serialized, cancellationToken);
 
             Log.Verbose($"OUT {packet}");
@@ -245,16 +246,16 @@ namespace Disfigure.Net
                     break;
             }
 
-            Log.Verbose($"INC {packet}");
-        }
-
-        private async ValueTask InvokePacketTypeEvent(Packet packet)
-        {
             if (PacketReceived is { })
             {
                 await PacketReceived.Invoke(this, packet);
             }
 
+            Log.Verbose($"INC {packet}");
+        }
+
+        private async ValueTask InvokePacketTypeEvent(Packet packet)
+        {
             switch (packet.Type)
             {
                 case PacketType.Text when TextPacketReceived is { }:
@@ -273,7 +274,6 @@ namespace Disfigure.Net
         }
 
         #endregion
-
 
         #region IDisposable
 
@@ -300,6 +300,51 @@ namespace Disfigure.Net
             Dispose(true);
             GC.SuppressFinalize(this);
         }
+
+        #endregion
+
+        #region IEquatable<Connection>
+
+        public bool Equals(Connection? other)
+        {
+            if (ReferenceEquals(null, other))
+            {
+                return false;
+            }
+
+            if (ReferenceEquals(this, other))
+            {
+                return true;
+            }
+
+            return Guid.Equals(other.Guid);
+        }
+
+        public override bool Equals(object? obj)
+        {
+            if (ReferenceEquals(null, obj))
+            {
+                return false;
+            }
+
+            if (ReferenceEquals(this, obj))
+            {
+                return true;
+            }
+
+            if (obj.GetType() != GetType())
+            {
+                return false;
+            }
+
+            return Equals((Connection)obj);
+        }
+
+        public override int GetHashCode() => Guid.GetHashCode();
+
+        public static bool operator ==(Connection? left, Connection? right) => Equals(left, right);
+
+        public static bool operator !=(Connection? left, Connection? right) => !Equals(left, right);
 
         #endregion
     }

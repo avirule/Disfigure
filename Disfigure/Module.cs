@@ -14,7 +14,9 @@ using Serilog.Events;
 
 namespace Disfigure
 {
-    public class Module : IDisposable
+    public delegate void ConsoleLineReadEventHandler(string line);
+
+    public abstract class Module : IDisposable
     {
         protected readonly List<Connection> Connections;
         protected readonly CancellationTokenSource CancellationTokenSource;
@@ -37,6 +39,8 @@ namespace Disfigure
 #endif
         }
 
+        public abstract void Start();
+
         protected async ValueTask<Connection> EstablishConnectionAsync(TcpClient tcpClient, bool isServerModule)
         {
             Connection connection = new Connection(Guid.NewGuid(), tcpClient, isServerModule);
@@ -46,6 +50,21 @@ namespace Disfigure
 
             return connection;
         }
+
+        protected void ReadConsoleLoop()
+        {
+            while (!CancellationToken.IsCancellationRequested)
+            {
+                string? line = Console.ReadLine();
+
+                if (!string.IsNullOrWhiteSpace(line))
+                {
+                    ConsoleLineRead?.Invoke(line);
+                }
+            }
+        }
+
+        public event ConsoleLineReadEventHandler? ConsoleLineRead;
 
         #region Connection Events
 
@@ -79,11 +98,15 @@ namespace Disfigure
 #if DEBUG
 
             PacketDiagnosticGroup packetDiagnosticGroup = DiagnosticsProvider.GetGroup<PacketDiagnosticGroup>();
-            (double avgConstruction, double avgDecryption) = packetDiagnosticGroup.GetAveragePacketTimes();
 
-            Log.Information($"Construction: {avgConstruction:0.00}ms");
-            Log.Information($"Decryption: {avgDecryption:0.00}ms");
+            if (packetDiagnosticGroup is { })
+            {
 
+                (double avgConstruction, double avgDecryption) = packetDiagnosticGroup.GetAveragePacketTimes();
+
+                Log.Information($"Construction: {avgConstruction:0.00}ms");
+                Log.Information($"Decryption: {avgDecryption:0.00}ms");
+            }
 #endif
 
             CancellationTokenSource.Cancel();

@@ -77,11 +77,15 @@ namespace Disfigure.Cryptography
             EncryptionNegotiated = true;
         }
 
-        public async ValueTask<byte[]> Encrypt(byte[] unencryptedPacket, CancellationToken cancellationToken)
+        public async ValueTask<byte[]> Encrypt(byte[] unencrypted, CancellationToken cancellationToken)
         {
             if (!EncryptionNegotiated || _RemotePublicKey is null)
             {
                 throw new CryptographicException("Key exchange has not been completed.");
+            }
+            else if (unencrypted.Length == 0)
+            {
+                return unencrypted;
             }
 
             byte[] sharedKey = _DerivedKeyPool.Rent();
@@ -94,7 +98,7 @@ namespace Disfigure.Cryptography
             using (ICryptoTransform? encryptor = _AES.CreateEncryptor())
             await using (CryptoStream cryptoStream = new CryptoStream(cipherBytes, encryptor, CryptoStreamMode.Write))
             {
-                await cryptoStream.WriteAsync(unencryptedPacket, cancellationToken);
+                await cryptoStream.WriteAsync(unencrypted, cancellationToken);
             }
 
             _DerivedKeyPool.Return(sharedKey);
@@ -102,11 +106,15 @@ namespace Disfigure.Cryptography
             return cipherBytes.ToArray();
         }
 
-        public async ValueTask<byte[]> Decrypt(byte[] remotePublicKey, byte[] encryptedPacket, CancellationToken cancellationToken)
+        public async ValueTask<byte[]> Decrypt(byte[] remotePublicKey, byte[] encrypted, CancellationToken cancellationToken)
         {
-            if (!EncryptionNegotiated)
+            if (!EncryptionNegotiated || _RemotePublicKey is null)
             {
                 throw new CryptographicException("Key exchange has not been completed.");
+            }
+            else if (encrypted.Length == 0)
+            {
+                return encrypted;
             }
 
             byte[] sharedKey = _DerivedKeyPool.Rent();
@@ -119,7 +127,7 @@ namespace Disfigure.Cryptography
             using (ICryptoTransform? decryptor = _AES.CreateDecryptor())
             await using (CryptoStream cryptoStream = new CryptoStream(cipherBytes, decryptor, CryptoStreamMode.Write))
             {
-                await cryptoStream.WriteAsync(encryptedPacket, 0, encryptedPacket.Length, cancellationToken);
+                await cryptoStream.WriteAsync(encrypted, 0, encrypted.Length, cancellationToken);
             }
 
             _DerivedKeyPool.Return(sharedKey);

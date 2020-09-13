@@ -39,20 +39,19 @@ namespace Disfigure.Diagnostics
             }
         }
 
-        public static TDiagnosticGroup GetGroup<TDiagnosticGroup>() where TDiagnosticGroup : class, IDiagnosticGroup =>
-            _EnabledGroups[typeof(TDiagnosticGroup)] as TDiagnosticGroup ?? throw new ArgumentException();
+        public static TDiagnosticGroup? GetGroup<TDiagnosticGroup>() where TDiagnosticGroup : class, IDiagnosticGroup =>
+            _EnabledGroups[typeof(TDiagnosticGroup)] as TDiagnosticGroup ?? default;
 
         public static void CommitData<TDiagnosticGroup, TDataType>(IDiagnosticData<TDataType> diagnosticData)
             where TDiagnosticGroup : IDiagnosticGroup
         {
-            if (_EnabledGroups.ContainsKey(typeof(TDiagnosticGroup)))
+            if (_EnabledGroups.TryGetValue(typeof(TDiagnosticGroup), out IDiagnosticGroup? diagnosticGroup))
             {
-                _EnabledGroups[typeof(TDiagnosticGroup)].CommitData(diagnosticData);
+                diagnosticGroup.CommitData(diagnosticData);
             }
             else if (EmitNotEnabledErrors)
             {
-                Log.Error(
-                    $"Diagnostic group '{typeof(TDiagnosticGroup).FullName}' has not been enabled. Please enable before attempting to commit data.");
+                Log.Error($"Diagnostic group '{typeof(TDiagnosticGroup).FullName}' has not been enabled. Please enable before commiting data.");
             }
         }
     }

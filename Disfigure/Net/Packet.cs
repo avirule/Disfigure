@@ -14,7 +14,7 @@ namespace Disfigure.Net
     {
         Text,
         Sound,
-        Image,
+        Media,
         Video,
         Administration,
         Operation,
