@@ -2,7 +2,6 @@
 
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
@@ -80,10 +79,8 @@ namespace Disfigure
 #if DEBUG
 
             PacketDiagnosticGroup packetDiagnosticGroup = DiagnosticsProvider.GetGroup<PacketDiagnosticGroup>();
-            double avgConstruction = packetDiagnosticGroup.ConstructionTimes.DefaultIfEmpty()?.Average(time => ((TimeSpan)time).TotalMilliseconds)
-                                     ?? 0d;
-            double avgDecryption = packetDiagnosticGroup.DecryptionTimes.DefaultIfEmpty()?.Average(time => ((TimeSpan)time).TotalMilliseconds)
-                                   ?? 0d;
+            (double avgConstruction, double avgDecryption) = packetDiagnosticGroup.GetAveragePacketTimes();
+
             Log.Information($"Construction: {avgConstruction:0.00}ms");
             Log.Information($"Decryption: {avgDecryption:0.00}ms");
 

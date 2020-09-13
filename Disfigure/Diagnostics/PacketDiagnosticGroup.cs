@@ -2,6 +2,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 #endregion
 
@@ -47,6 +48,14 @@ namespace Disfigure.Diagnostics
                     DecryptionTimes.Add(decryptionTime);
                     break;
             }
+        }
+
+        public (double construction, double decryption) GetAveragePacketTimes()
+        {
+            double avgConstruction = ConstructionTimes.DefaultIfEmpty()?.Average(time => ((TimeSpan)time).TotalMilliseconds) ?? 0d;
+            double avgDecryption = DecryptionTimes.DefaultIfEmpty()?.Average(time => ((TimeSpan)time).TotalMilliseconds) ?? 0d;
+
+            return (avgConstruction, avgDecryption);
         }
     }
 }
