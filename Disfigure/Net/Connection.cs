@@ -81,8 +81,8 @@ namespace Disfigure.Net
 
             Packet packet = new Packet(PacketType.EncryptionKeys, _EncryptionProvider.PublicKey, DateTime.UtcNow,
                 server ? _EncryptionProvider.IV : Array.Empty<byte>());
-            await _Stream.WriteAsync(packet.Serialize(), cancellationToken).ConfigureAwait(false);
-            await _Stream.FlushAsync(cancellationToken).ConfigureAwait(false);
+            await _Stream.WriteAsync(packet.Serialize(), cancellationToken);
+            await _Stream.FlushAsync(cancellationToken);
         }
 
         #region Listening
@@ -94,7 +94,7 @@ namespace Disfigure.Net
         {
             try
             {
-                await ReadLoopAsync(cancellationToken).ConfigureAwait(false);
+                await ReadLoopAsync(cancellationToken);
             }
             catch (IOException ex) when (ex.InnerException is SocketException)
             {
@@ -117,7 +117,7 @@ namespace Disfigure.Net
 
             while (!cancellationToken.IsCancellationRequested)
             {
-                ReadResult result = await _Output.ReadAsync(cancellationToken).ConfigureAwait(false);
+                ReadResult result = await _Output.ReadAsync(cancellationToken);
                 ReadOnlySequence<byte> sequence = result.Buffer;
 
                 stopwatch.Restart();
@@ -130,21 +130,26 @@ namespace Disfigure.Net
                 stopwatch.Stop();
                 DiagnosticsProvider.CommitData<PacketDiagnosticGroup, TimeSpan>(new ConstructionTime(stopwatch.Elapsed));
 
-                await OnPacketReceived(packet, cancellationToken, stopwatch).ConfigureAwait(false);
-                _Output.AdvanceTo(consumed, sequence.End);
+                await OnPacketReceived(packet, cancellationToken, stopwatch);
+                _Output.AdvanceTo(consumed, consumed);
             }
         }
 
         private static bool TryReadPacket(ReadOnlySequence<byte> sequence, [NotNull] out SequencePosition consumed,
             [NotNullWhen(true)] out Packet packet)
         {
+            consumed = sequence.Start;
+            packet = default;
+
+            if (sequence.Length < sizeof(int))
+            {
+                return false;
+            }
+
             int packetLength = BitConverter.ToInt32(sequence.Slice(0, sizeof(int)).FirstSpan);
 
             if (sequence.Length < packetLength)
             {
-                consumed = sequence.Start;
-                packet = default;
-
                 return false;
             }
             else
@@ -163,28 +168,28 @@ namespace Disfigure.Net
 
         public async ValueTask WriteAsync(PacketType type, DateTime timestamp, byte[] content, CancellationToken cancellationToken)
         {
-            await WriteEncryptedAsync(new Packet(type, PublicKey, timestamp, content), cancellationToken).ConfigureAwait(false);
-            await _Input.FlushAsync(cancellationToken).ConfigureAwait(false);
+            await WriteEncryptedAsync(new Packet(type, PublicKey, timestamp, content), cancellationToken);
+            await _Input.FlushAsync(cancellationToken);
         }
 
         public async ValueTask WriteAsync(IEnumerable<(PacketType, DateTime, byte[])> packets, CancellationToken cancellationToken)
         {
             foreach ((PacketType type, DateTime timestamp, byte[] content) in packets)
             {
-                await WriteEncryptedAsync(new Packet(type, PublicKey, timestamp, content), cancellationToken).ConfigureAwait(false);
+                await WriteEncryptedAsync(new Packet(type, PublicKey, timestamp, content), cancellationToken);
             }
 
-            await _Input.FlushAsync(cancellationToken).ConfigureAwait(false);
+            await _Input.FlushAsync(cancellationToken);
         }
 
         private async ValueTask WriteEncryptedAsync(Packet packet, CancellationToken cancellationToken)
         {
-            packet.Content = await _EncryptionProvider.Encrypt(packet.Content, cancellationToken).ConfigureAwait(false);
+            packet.Content = await _EncryptionProvider.Encrypt(packet.Content, cancellationToken);
             byte[] serialized = packet.Serialize();
 
-            await _Input.WriteAsync(serialized, cancellationToken).ConfigureAwait(false);
+            await _Input.WriteAsync(serialized, cancellationToken);
 
-            Log.Verbose($"OUT {packet}");
+            Log.Verbose($"OUT {_Client.Client.RemoteEndPoint}: {packet}");
         }
 
         #endregion
@@ -251,7 +256,7 @@ namespace Disfigure.Net
                 await PacketReceived.Invoke(this, packet);
             }
 
-            Log.Verbose($"INC {packet}");
+            Log.Verbose($"INC {_Client.Client.RemoteEndPoint}: {packet}");
         }
 
         private async ValueTask InvokePacketTypeEvent(Packet packet)
@@ -259,16 +264,16 @@ namespace Disfigure.Net
             switch (packet.Type)
             {
                 case PacketType.Text when TextPacketReceived is { }:
-                    await TextPacketReceived.Invoke(this, packet).ConfigureAwait(false);
+                    await TextPacketReceived.Invoke(this, packet);
                     break;
                 case PacketType.BeginIdentity when BeginIdentityReceived is { }:
-                    await BeginIdentityReceived.Invoke(this, packet).ConfigureAwait(false);
+                    await BeginIdentityReceived.Invoke(this, packet);
                     break;
                 case PacketType.EndIdentity when EndIdentityReceived is { }:
-                    await EndIdentityReceived.Invoke(this, packet).ConfigureAwait(false);
+                    await EndIdentityReceived.Invoke(this, packet);
                     break;
                 case PacketType.ChannelIdentity when ChannelIdentityReceived is { }:
-                    await ChannelIdentityReceived.Invoke(this, packet).ConfigureAwait(false);
+                    await ChannelIdentityReceived.Invoke(this, packet);
                     break;
             }
         }

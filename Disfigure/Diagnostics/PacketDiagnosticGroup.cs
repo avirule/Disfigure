@@ -8,7 +8,7 @@ using System.Linq;
 
 namespace Disfigure.Diagnostics
 {
-    public readonly struct ConstructionTime : IDiagnosticData<TimeSpan>
+    public class ConstructionTime : IDiagnosticData<TimeSpan>
     {
         public TimeSpan Data { get; }
 
@@ -17,7 +17,7 @@ namespace Disfigure.Diagnostics
         public static explicit operator TimeSpan(ConstructionTime constructionTime) => constructionTime.Data;
     }
 
-    public readonly struct DecryptionTime : IDiagnosticData<TimeSpan>
+    public class DecryptionTime : IDiagnosticData<TimeSpan>
     {
         public TimeSpan Data { get; }
 
