@@ -128,7 +128,7 @@ namespace Disfigure.Net
                 }
 
                 stopwatch.Stop();
-                DiagnosticsProvider.CommitData<PacketDiagnosticGroup, TimeSpan>(new ConstructionTime(stopwatch.Elapsed));
+                DiagnosticsProvider.CommitData<PacketDiagnosticGroup>(new ConstructionTime(stopwatch.Elapsed));
 
                 await OnPacketReceived(packet, cancellationToken, stopwatch);
                 _Output.AdvanceTo(consumed, consumed);
@@ -245,7 +245,7 @@ namespace Disfigure.Net
                     packet.Content = await _EncryptionProvider.Decrypt(packet.PublicKey, packet.Content, cancellationToken);
 
                     stopwatch.Stop();
-                    DiagnosticsProvider.CommitData<PacketDiagnosticGroup, TimeSpan>(new DecryptionTime(stopwatch.Elapsed));
+                    DiagnosticsProvider.CommitData<PacketDiagnosticGroup>(new DecryptionTime(stopwatch.Elapsed));
 
                     await InvokePacketTypeEvent(packet);
                     break;

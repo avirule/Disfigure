@@ -3,27 +3,30 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.CompilerServices;
 
 #endregion
 
 namespace Disfigure.Diagnostics
 {
-    public class ConstructionTime : IDiagnosticData<TimeSpan>
+    public class ConstructionTime : IDiagnosticData
     {
-        public TimeSpan Data { get; }
+        private object _Data;
+        public object Data => _Data;
 
-        public ConstructionTime(TimeSpan data) => Data = data;
+        public ConstructionTime(TimeSpan data) => _Data = data;
 
-        public static explicit operator TimeSpan(ConstructionTime constructionTime) => constructionTime.Data;
+        public static explicit operator TimeSpan(ConstructionTime constructionTime) => Unsafe.As<object, TimeSpan>(ref constructionTime._Data);
     }
 
-    public class DecryptionTime : IDiagnosticData<TimeSpan>
+    public class DecryptionTime : IDiagnosticData
     {
-        public TimeSpan Data { get; }
+        private object _Data;
+        public object Data => _Data;
 
-        public DecryptionTime(TimeSpan data) => Data = data;
+        public DecryptionTime(TimeSpan data) => _Data = data;
 
-        public static explicit operator TimeSpan(DecryptionTime decryptionTime) => decryptionTime.Data;
+        public static explicit operator TimeSpan(DecryptionTime decryptionTime) => Unsafe.As<object, TimeSpan>(ref decryptionTime._Data);
     }
 
     public class PacketDiagnosticGroup : IDiagnosticGroup
@@ -37,7 +40,7 @@ namespace Disfigure.Diagnostics
             DecryptionTimes = new List<DecryptionTime>();
         }
 
-        public void CommitData<TDataType>(IDiagnosticData<TDataType> data)
+        public void CommitData(IDiagnosticData data)
         {
             switch (data)
             {

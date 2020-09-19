@@ -8,14 +8,14 @@ using Serilog;
 
 namespace Disfigure.Diagnostics
 {
-    public interface IDiagnosticData<out T>
+    public interface IDiagnosticData
     {
-        public T Data { get; }
+        public object Data { get; }
     }
 
     public interface IDiagnosticGroup
     {
-        public void CommitData<T>(IDiagnosticData<T> data);
+        public void CommitData(IDiagnosticData data);
     }
 
     public static class DiagnosticsProvider
@@ -42,7 +42,7 @@ namespace Disfigure.Diagnostics
         public static TDiagnosticGroup? GetGroup<TDiagnosticGroup>() where TDiagnosticGroup : class, IDiagnosticGroup =>
             _EnabledGroups[typeof(TDiagnosticGroup)] as TDiagnosticGroup ?? default;
 
-        public static void CommitData<TDiagnosticGroup, TDataType>(IDiagnosticData<TDataType> diagnosticData)
+        public static void CommitData<TDiagnosticGroup>(IDiagnosticData diagnosticData)
             where TDiagnosticGroup : IDiagnosticGroup
         {
             if (_EnabledGroups.TryGetValue(typeof(TDiagnosticGroup), out IDiagnosticGroup? diagnosticGroup))
