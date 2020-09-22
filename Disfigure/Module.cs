@@ -1,6 +1,7 @@
 #region
 
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Net.Sockets;
 using System.Threading;
@@ -18,9 +19,9 @@ namespace Disfigure
 
     public abstract class Module : IDisposable
     {
-        protected readonly Dictionary<Guid, Connection> Connections;
         protected readonly CancellationTokenSource CancellationTokenSource;
-        protected readonly Dictionary<Guid, Channel> Channels;
+        protected readonly ConcurrentDictionary<Guid, Connection> Connections;
+        protected readonly ConcurrentDictionary<Guid, Channel> Channels;
 
         public CancellationToken CancellationToken => CancellationTokenSource.Token;
 
@@ -28,9 +29,9 @@ namespace Disfigure
         {
             Log.Logger = new LoggerConfiguration().WriteTo.Console().MinimumLevel.Is(minimumLogLevel).CreateLogger();
 
-            Connections = new Dictionary<Guid, Connection>();
             CancellationTokenSource = new CancellationTokenSource();
-            Channels = new Dictionary<Guid, Channel>();
+            Connections = new ConcurrentDictionary<Guid, Connection>();
+            Channels = new ConcurrentDictionary<Guid, Channel>();
 
 #if DEBUG
             DiagnosticsProvider.EnableGroup<PacketDiagnosticGroup>();
@@ -45,7 +46,7 @@ namespace Disfigure
             Connection connection = new Connection(tcpClient, isServerModule);
             connection.Disconnected += OnDisconnected;
             await connection.Finalize(CancellationToken);
-            Connections.Add(connection.Identity, connection);
+            Connections.TryAdd(connection.Identity, connection);
 
             return connection;
         }
@@ -69,7 +70,7 @@ namespace Disfigure
 
         private ValueTask OnDisconnected(Connection connection)
         {
-            Connections.Remove(connection.Identity);
+            Connections.TryRemove(connection.Identity, out _);
             return default;
         }
 

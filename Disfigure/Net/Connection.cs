@@ -81,29 +81,7 @@ namespace Disfigure.Net
 
         #region Listening
 
-        private void BeginListen(CancellationToken cancellationToken) =>
-            Task.Run(() => BeginListenAsyncInternal(cancellationToken), cancellationToken);
-
-        private async Task BeginListenAsyncInternal(CancellationToken cancellationToken)
-        {
-            try
-            {
-                await ReadLoopAsync(cancellationToken);
-            }
-            catch (IOException ex) when (ex.InnerException is SocketException)
-            {
-                Log.Debug(ex.ToString());
-                Log.Warning($" <{RemoteEndPoint}> Connection forcibly closed.");
-            }
-            catch (Exception exception)
-            {
-                Log.Error(exception.ToString());
-            }
-            finally
-            {
-                await OnDisconnected();
-            }
-        }
+        private void BeginListen(CancellationToken cancellationToken) => Task.Run(() => ReadLoopAsync(cancellationToken), cancellationToken);
 
         private async ValueTask ReadLoopAsync(CancellationToken cancellationToken)
         {
@@ -117,6 +95,12 @@ namespace Disfigure.Net
                 {
                     ReadResult result = await _Reader.ReadAsync(cancellationToken);
                     ReadOnlySequence<byte> sequence = result.Buffer;
+
+                    if (sequence.IsEmpty)
+                    {
+                        Log.Warning($"Received empty sequence from reader. This likely means connection was closed, so the read loop will halt.");
+                        break;
+                    }
 
                     stopwatch.Restart();
 
@@ -132,9 +116,17 @@ namespace Disfigure.Net
                     _Reader.AdvanceTo(consumed, consumed);
                 }
             }
-            catch (Exception ex)
+            catch (IOException exception) when (exception.InnerException is SocketException)
             {
-
+                Log.Warning("Connection forcibly closed.");
+            }
+            catch (Exception exception)
+            {
+                Log.Error(exception.ToString());
+            }
+            finally
+            {
+                await OnDisconnected();
             }
         }
 

@@ -67,7 +67,7 @@ namespace Disfigure.Client
             string name = Encoding.Unicode.GetString(packet.Content[sizeof(Guid)..]);
 
             Channel channel = new Channel(guid, name);
-            Channels.Add(channel.Guid, channel);
+            Channels.TryAdd(channel.Guid, channel);
 
             Log.Debug($"Received identity information for channel: #{channel.Name} ({channel.Guid})");
             return default;
