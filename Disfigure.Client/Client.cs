@@ -49,6 +49,7 @@ namespace Disfigure.Client
 
             Connection connection = await EstablishConnectionAsync(tcpClient, false);
             connection.ChannelIdentityReceived += OnChannelIdentityReceived;
+            connection.PingReceived += OnPingReceived;
             connection.WaitForPacket(PacketType.EndIdentity);
             return connection;
         }
@@ -72,12 +73,18 @@ namespace Disfigure.Client
             return default;
         }
 
+        private async ValueTask OnPingReceived(Connection connection, Packet packet)
+        {
+            //await connection.WriteAsync(PacketType.Pong, DateTime.UtcNow, packet.Content, CancellationToken);
+            await Task.Delay(1);
+        }
+
         private void OnConsoleLineRead(string line)
         {
             DateTime utcTimestamp = DateTime.UtcNow;
             byte[] bytes = Encoding.Unicode.GetBytes(line);
 
-            foreach (Connection connection in Connections)
+            foreach ((Guid _, Connection connection) in Connections)
             {
                 Task.Run(() => connection.WriteAsync(PacketType.Text, utcTimestamp, bytes, CancellationToken));
             }

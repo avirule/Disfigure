@@ -12,6 +12,8 @@ namespace Disfigure.Net
 {
     public enum PacketType : byte
     {
+        Ping,
+        Pong,
         Text,
         Sound,
         Media,

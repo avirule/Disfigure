@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
+using Disfigure.Diagnostics;
 using Disfigure.Net;
 using Serilog;
 using Serilog.Events;
@@ -17,7 +18,7 @@ namespace Disfigure
 
     public abstract class Module : IDisposable
     {
-        protected readonly List<Connection> Connections;
+        protected readonly Dictionary<Guid, Connection> Connections;
         protected readonly CancellationTokenSource CancellationTokenSource;
         protected readonly Dictionary<Guid, Channel> Channels;
 
@@ -27,7 +28,7 @@ namespace Disfigure
         {
             Log.Logger = new LoggerConfiguration().WriteTo.Console().MinimumLevel.Is(minimumLogLevel).CreateLogger();
 
-            Connections = new List<Connection>();
+            Connections = new Dictionary<Guid, Connection>();
             CancellationTokenSource = new CancellationTokenSource();
             Channels = new Dictionary<Guid, Channel>();
 
@@ -41,10 +42,10 @@ namespace Disfigure
 
         protected async ValueTask<Connection> EstablishConnectionAsync(TcpClient tcpClient, bool isServerModule)
         {
-            Connection connection = new Connection(Guid.NewGuid(), tcpClient, isServerModule);
+            Connection connection = new Connection(tcpClient, isServerModule);
             connection.Disconnected += OnDisconnected;
             await connection.Finalize(CancellationToken);
-            Connections.Add(connection);
+            Connections.Add(connection.Identity, connection);
 
             return connection;
         }
@@ -68,7 +69,7 @@ namespace Disfigure
 
         private ValueTask OnDisconnected(Connection connection)
         {
-            Connections.Remove(connection);
+            Connections.Remove(connection.Identity);
             return default;
         }
 
@@ -80,25 +81,23 @@ namespace Disfigure
 
         protected virtual void Dispose(bool disposing)
         {
-            if (_Disposed)
+            if (!disposing)
             {
                 return;
             }
 
-            if (disposing)
+            CancellationTokenSource.Cancel();
+
+            foreach ((Guid _, Connection connection) in Connections)
             {
-                foreach (Connection connection in Connections)
-                {
-                    connection?.Dispose();
-                }
+                connection?.Dispose();
             }
 
 #if DEBUG
-            PacketDiagnosticGroup packetDiagnosticGroup = DiagnosticsProvider.GetGroup<PacketDiagnosticGroup>();
+            PacketDiagnosticGroup? packetDiagnosticGroup = DiagnosticsProvider.GetGroup<PacketDiagnosticGroup>();
 
             if (packetDiagnosticGroup is { })
             {
-
                 (double avgConstruction, double avgDecryption) = packetDiagnosticGroup.GetAveragePacketTimes();
 
                 Log.Information($"Construction: {avgConstruction:0.00}ms");
@@ -112,6 +111,11 @@ namespace Disfigure
 
         public void Dispose()
         {
+            if (_Disposed)
+            {
+                return;
+            }
+
             Dispose(true);
             GC.SuppressFinalize(this);
         }

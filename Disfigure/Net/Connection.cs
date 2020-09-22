@@ -7,6 +7,7 @@ using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.IO.Pipelines;
+using System.Net;
 using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
@@ -22,28 +23,32 @@ namespace Disfigure.Net
 
     public class Connection : IDisposable, IEquatable<Connection>
     {
+        private const double _SERVER_TICKS_PER_SECOND = 20d;
+        private static readonly TimeSpan _ServerTickRate = TimeSpan.FromSeconds(1d / _SERVER_TICKS_PER_SECOND);
+
         private readonly TcpClient _Client;
         private readonly NetworkStream _Stream;
-        private readonly PipeWriter _Input;
-        private readonly PipeReader _Output;
+        private readonly PipeWriter _Writer;
+        private readonly PipeReader _Reader;
         private readonly EncryptionProvider _EncryptionProvider;
         private readonly Dictionary<PacketType, ManualResetEvent> _PacketResetEvents;
 
-        public Guid Guid { get; }
+        public Guid Identity { get; }
         public string Name { get; }
         public bool IsOwnerServer { get; }
 
         public byte[] PublicKey => _EncryptionProvider.PublicKey;
+        public EndPoint RemoteEndPoint => _Client.Client.RemoteEndPoint;
 
-        public Connection(Guid guid, TcpClient client, bool isOwnerServer)
+        public Connection(TcpClient client, bool isOwnerServer)
         {
             _Client = client;
             _Stream = _Client.GetStream();
-            _Input = PipeWriter.Create(_Stream);
-            _Output = PipeReader.Create(_Stream);
+            _Writer = PipeWriter.Create(_Stream);
+            _Reader = PipeReader.Create(_Stream);
             _EncryptionProvider = new EncryptionProvider();
 
-            Guid = guid;
+            Identity = Guid.NewGuid();
             Name = string.Empty;
             IsOwnerServer = isOwnerServer;
             _PacketResetEvents = new Dictionary<PacketType, ManualResetEvent>
@@ -62,10 +67,10 @@ namespace Disfigure.Net
 
             BeginListen(cancellationToken);
 
-            Log.Debug($"Waiting for {nameof(PacketType.EncryptionKeys)} packet from {_Client.Client.RemoteEndPoint}.");
+            Log.Debug($"Waiting for {nameof(PacketType.EncryptionKeys)} packet from {RemoteEndPoint}.");
             WaitForPacket(PacketType.EncryptionKeys);
 
-            Log.Debug($"Connection to {_Client.Client.RemoteEndPoint} finalized.");
+            Log.Debug($" <{RemoteEndPoint}> Connection finalized.");
         }
 
         public void WaitForPacket(PacketType packetType)
@@ -73,17 +78,6 @@ namespace Disfigure.Net
             _PacketResetEvents[packetType].WaitOne();
         }
 
-        private async ValueTask SendEncryptionKeys(bool server, CancellationToken cancellationToken)
-        {
-            Debug.Assert(!_EncryptionProvider.EncryptionNegotiated, "Protocol requires that key exchanges happen ONLY ONCE.");
-
-            Log.Debug($"Sending encryption keys to {_Client.Client.RemoteEndPoint}.");
-
-            Packet packet = new Packet(PacketType.EncryptionKeys, _EncryptionProvider.PublicKey, DateTime.UtcNow,
-                server ? _EncryptionProvider.IV : Array.Empty<byte>());
-            await _Stream.WriteAsync(packet.Serialize(), cancellationToken);
-            await _Stream.FlushAsync(cancellationToken);
-        }
 
         #region Listening
 
@@ -99,39 +93,48 @@ namespace Disfigure.Net
             catch (IOException ex) when (ex.InnerException is SocketException)
             {
                 Log.Debug(ex.ToString());
-                Log.Warning($"Connection to {_Client.Client.RemoteEndPoint} forcibly closed.");
-
-                await OnDisconnected();
+                Log.Warning($" <{RemoteEndPoint}> Connection forcibly closed.");
             }
             catch (Exception exception)
             {
                 Log.Error(exception.ToString());
             }
+            finally
+            {
+                await OnDisconnected();
+            }
         }
 
         private async ValueTask ReadLoopAsync(CancellationToken cancellationToken)
         {
-            Log.Debug($"Beginning read loop for connection to {_Client.Client.RemoteEndPoint}.");
-
-            Stopwatch stopwatch = new Stopwatch();
-
-            while (!cancellationToken.IsCancellationRequested)
+            try
             {
-                ReadResult result = await _Output.ReadAsync(cancellationToken);
-                ReadOnlySequence<byte> sequence = result.Buffer;
+                Log.Debug($" <{RemoteEndPoint}> Beginning read loop.");
 
-                stopwatch.Restart();
+                Stopwatch stopwatch = new Stopwatch();
 
-                if (!TryReadPacket(sequence, out SequencePosition consumed, out Packet packet))
+                while (!cancellationToken.IsCancellationRequested)
                 {
-                    continue;
+                    ReadResult result = await _Reader.ReadAsync(cancellationToken);
+                    ReadOnlySequence<byte> sequence = result.Buffer;
+
+                    stopwatch.Restart();
+
+                    if (!TryReadPacket(sequence, out SequencePosition consumed, out Packet packet))
+                    {
+                        continue;
+                    }
+
+                    stopwatch.Stop();
+                    DiagnosticsProvider.CommitData<PacketDiagnosticGroup>(new ConstructionTime(stopwatch.Elapsed));
+
+                    await OnPacketReceived(packet, cancellationToken, stopwatch);
+                    _Reader.AdvanceTo(consumed, consumed);
                 }
+            }
+            catch (Exception ex)
+            {
 
-                stopwatch.Stop();
-                DiagnosticsProvider.CommitData<PacketDiagnosticGroup>(new ConstructionTime(stopwatch.Elapsed));
-
-                await OnPacketReceived(packet, cancellationToken, stopwatch);
-                _Output.AdvanceTo(consumed, consumed);
             }
         }
 
@@ -169,7 +172,7 @@ namespace Disfigure.Net
         public async ValueTask WriteAsync(PacketType type, DateTime timestamp, byte[] content, CancellationToken cancellationToken)
         {
             await WriteEncryptedAsync(new Packet(type, PublicKey, timestamp, content), cancellationToken);
-            await _Input.FlushAsync(cancellationToken);
+            await _Writer.FlushAsync(cancellationToken);
         }
 
         public async ValueTask WriteAsync(IEnumerable<(PacketType, DateTime, byte[])> packets, CancellationToken cancellationToken)
@@ -179,7 +182,7 @@ namespace Disfigure.Net
                 await WriteEncryptedAsync(new Packet(type, PublicKey, timestamp, content), cancellationToken);
             }
 
-            await _Input.FlushAsync(cancellationToken);
+            await _Writer.FlushAsync(cancellationToken);
         }
 
         private async ValueTask WriteEncryptedAsync(Packet packet, CancellationToken cancellationToken)
@@ -187,9 +190,21 @@ namespace Disfigure.Net
             packet.Content = await _EncryptionProvider.Encrypt(packet.Content, cancellationToken);
             byte[] serialized = packet.Serialize();
 
-            await _Input.WriteAsync(serialized, cancellationToken);
+            await _Writer.WriteAsync(serialized, cancellationToken);
 
-            Log.Verbose($"OUT {_Client.Client.RemoteEndPoint}: {packet}");
+            Log.Verbose($" <{RemoteEndPoint}> OUT: {packet}");
+        }
+
+        private async ValueTask SendEncryptionKeys(bool server, CancellationToken cancellationToken)
+        {
+            Debug.Assert(!_EncryptionProvider.EncryptionNegotiated, "Protocol requires that key exchanges happen ONLY ONCE.");
+
+            Log.Debug($" <{RemoteEndPoint}> Sending encryption keys.");
+
+            Packet packet = new Packet(PacketType.EncryptionKeys, _EncryptionProvider.PublicKey, DateTime.UtcNow,
+                server ? _EncryptionProvider.IV : Array.Empty<byte>());
+            await _Stream.WriteAsync(packet.Serialize(), cancellationToken);
+            await _Stream.FlushAsync(cancellationToken);
         }
 
         #endregion
@@ -226,6 +241,8 @@ namespace Disfigure.Net
         public event PacketEventHandler? BeginIdentityReceived;
         public event PacketEventHandler? ChannelIdentityReceived;
         public event PacketEventHandler? EndIdentityReceived;
+        public event PacketEventHandler? PingReceived;
+        public event PacketEventHandler? PongReceived;
 
         private async ValueTask OnPacketReceived(Packet packet, CancellationToken cancellationToken, Stopwatch stopwatch)
         {
@@ -256,13 +273,19 @@ namespace Disfigure.Net
                 await PacketReceived.Invoke(this, packet);
             }
 
-            Log.Verbose($"INC {_Client.Client.RemoteEndPoint}: {packet}");
+            Log.Verbose($" <{RemoteEndPoint}> INC: {packet}");
         }
 
         private async ValueTask InvokePacketTypeEvent(Packet packet)
         {
             switch (packet.Type)
             {
+                case PacketType.Ping when PingReceived is { }:
+                    await PingReceived.Invoke(this, packet);
+                    break;
+                case PacketType.Pong when PongReceived is { }:
+                    await PongReceived.Invoke(this, packet);
+                    break;
                 case PacketType.Text when TextPacketReceived is { }:
                     await TextPacketReceived.Invoke(this, packet);
                     break;
@@ -280,33 +303,37 @@ namespace Disfigure.Net
 
         #endregion
 
+
         #region IDisposable
 
         private bool _Disposed;
 
         protected virtual void Dispose(bool disposing)
         {
-            if (_Disposed)
+            if (!disposing)
             {
                 return;
             }
 
-            if (disposing)
-            {
-                _Client.Dispose();
-                _Stream.Dispose();
-            }
+            _Client.Dispose();
+            _Stream.Dispose();
 
             _Disposed = true;
         }
 
         public void Dispose()
         {
+            if (_Disposed)
+            {
+                return;
+            }
+
             Dispose(true);
             GC.SuppressFinalize(this);
         }
 
         #endregion
+
 
         #region IEquatable<Connection>
 
@@ -322,7 +349,7 @@ namespace Disfigure.Net
                 return true;
             }
 
-            return Guid.Equals(other.Guid);
+            return Identity.Equals(other.Identity);
         }
 
         public override bool Equals(object? obj)
@@ -345,7 +372,7 @@ namespace Disfigure.Net
             return Equals((Connection)obj);
         }
 
-        public override int GetHashCode() => Guid.GetHashCode();
+        public override int GetHashCode() => Identity.GetHashCode();
 
         public static bool operator ==(Connection? left, Connection? right) => Equals(left, right);
 
