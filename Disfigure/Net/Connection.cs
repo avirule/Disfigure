@@ -98,7 +98,7 @@ namespace Disfigure.Net
 
                     if (sequence.IsEmpty)
                     {
-                        Log.Warning($"Received empty sequence from reader. This likely means connection was closed, so the read loop will halt.");
+                        Log.Warning("Received empty sequence from reader. This likely means connection was closed, so the read loop will halt.");
                         break;
                     }
 
