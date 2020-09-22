@@ -36,9 +36,9 @@ namespace Disfigure.Net
         public Guid Identity { get; }
         public string Name { get; }
         public bool IsOwnerServer { get; }
+        public EndPoint RemoteEndPoint { get; }
 
         public byte[] PublicKey => _EncryptionProvider.PublicKey;
-        public EndPoint RemoteEndPoint => _Client.Client.RemoteEndPoint;
 
         public Connection(TcpClient client, bool isOwnerServer)
         {
@@ -51,6 +51,8 @@ namespace Disfigure.Net
             Identity = Guid.NewGuid();
             Name = string.Empty;
             IsOwnerServer = isOwnerServer;
+            RemoteEndPoint = _Client.Client.RemoteEndPoint;
+
             _PacketResetEvents = new Dictionary<PacketType, ManualResetEvent>
             {
                 { PacketType.EncryptionKeys, new ManualResetEvent(false) },
@@ -67,7 +69,7 @@ namespace Disfigure.Net
 
             BeginListen(cancellationToken);
 
-            Log.Debug($"Waiting for {nameof(PacketType.EncryptionKeys)} packet from {RemoteEndPoint}.");
+            Log.Debug($" <{RemoteEndPoint}> Waiting for {nameof(PacketType.EncryptionKeys)} packet.");
             WaitForPacket(PacketType.EncryptionKeys);
 
             Log.Debug($" <{RemoteEndPoint}> Connection finalized.");
@@ -98,7 +100,7 @@ namespace Disfigure.Net
 
                     if (sequence.IsEmpty)
                     {
-                        Log.Warning("Received empty sequence from reader. This likely means connection was closed, so the read loop will halt.");
+                        Log.Warning($" <{RemoteEndPoint}> Received no data from reader. This is likely a connection closure, so the loop will halt.");
                         break;
                     }
 
@@ -118,7 +120,7 @@ namespace Disfigure.Net
             }
             catch (IOException exception) when (exception.InnerException is SocketException)
             {
-                Log.Warning("Connection forcibly closed.");
+                Log.Warning($" <{RemoteEndPoint}> Connection forcibly closed.");
             }
             catch (Exception exception)
             {

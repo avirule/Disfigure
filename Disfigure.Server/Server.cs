@@ -125,7 +125,7 @@ namespace Disfigure.Server
                 else
                 {
                     Log.Error($"Forgetting pending ping (identity {pendingPing.Identity}) because related connection does not exist.");
-                    _PendingPings.TryRemove(pendingPing.Identity, out _);
+                    _PendingPings.TryRemove(connectionIdentity, out _);
                 }
             }
         }
