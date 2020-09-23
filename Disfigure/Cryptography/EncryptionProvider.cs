@@ -3,10 +3,12 @@
 using System;
 using System.Diagnostics;
 using System.IO;
+using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
 using Disfigure.Collections;
+using Serilog;
 
 #endregion
 
@@ -23,20 +25,19 @@ namespace Disfigure.Cryptography
 
         private readonly AesCryptoServiceProvider _AES;
         private readonly byte[] _PrivateKey;
-        private readonly byte[] _PublicKey;
 
         private byte[]? _RemotePublicKey;
 
+        public byte[] PublicKey { get; }
         public bool EncryptionNegotiated { get; private set; }
 
-        public byte[] PublicKey => _PublicKey;
         public byte[] IV => _AES.IV;
 
         public EncryptionProvider()
         {
             _AES = new AesCryptoServiceProvider();
             _PrivateKey = new byte[PRIVATE_KEY_SIZE];
-            _PublicKey = new byte[PUBLIC_KEY_SIZE];
+            PublicKey = new byte[PUBLIC_KEY_SIZE];
 
             GeneratePrivateKey();
             GeneratePublicKey();
@@ -47,20 +48,20 @@ namespace Disfigure.Cryptography
 
         private unsafe void GeneratePublicKey()
         {
-            fixed (byte* privateKey = _PrivateKey)
-            fixed (byte* publicKey = _PublicKey)
+            fixed (byte* privateKeyFixed = _PrivateKey)
+            fixed (byte* publicKeyFixed = PublicKey)
             {
-                int result = TinyECDH.GenerateKeys((IntPtr)publicKey, (IntPtr)privateKey);
+                int result = TinyECDH.DerivePublicKey((IntPtr)publicKeyFixed, (IntPtr)privateKeyFixed);
             }
         }
 
-        private unsafe void DeriveKey(byte[] remotePublicKey, ref byte[] derivedKey)
+        private unsafe void DeriveKey(byte[] remotePublicKey, byte[] derivedKey)
         {
-            fixed (byte* privateKey = _PrivateKey)
-            fixed (byte* remoteKey = remotePublicKey)
+            fixed (byte* privateKeyFixed = _PrivateKey)
+            fixed (byte* remotePublicKeyFixed = remotePublicKey)
             fixed (byte* derivedKeyFixed = derivedKey)
             {
-                int result = TinyECDH.GenerateSharedKey((IntPtr)privateKey, (IntPtr)remoteKey, (IntPtr)derivedKeyFixed);
+                int result = TinyECDH.DeriveSharedKey((IntPtr)privateKeyFixed, (IntPtr)remotePublicKeyFixed, (IntPtr)derivedKeyFixed);
             }
         }
 
@@ -91,7 +92,7 @@ namespace Disfigure.Cryptography
             byte[] sharedKey = _DerivedKeyPool.Rent();
             Array.Clear(sharedKey, 0, sharedKey.Length);
 
-            DeriveKey(_RemotePublicKey, ref sharedKey);
+            DeriveKey(_RemotePublicKey, sharedKey);
             _AES.Key = sharedKey;
 
             await using MemoryStream cipherBytes = new MemoryStream();
@@ -120,7 +121,7 @@ namespace Disfigure.Cryptography
             byte[] sharedKey = _DerivedKeyPool.Rent();
             Array.Clear(sharedKey, 0, sharedKey.Length);
 
-            DeriveKey(remotePublicKey, ref sharedKey);
+            DeriveKey(remotePublicKey, sharedKey);
             _AES.Key = sharedKey;
 
             await using MemoryStream cipherBytes = new MemoryStream();

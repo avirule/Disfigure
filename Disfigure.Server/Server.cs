@@ -66,7 +66,7 @@ namespace Disfigure.Server
             }
             catch (SocketException exception) when (exception.ErrorCode == 10048)
             {
-                Log.Fatal("Another instance of Disfigure.Server is already running.");
+                Log.Fatal($"Provided port is already being listened on (port {_HostPort}).");
             }
             catch (Exception ex)
             {

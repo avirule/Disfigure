@@ -76,8 +76,11 @@ namespace Disfigure.Client
             return default;
         }
 
-        private async ValueTask OnPingReceived(Connection connection, Packet packet) =>
+        private async ValueTask OnPingReceived(Connection connection, Packet packet)
+        {
+            Log.Verbose(string.Format(FormatHelper.CONNECTION_LOGGING, connection.RemoteEndPoint, "Received ping, ponging..."));
             await connection.WriteAsync(PacketType.Pong, DateTime.UtcNow, packet.Content, CancellationToken);
+        }
 
         #endregion
     }

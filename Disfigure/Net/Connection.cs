@@ -11,6 +11,7 @@ using System.Net;
 using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
+using Disfigure.Collections;
 using Disfigure.Cryptography;
 using Disfigure.Diagnostics;
 using Serilog;
@@ -23,6 +24,8 @@ namespace Disfigure.Net
 
     public class Connection : IDisposable, IEquatable<Connection>
     {
+        private static readonly ObjectPool<Stopwatch> _DiagnosticStopwatches = new ObjectPool<Stopwatch>(() => new Stopwatch());
+
         private readonly TcpClient _Client;
         private readonly NetworkStream _Stream;
         private readonly PipeWriter _Writer;
@@ -66,10 +69,11 @@ namespace Disfigure.Net
 
             BeginListen(cancellationToken);
 
-            Log.Debug($"<{RemoteEndPoint}> Waiting for {nameof(PacketType.EncryptionKeys)} packet.");
+            Log.Information(string.Format(FormatHelper.CONNECTION_LOGGING, RemoteEndPoint,
+                "Waiting for {nameof(PacketType.EncryptionKeys)} packet."));
             WaitForPacket(PacketType.EncryptionKeys);
 
-            Log.Debug($"<{RemoteEndPoint}> Connection finalized.");
+            Log.Information(string.Format(FormatHelper.CONNECTION_LOGGING, RemoteEndPoint, "Connection finalized."));
         }
 
         public void WaitForPacket(PacketType packetType)
@@ -86,7 +90,7 @@ namespace Disfigure.Net
         {
             try
             {
-                Log.Debug($"<{RemoteEndPoint}> Beginning read loop.");
+                Log.Debug(string.Format(FormatHelper.CONNECTION_LOGGING, RemoteEndPoint, "Beginning read loop."));
 
                 Stopwatch stopwatch = new Stopwatch();
 
@@ -97,7 +101,8 @@ namespace Disfigure.Net
 
                     if (sequence.IsEmpty)
                     {
-                        Log.Warning($"<{RemoteEndPoint}> Received no data from reader. This is likely a connection closure, so the loop will halt.");
+                        Log.Warning(string.Format(FormatHelper.CONNECTION_LOGGING, RemoteEndPoint,
+                            "Received no data from reader. This is likely a connection closure, so the loop will halt."));
                         break;
                     }
 
@@ -117,11 +122,11 @@ namespace Disfigure.Net
             }
             catch (IOException exception) when (exception.InnerException is SocketException)
             {
-                Log.Warning($"<{RemoteEndPoint}> Connection forcibly closed.");
+                Log.Warning(string.Format(FormatHelper.CONNECTION_LOGGING, RemoteEndPoint, "Connection forcibly closed."));
             }
             catch (Exception exception)
             {
-                Log.Fatal(exception.ToString());
+                Log.Error(exception.ToString());
             }
             finally
             {
@@ -178,19 +183,39 @@ namespace Disfigure.Net
 
         private async ValueTask WriteEncryptedAsync(Packet packet, CancellationToken cancellationToken)
         {
-            packet.Content = await _EncryptionProvider.Encrypt(packet.Content, cancellationToken);
+            Log.Verbose(string.Format(FormatHelper.CONNECTION_LOGGING, RemoteEndPoint,
+                $"Write call: {packet.Type} | {packet.UtcTimestamp} | {packet.Content.Length}"));
+
+            Stopwatch stopwatch = _DiagnosticStopwatches.Rent();
+
+            stopwatch.Restart();
+
+            if (packet.Content.Length > 0)
+            {
+                packet.Content = await _EncryptionProvider.Encrypt(packet.Content, cancellationToken);
+                Log.Verbose(string.Format(FormatHelper.CONNECTION_LOGGING, RemoteEndPoint,
+                    $"Encrypted packet in {stopwatch.Elapsed.TotalMilliseconds:0.00}ms."));
+
+                stopwatch.Restart();
+            }
+
             byte[] serialized = packet.Serialize();
+            Log.Verbose(string.Format(FormatHelper.CONNECTION_LOGGING, RemoteEndPoint,
+                $"Serialized packet in {stopwatch.Elapsed.TotalMilliseconds:0.00}ms."));
+
+            stopwatch.Reset();
+            _DiagnosticStopwatches.Return(stopwatch);
 
             await _Writer.WriteAsync(serialized, cancellationToken);
 
-            Log.Verbose($"<{RemoteEndPoint}> OUT: {packet}");
+            Log.Debug(string.Format(FormatHelper.CONNECTION_LOGGING, RemoteEndPoint, $"OUT: {packet}"));
         }
 
         private async ValueTask SendEncryptionKeys(bool server, CancellationToken cancellationToken)
         {
             Debug.Assert(!_EncryptionProvider.EncryptionNegotiated, "Protocol requires that key exchanges happen ONLY ONCE.");
 
-            Log.Debug($"<{RemoteEndPoint}> Sending encryption keys.");
+            Log.Debug(string.Format(FormatHelper.CONNECTION_LOGGING, RemoteEndPoint, "Sending encryption keys."));
 
             Packet packet = new Packet(PacketType.EncryptionKeys, _EncryptionProvider.PublicKey, DateTime.UtcNow,
                 server ? _EncryptionProvider.IV : Array.Empty<byte>());
@@ -237,6 +262,8 @@ namespace Disfigure.Net
 
         private async ValueTask OnPacketReceived(Packet packet, CancellationToken cancellationToken, Stopwatch stopwatch)
         {
+            Log.Debug(string.Format(FormatHelper.CONNECTION_LOGGING, RemoteEndPoint, $"INC: {packet}"));
+
             if (_PacketResetEvents.TryGetValue(packet.Type, out ManualResetEvent? resetEvent))
             {
                 resetEvent.Set();
@@ -246,14 +273,21 @@ namespace Disfigure.Net
             {
                 case PacketType.EncryptionKeys:
                     _EncryptionProvider.AssignRemoteKeys(packet.Content, packet.PublicKey);
+                    Log.Debug(string.Format(FormatHelper.CONNECTION_LOGGING, RemoteEndPoint, "Assigned given encryption keys."));
                     break;
                 default:
-                    stopwatch.Restart();
+                    if (packet.Content.Length > 0)
+                    {
+                        stopwatch.Restart();
 
-                    packet.Content = await _EncryptionProvider.Decrypt(packet.PublicKey, packet.Content, cancellationToken);
+                        packet.Content = await _EncryptionProvider.Decrypt(packet.PublicKey, packet.Content, cancellationToken);
 
-                    stopwatch.Stop();
-                    DiagnosticsProvider.CommitData<PacketDiagnosticGroup>(new DecryptionTime(stopwatch.Elapsed));
+                        stopwatch.Stop();
+                        DiagnosticsProvider.CommitData<PacketDiagnosticGroup>(new DecryptionTime(stopwatch.Elapsed));
+
+                        Log.Verbose(string.Format(FormatHelper.CONNECTION_LOGGING, RemoteEndPoint,
+                            $"Decrypted packet in {stopwatch.Elapsed.TotalMilliseconds:0.00}ms."));
+                    }
 
                     await InvokePacketTypeEvent(packet);
                     break;
@@ -263,12 +297,12 @@ namespace Disfigure.Net
             {
                 await PacketReceived.Invoke(this, packet);
             }
-
-            Log.Verbose($"<{RemoteEndPoint}> INC: {packet}");
         }
 
         private async ValueTask InvokePacketTypeEvent(Packet packet)
         {
+            Log.Verbose(string.Format(FormatHelper.CONNECTION_LOGGING, RemoteEndPoint, $"Invoking packet type event {packet.Type}."));
+
             switch (packet.Type)
             {
                 case PacketType.Ping when PingReceived is { }:
