@@ -15,7 +15,7 @@ namespace Disfigure.Client
 {
     public class Client : Module
     {
-        public Client(LogEventLevel minimumLogLevel) : base(minimumLogLevel) => ConsoleLineRead += OnConsoleLineRead;
+        public Client(LogEventLevel minimumLogLevel) : base(minimumLogLevel) { }
 
         public async ValueTask<Connection> ConnectAsync(IPEndPoint ipEndPoint, TimeSpan retryDelay)
         {
@@ -56,7 +56,10 @@ namespace Disfigure.Client
 
         public override void Start()
         {
-            ReadConsoleLoop();
+            while (!CancellationToken.IsCancellationRequested)
+            {
+                Console.ReadKey();
+            }
         }
 
         #region Events
@@ -73,22 +76,8 @@ namespace Disfigure.Client
             return default;
         }
 
-        private async ValueTask OnPingReceived(Connection connection, Packet packet)
-        {
-            //await connection.WriteAsync(PacketType.Pong, DateTime.UtcNow, packet.Content, CancellationToken);
-            await Task.Delay(1);
-        }
-
-        private void OnConsoleLineRead(string line)
-        {
-            DateTime utcTimestamp = DateTime.UtcNow;
-            byte[] bytes = Encoding.Unicode.GetBytes(line);
-
-            foreach ((Guid _, Connection connection) in Connections)
-            {
-                Task.Run(() => connection.WriteAsync(PacketType.Text, utcTimestamp, bytes, CancellationToken));
-            }
-        }
+        private async ValueTask OnPingReceived(Connection connection, Packet packet) =>
+            await connection.WriteAsync(PacketType.Pong, DateTime.UtcNow, packet.Content, CancellationToken);
 
         #endregion
     }

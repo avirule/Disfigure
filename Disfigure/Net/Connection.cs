@@ -23,9 +23,6 @@ namespace Disfigure.Net
 
     public class Connection : IDisposable, IEquatable<Connection>
     {
-        private const double _SERVER_TICKS_PER_SECOND = 20d;
-        private static readonly TimeSpan _ServerTickRate = TimeSpan.FromSeconds(1d / _SERVER_TICKS_PER_SECOND);
-
         private readonly TcpClient _Client;
         private readonly NetworkStream _Stream;
         private readonly PipeWriter _Writer;
@@ -69,10 +66,10 @@ namespace Disfigure.Net
 
             BeginListen(cancellationToken);
 
-            Log.Debug($" <{RemoteEndPoint}> Waiting for {nameof(PacketType.EncryptionKeys)} packet.");
+            Log.Debug($"<{RemoteEndPoint}> Waiting for {nameof(PacketType.EncryptionKeys)} packet.");
             WaitForPacket(PacketType.EncryptionKeys);
 
-            Log.Debug($" <{RemoteEndPoint}> Connection finalized.");
+            Log.Debug($"<{RemoteEndPoint}> Connection finalized.");
         }
 
         public void WaitForPacket(PacketType packetType)
@@ -89,7 +86,7 @@ namespace Disfigure.Net
         {
             try
             {
-                Log.Debug($" <{RemoteEndPoint}> Beginning read loop.");
+                Log.Debug($"<{RemoteEndPoint}> Beginning read loop.");
 
                 Stopwatch stopwatch = new Stopwatch();
 
@@ -100,7 +97,7 @@ namespace Disfigure.Net
 
                     if (sequence.IsEmpty)
                     {
-                        Log.Warning($" <{RemoteEndPoint}> Received no data from reader. This is likely a connection closure, so the loop will halt.");
+                        Log.Warning($"<{RemoteEndPoint}> Received no data from reader. This is likely a connection closure, so the loop will halt.");
                         break;
                     }
 
@@ -120,11 +117,11 @@ namespace Disfigure.Net
             }
             catch (IOException exception) when (exception.InnerException is SocketException)
             {
-                Log.Warning($" <{RemoteEndPoint}> Connection forcibly closed.");
+                Log.Warning($"<{RemoteEndPoint}> Connection forcibly closed.");
             }
             catch (Exception exception)
             {
-                Log.Error(exception.ToString());
+                Log.Fatal(exception.ToString());
             }
             finally
             {
@@ -186,14 +183,14 @@ namespace Disfigure.Net
 
             await _Writer.WriteAsync(serialized, cancellationToken);
 
-            Log.Verbose($" <{RemoteEndPoint}> OUT: {packet}");
+            Log.Verbose($"<{RemoteEndPoint}> OUT: {packet}");
         }
 
         private async ValueTask SendEncryptionKeys(bool server, CancellationToken cancellationToken)
         {
             Debug.Assert(!_EncryptionProvider.EncryptionNegotiated, "Protocol requires that key exchanges happen ONLY ONCE.");
 
-            Log.Debug($" <{RemoteEndPoint}> Sending encryption keys.");
+            Log.Debug($"<{RemoteEndPoint}> Sending encryption keys.");
 
             Packet packet = new Packet(PacketType.EncryptionKeys, _EncryptionProvider.PublicKey, DateTime.UtcNow,
                 server ? _EncryptionProvider.IV : Array.Empty<byte>());
@@ -267,7 +264,7 @@ namespace Disfigure.Net
                 await PacketReceived.Invoke(this, packet);
             }
 
-            Log.Verbose($" <{RemoteEndPoint}> INC: {packet}");
+            Log.Verbose($"<{RemoteEndPoint}> INC: {packet}");
         }
 
         private async ValueTask InvokePacketTypeEvent(Packet packet)

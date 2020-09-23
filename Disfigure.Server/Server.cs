@@ -39,7 +39,10 @@ namespace Disfigure.Server
             Task.Run(AcceptConnections);
             Task.Run(PingPongLoop);
 
-            ReadConsoleLoop();
+            while (!CancellationToken.IsCancellationRequested)
+            {
+                Console.ReadKey();
+            }
         }
 
         private async ValueTask AcceptConnections()
@@ -55,6 +58,7 @@ namespace Disfigure.Server
                     Log.Information($"Accepted new connection from {tcpClient.Client.RemoteEndPoint}.");
 
                     Connection connection = await EstablishConnectionAsync(tcpClient, true);
+                    connection.Disconnected += OnDisconnected;
                     connection.PongReceived += OnPongReceived;
 
                     await CommunicateServerIdentities(connection);
@@ -119,7 +123,7 @@ namespace Disfigure.Server
 
                 if (Connections.TryGetValue(connectionIdentity, out Connection? connection))
                 {
-                    Log.Warning($" <{connection.RemoteEndPoint}> Pending ping timed out. Forcibly disconnecting.");
+                    Log.Warning($"<{connection.RemoteEndPoint}> Pending ping timed out. Forcibly disconnecting.");
                     connection.Dispose();
                 }
                 else
@@ -154,24 +158,32 @@ namespace Disfigure.Server
 
         #region Events
 
+        private ValueTask OnDisconnected(Connection connection)
+        {
+            Connections.TryRemove(connection.Identity, out _);
+            _PendingPings.TryRemove(connection.Identity, out _);
+
+            return default;
+        }
+
         private ValueTask OnPongReceived(Connection connection, Packet packet)
         {
             if (!_PendingPings.TryGetValue(connection.Identity, out PendingPing? pendingPing))
             {
-                Log.Warning($" <{connection.RemoteEndPoint}> Received pong, but no ping was pending.");
+                Log.Warning($"<{connection.RemoteEndPoint}> Received pong, but no ping was pending.");
                 return default;
             }
 
             if (packet.Content.Length != 16)
             {
-                Log.Warning($" <{connection.RemoteEndPoint}> Ping identity was malformed (too few bytes).");
+                Log.Warning($"<{connection.RemoteEndPoint}> Ping identity was malformed (too few bytes).");
                 return default;
             }
 
             Guid pingIdentity = new Guid(packet.Content);
             if (pendingPing.Identity != pingIdentity)
             {
-                Log.Warning($" <{connection.RemoteEndPoint}> Received pong, but ping identity didn't match.");
+                Log.Warning($"<{connection.RemoteEndPoint}> Received pong, but ping identity didn't match.");
                 return default;
             }
 

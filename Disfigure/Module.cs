@@ -5,7 +5,6 @@ using System.Collections.Concurrent;
 using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
-using Disfigure.Diagnostics;
 using Disfigure.Net;
 using Serilog;
 using Serilog.Events;
@@ -14,8 +13,6 @@ using Serilog.Events;
 
 namespace Disfigure
 {
-    public delegate void ConsoleLineReadEventHandler(string line);
-
     public abstract class Module : IDisposable
     {
         protected readonly CancellationTokenSource CancellationTokenSource;
@@ -49,21 +46,6 @@ namespace Disfigure
 
             return connection;
         }
-
-        protected void ReadConsoleLoop()
-        {
-            while (!CancellationToken.IsCancellationRequested)
-            {
-                string? line = Console.ReadLine();
-
-                if (!string.IsNullOrWhiteSpace(line))
-                {
-                    ConsoleLineRead?.Invoke(line);
-                }
-            }
-        }
-
-        public event ConsoleLineReadEventHandler? ConsoleLineRead;
 
         #region Connection Events
 
