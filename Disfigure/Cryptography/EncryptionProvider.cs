@@ -40,7 +40,6 @@ namespace Disfigure.Cryptography
             DerivePublicKey();
         }
 
-
         private void GeneratePrivateKey() => _CryptoRandom.GetBytes(_PrivateKey);
 
         private unsafe void DerivePublicKey()
@@ -86,6 +85,10 @@ namespace Disfigure.Cryptography
 
             DeriveSharedKey(_RemotePublicKey, derivedKey);
 
+            // DO NOT ADD USING FOR AesCryptoServiceProvider
+            // I'm unsure why, but the AesCryptoServiceProvider dispose method
+            // throws an AccessViolationException. The dispose method only
+            // clears arrays, so it is safe to NOT USE the using statement.
             AesCryptoServiceProvider aes = new AesCryptoServiceProvider
             {
                 Key = derivedKey
@@ -119,6 +122,10 @@ namespace Disfigure.Cryptography
 
             DeriveSharedKey(remotePublicKey, derivedKey);
 
+            // DO NOT ADD USING FOR AesCryptoServiceProvider
+            // I'm unsure why, but the AesCryptoServiceProvider dispose method
+            // throws an AccessViolationException. The dispose method only
+            // clears arrays, so it is safe to NOT USE the using statement.
             AesCryptoServiceProvider aes = new AesCryptoServiceProvider
             {
                 IV = remoteInitializationVector,

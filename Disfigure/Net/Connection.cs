@@ -66,7 +66,7 @@ namespace Disfigure.Net
             BeginListen(cancellationToken);
 
             Log.Information(string.Format(FormatHelper.CONNECTION_LOGGING, RemoteEndPoint,
-                "Waiting for {nameof(PacketType.EncryptionKeys)} packet."));
+                $"Waiting for {nameof(PacketType.EncryptionKeys)} packet."));
             WaitForPacket(PacketType.EncryptionKeys);
 
             Log.Information(string.Format(FormatHelper.CONNECTION_LOGGING, RemoteEndPoint, "Connection finalized."));

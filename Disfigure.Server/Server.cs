@@ -44,7 +44,7 @@ namespace Disfigure.Server
                 while (!CancellationToken.IsCancellationRequested)
                 {
                     TcpClient tcpClient = await listener.AcceptTcpClientAsync();
-                    Log.Information($"Accepted new connection from {tcpClient.Client.RemoteEndPoint}.");
+                    Log.Information(string.Format(FormatHelper.CONNECTION_LOGGING, tcpClient.Client.RemoteEndPoint, "Connection accepted."));
 
                     Connection connection = await EstablishConnectionAsync(tcpClient);
                     connection.Disconnected += OnDisconnected;
