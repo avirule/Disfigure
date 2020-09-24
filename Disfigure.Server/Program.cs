@@ -2,6 +2,7 @@
 
 using System;
 using System.Net;
+using System.Threading.Tasks;
 using Serilog;
 using Serilog.Events;
 
@@ -18,7 +19,13 @@ namespace Disfigure.Server
             try
             {
                 using Server server = new Server(LogEventLevel.Verbose, IPAddress.IPv6Loopback, port);
-                server.Start();
+                Task.Run(server.AcceptConnections);
+                Task.Run(server.PingPongLoop);
+
+                while (!server.CancellationToken.IsCancellationRequested)
+                {
+                    Console.ReadKey();
+                }
             }
             finally
             {

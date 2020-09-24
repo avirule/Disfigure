@@ -1,6 +1,7 @@
 #region
 
 using System;
+using System.Collections.Generic;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
@@ -15,12 +16,14 @@ namespace Disfigure.Client
 {
     public class Client : Module
     {
+        public IReadOnlyDictionary<Guid, Connection> ReadOnlyConnections => Connections;
+
         public Client(LogEventLevel minimumLogLevel) : base(minimumLogLevel) { }
 
-        public async ValueTask<Connection> ConnectAsync(IPEndPoint ipEndPoint, TimeSpan retryDelay)
-        {
-            const int maximum_retries = 5;
+        #region Connection
 
+        public async ValueTask ConnectAsync(IPEndPoint ipEndPoint, int maximumRetries, TimeSpan retryDelay)
+        {
             TcpClient tcpClient = new TcpClient();
             int tries = 0;
 
@@ -32,7 +35,7 @@ namespace Disfigure.Client
                 {
                     await tcpClient.ConnectAsync(ipEndPoint.Address, ipEndPoint.Port);
                 }
-                catch (SocketException) when (tries >= maximum_retries)
+                catch (SocketException) when (tries >= maximumRetries)
                 {
                     Log.Error($"Connection to {ipEndPoint} failed.");
                     throw;
@@ -41,7 +44,7 @@ namespace Disfigure.Client
                 {
                     tries += 1;
 
-                    Log.Warning($"{exception.Message}. Retrying ({tries}/{maximum_retries})...");
+                    Log.Warning($"{exception.Message}. Retrying ({tries}/{maximumRetries})...");
 
                     await Task.Delay(retryDelay, CancellationToken);
                 }
@@ -51,16 +54,9 @@ namespace Disfigure.Client
             connection.ChannelIdentityReceived += OnChannelIdentityReceived;
             connection.PingReceived += OnPingReceived;
             connection.WaitForPacket(PacketType.EndIdentity);
-            return connection;
         }
 
-        public override void Start()
-        {
-            while (!CancellationToken.IsCancellationRequested)
-            {
-                Console.ReadKey();
-            }
-        }
+        #endregion
 
         #region Events
 

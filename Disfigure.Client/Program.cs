@@ -17,8 +17,12 @@ namespace Disfigure.Client
             try
             {
                 using Client client = new Client(LogEventLevel.Verbose);
-                await client.ConnectAsync(new IPEndPoint(IPAddress.IPv6Loopback, 8898), TimeSpan.FromSeconds(0.5d));
-                client.Start();
+                await client.ConnectAsync(new IPEndPoint(IPAddress.IPv6Loopback, 8898), 5, TimeSpan.FromSeconds(0.5d));
+
+                while (!client.CancellationToken.IsCancellationRequested)
+                {
+                    Console.ReadKey();
+                }
             }
             finally
             {

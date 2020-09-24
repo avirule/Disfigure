@@ -34,18 +34,7 @@ namespace Disfigure.Server
 
         #region Runtime
 
-        public override void Start()
-        {
-            Task.Run(AcceptConnections);
-            Task.Run(PingPongLoop);
-
-            while (!CancellationToken.IsCancellationRequested)
-            {
-                Console.ReadKey();
-            }
-        }
-
-        private async ValueTask AcceptConnections()
+        public async ValueTask AcceptConnections()
         {
             try
             {
@@ -78,7 +67,7 @@ namespace Disfigure.Server
             }
         }
 
-        private async Task PingPongLoop()
+        public async Task PingPongLoop()
         {
             Stopwatch pingIntervalTimer = Stopwatch.StartNew();
             Stopwatch pingFrameTimer = new Stopwatch();
