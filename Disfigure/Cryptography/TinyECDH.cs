@@ -14,17 +14,17 @@ namespace Disfigure.Cryptography
         // note: public_key is a pre-allocated byte array that is filled by native function
         // __stdcall __declspec(dllexport) int ecdh_generate_keys(uint8_t* public_key, uint8_t* private_key);
         [DllImport("tiny_ecdh.dll", EntryPoint = "ecdh_generate_keys", ExactSpelling = true, SetLastError = true,
-            CallingConvention = CallingConvention.StdCall)]
-        private static extern int DerivePublicKeyNative(IntPtr publicKey, IntPtr privateKey);
+            CallingConvention = CallingConvention.Cdecl)]
+        private static extern unsafe int DerivePublicKeyNative(byte* publicKey, byte* privateKey);
 
         // native signature
         // note: output is a pre-allocated byte array that is filled by native function
         // __stdcall __declspec(dllexport) int ecdh_shared_secret(const uint8_t* private_key, const uint8_t* others_pub, uint8_t* output);
         [DllImport("tiny_ecdh.dll", EntryPoint = "ecdh_shared_secret", ExactSpelling = true, SetLastError = true,
-            CallingConvention = CallingConvention.StdCall)]
-        private static extern int DeriveSharedKeyNative(IntPtr privateKey, IntPtr remotePublicKey, IntPtr derivedKey);
+            CallingConvention = CallingConvention.Cdecl)]
+        private static extern unsafe int DeriveSharedKeyNative(byte* privateKey, byte* remotePublicKey, byte* derivedKey);
 
-        public static int DerivePublicKey(IntPtr publicKey, IntPtr privateKey)
+        public static unsafe int DerivePublicKey(byte* publicKey, byte* privateKey)
         {
             int result = DerivePublicKeyNative(publicKey, privateKey);
             int errorCode = Marshal.GetLastWin32Error();
@@ -37,7 +37,7 @@ namespace Disfigure.Cryptography
             return result;
         }
 
-        public static int DeriveSharedKey(IntPtr privateKey, IntPtr remotePublicKey, IntPtr derivedKey)
+        public static unsafe int DeriveSharedKey(byte* privateKey, byte* remotePublicKey, byte* derivedKey)
         {
             int result = DeriveSharedKeyNative(privateKey, remotePublicKey, derivedKey);
             int errorCode = Marshal.GetLastWin32Error();

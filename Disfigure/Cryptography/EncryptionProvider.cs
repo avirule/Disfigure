@@ -49,7 +49,7 @@ namespace Disfigure.Cryptography
             fixed (byte* privateKeyFixed = _PrivateKey)
             fixed (byte* publicKeyFixed = PublicKey)
             {
-                int result = TinyECDH.DerivePublicKey((IntPtr)publicKeyFixed, (IntPtr)privateKeyFixed);
+                int result = TinyECDH.DerivePublicKey(publicKeyFixed, privateKeyFixed);
             }
         }
 
@@ -59,7 +59,7 @@ namespace Disfigure.Cryptography
             fixed (byte* remotePublicKeyFixed = remotePublicKey)
             fixed (byte* derivedKeyFixed = derivedKey)
             {
-                int result = TinyECDH.DeriveSharedKey((IntPtr)privateKeyFixed, (IntPtr)remotePublicKeyFixed, (IntPtr)derivedKeyFixed);
+                int result = TinyECDH.DeriveSharedKey(privateKeyFixed, remotePublicKeyFixed, derivedKeyFixed);
             }
         }
 
