@@ -7,6 +7,7 @@ using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
 using Disfigure.Collections;
+using Serilog;
 
 #endregion
 
@@ -14,12 +15,11 @@ namespace Disfigure.Cryptography
 {
     public class EncryptionProvider
     {
-        public const int DERIVED_KEY_SIZE = 32;
-        public const int PRIVATE_KEY_SIZE = 72;
-        public const int PUBLIC_KEY_SIZE = PRIVATE_KEY_SIZE * 2;
+        public const int KEY_SIZE = 32;
+        public const int PUBLIC_KEY_SIZE = KEY_SIZE * 2;
 
         private static readonly RNGCryptoServiceProvider _CryptoRandom = new RNGCryptoServiceProvider();
-        private static readonly ObjectPool<byte[]> _DerivedKeyPool = new ObjectPool<byte[]>(() => new byte[DERIVED_KEY_SIZE]);
+        private static readonly ObjectPool<byte[]> _DerivedKeyPool = new ObjectPool<byte[]>(() => new byte[KEY_SIZE]);
 
         private readonly AesCryptoServiceProvider _AES;
         private readonly byte[] _PrivateKey;
@@ -34,7 +34,7 @@ namespace Disfigure.Cryptography
         public EncryptionProvider()
         {
             _AES = new AesCryptoServiceProvider();
-            _PrivateKey = new byte[PRIVATE_KEY_SIZE];
+            _PrivateKey = new byte[KEY_SIZE];
             PublicKey = new byte[PUBLIC_KEY_SIZE];
 
             GeneratePrivateKey();
@@ -49,7 +49,7 @@ namespace Disfigure.Cryptography
             fixed (byte* privateKeyFixed = _PrivateKey)
             fixed (byte* publicKeyFixed = PublicKey)
             {
-                int result = TinyECDH.DerivePublicKey(publicKeyFixed, privateKeyFixed);
+                TinyECDH.DerivePublicKey(publicKeyFixed, privateKeyFixed);
             }
         }
 
@@ -59,7 +59,7 @@ namespace Disfigure.Cryptography
             fixed (byte* remotePublicKeyFixed = remotePublicKey)
             fixed (byte* derivedKeyFixed = derivedKey)
             {
-                int result = TinyECDH.DeriveSharedKey(privateKeyFixed, remotePublicKeyFixed, derivedKeyFixed);
+                TinyECDH.DeriveSharedKey(privateKeyFixed, remotePublicKeyFixed, derivedKeyFixed);
             }
         }
 
@@ -87,11 +87,11 @@ namespace Disfigure.Cryptography
                 return unencrypted;
             }
 
-            byte[] sharedKey = _DerivedKeyPool.Rent();
-            Array.Clear(sharedKey, 0, sharedKey.Length);
+            byte[] derivedKey = _DerivedKeyPool.Rent();
+            Array.Clear(derivedKey, 0, derivedKey.Length);
 
-            DeriveSharedKey(_RemotePublicKey, sharedKey);
-            _AES.Key = sharedKey;
+            DeriveSharedKey(_RemotePublicKey, derivedKey);
+            _AES.Key = derivedKey;
 
             await using MemoryStream cipherBytes = new MemoryStream();
             using (ICryptoTransform? encryptor = _AES.CreateEncryptor())
@@ -100,7 +100,7 @@ namespace Disfigure.Cryptography
                 await cryptoStream.WriteAsync(unencrypted, cancellationToken);
             }
 
-            _DerivedKeyPool.Return(sharedKey);
+            _DerivedKeyPool.Return(derivedKey);
 
             return cipherBytes.ToArray();
         }
@@ -116,11 +116,11 @@ namespace Disfigure.Cryptography
                 return encrypted;
             }
 
-            byte[] sharedKey = _DerivedKeyPool.Rent();
-            Array.Clear(sharedKey, 0, sharedKey.Length);
+            byte[] derivedKey = _DerivedKeyPool.Rent();
+            Array.Clear(derivedKey, 0, derivedKey.Length);
 
-            DeriveSharedKey(remotePublicKey, sharedKey);
-            _AES.Key = sharedKey;
+            DeriveSharedKey(remotePublicKey, derivedKey);
+            _AES.Key = derivedKey;
 
             await using MemoryStream cipherBytes = new MemoryStream();
             using (ICryptoTransform? decryptor = _AES.CreateDecryptor())
@@ -129,7 +129,7 @@ namespace Disfigure.Cryptography
                 await cryptoStream.WriteAsync(encrypted, 0, encrypted.Length, cancellationToken);
             }
 
-            _DerivedKeyPool.Return(sharedKey);
+            _DerivedKeyPool.Return(derivedKey);
 
             return cipherBytes.ToArray();
         }
