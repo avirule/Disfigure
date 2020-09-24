@@ -34,7 +34,6 @@ namespace Disfigure.Net
         private readonly Dictionary<PacketType, ManualResetEvent> _PacketResetEvents;
 
         public Guid Identity { get; }
-        public string Name { get; }
         public EndPoint RemoteEndPoint { get; }
 
         public byte[] PublicKey => _EncryptionProvider.PublicKey;
@@ -48,7 +47,6 @@ namespace Disfigure.Net
             _EncryptionProvider = new EncryptionProvider();
 
             Identity = Guid.NewGuid();
-            Name = string.Empty;
             RemoteEndPoint = _Client.Client.RemoteEndPoint;
 
             _PacketResetEvents = new Dictionary<PacketType, ManualResetEvent>

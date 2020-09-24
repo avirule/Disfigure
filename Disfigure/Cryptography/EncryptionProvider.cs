@@ -73,8 +73,7 @@ namespace Disfigure.Cryptography
             {
                 throw new CryptographicException("Key exchange has not been completed.");
             }
-
-            if (unencrypted.Length == 0)
+            else if (unencrypted.Length == 0)
             {
                 return (Array.Empty<byte>(), unencrypted);
             }
