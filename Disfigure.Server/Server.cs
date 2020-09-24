@@ -46,7 +46,7 @@ namespace Disfigure.Server
                     TcpClient tcpClient = await listener.AcceptTcpClientAsync();
                     Log.Information($"Accepted new connection from {tcpClient.Client.RemoteEndPoint}.");
 
-                    Connection connection = await EstablishConnectionAsync(tcpClient, true);
+                    Connection connection = await EstablishConnectionAsync(tcpClient);
                     connection.Disconnected += OnDisconnected;
                     connection.PongReceived += OnPongReceived;
 

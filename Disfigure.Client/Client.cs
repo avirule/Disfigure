@@ -1,7 +1,6 @@
 #region
 
 using System;
-using System.Collections.Generic;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
@@ -48,7 +47,7 @@ namespace Disfigure.Client
                 }
             }
 
-            Connection connection = await EstablishConnectionAsync(tcpClient, false);
+            Connection connection = await EstablishConnectionAsync(tcpClient);
             connection.ChannelIdentityReceived += OnChannelIdentityReceived;
             connection.PingReceived += OnPingReceived;
             connection.WaitForPacket(PacketType.EndIdentity);

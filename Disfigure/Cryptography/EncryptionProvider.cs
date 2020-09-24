@@ -7,7 +7,6 @@ using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
 using Disfigure.Collections;
-using Serilog;
 
 #endregion
 
@@ -17,11 +16,11 @@ namespace Disfigure.Cryptography
     {
         public const int KEY_SIZE = 32;
         public const int PUBLIC_KEY_SIZE = KEY_SIZE * 2;
+        public const int INITIALIZATION_VECTOR_SIZE = 16;
 
         private static readonly RNGCryptoServiceProvider _CryptoRandom = new RNGCryptoServiceProvider();
         private static readonly ObjectPool<byte[]> _DerivedKeyPool = new ObjectPool<byte[]>(() => new byte[KEY_SIZE]);
 
-        private readonly AesCryptoServiceProvider _AES;
         private readonly byte[] _PrivateKey;
 
         private byte[]? _RemotePublicKey;
@@ -29,11 +28,8 @@ namespace Disfigure.Cryptography
         public byte[] PublicKey { get; }
         public bool EncryptionNegotiated { get; private set; }
 
-        public byte[] IV => _AES.IV;
-
         public EncryptionProvider()
         {
-            _AES = new AesCryptoServiceProvider();
             _PrivateKey = new byte[KEY_SIZE];
             PublicKey = new byte[PUBLIC_KEY_SIZE];
 
@@ -63,38 +59,37 @@ namespace Disfigure.Cryptography
             }
         }
 
-        public void AssignRemoteKeys(byte[] remoteIV, byte[] remotePublicKey)
+        public void AssignRemoteKeys(byte[] remotePublicKey)
         {
             Debug.Assert(!EncryptionNegotiated, "Protocol requires that key exchanges happen ONLY ONCE.");
-
-            if (remoteIV.Length > 0)
-            {
-                _AES.IV = remoteIV;
-            }
 
             _RemotePublicKey = remotePublicKey;
             EncryptionNegotiated = true;
         }
 
-        public async ValueTask<byte[]> Encrypt(byte[] unencrypted, CancellationToken cancellationToken)
+        public async ValueTask<(byte[] initializationVector, byte[] encrypted)> Encrypt(byte[] unencrypted, CancellationToken cancellationToken)
         {
             if (!EncryptionNegotiated || _RemotePublicKey is null)
             {
                 throw new CryptographicException("Key exchange has not been completed.");
             }
-            else if (unencrypted.Length == 0)
+
+            if (unencrypted.Length == 0)
             {
-                return unencrypted;
+                return (Array.Empty<byte>(), unencrypted);
             }
 
             byte[] derivedKey = _DerivedKeyPool.Rent();
             Array.Clear(derivedKey, 0, derivedKey.Length);
 
             DeriveSharedKey(_RemotePublicKey, derivedKey);
-            _AES.Key = derivedKey;
 
+            using AesCryptoServiceProvider aes = new AesCryptoServiceProvider
+            {
+                Key = derivedKey
+            };
             await using MemoryStream cipherBytes = new MemoryStream();
-            using (ICryptoTransform? encryptor = _AES.CreateEncryptor())
+            using ICryptoTransform encryptor = aes.CreateEncryptor();
             await using (CryptoStream cryptoStream = new CryptoStream(cipherBytes, encryptor, CryptoStreamMode.Write))
             {
                 await cryptoStream.WriteAsync(unencrypted, cancellationToken);
@@ -102,10 +97,11 @@ namespace Disfigure.Cryptography
 
             _DerivedKeyPool.Return(derivedKey);
 
-            return cipherBytes.ToArray();
+            return (aes.IV, cipherBytes.ToArray());
         }
 
-        public async ValueTask<byte[]> Decrypt(byte[] remotePublicKey, byte[] encrypted, CancellationToken cancellationToken)
+        public async ValueTask<byte[]> Decrypt(byte[] remoteInitializationVector, byte[] remotePublicKey, byte[] encrypted,
+            CancellationToken cancellationToken)
         {
             if (!EncryptionNegotiated || _RemotePublicKey is null)
             {
@@ -120,10 +116,14 @@ namespace Disfigure.Cryptography
             Array.Clear(derivedKey, 0, derivedKey.Length);
 
             DeriveSharedKey(remotePublicKey, derivedKey);
-            _AES.Key = derivedKey;
 
+            using AesCryptoServiceProvider aes = new AesCryptoServiceProvider
+            {
+                Key = derivedKey,
+                IV = remoteInitializationVector
+            };
             await using MemoryStream cipherBytes = new MemoryStream();
-            using (ICryptoTransform? decryptor = _AES.CreateDecryptor())
+            using ICryptoTransform decryptor = aes.CreateDecryptor();
             await using (CryptoStream cryptoStream = new CryptoStream(cipherBytes, decryptor, CryptoStreamMode.Write))
             {
                 await cryptoStream.WriteAsync(encrypted, 0, encrypted.Length, cancellationToken);

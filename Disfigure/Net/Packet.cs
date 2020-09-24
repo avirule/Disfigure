@@ -33,27 +33,27 @@ namespace Disfigure.Net
     {
         #region Static
 
-        public const int HEADER_LENGTH = sizeof(int) // packet length
-                                         + sizeof(byte) // packet type
-                                         + EncryptionProvider.PUBLIC_KEY_SIZE // public key
-                                         + sizeof(long); // timestamp
-
         public const int OFFSET_PACKET_LENGTH = 0;
         public const int OFFSET_PACKET_TYPE = OFFSET_PACKET_LENGTH + sizeof(int);
         public const int OFFSET_PUBLIC_KEY = OFFSET_PACKET_TYPE + sizeof(byte);
-        public const int OFFSET_TIMESTAMP = OFFSET_PUBLIC_KEY + EncryptionProvider.PUBLIC_KEY_SIZE;
+        public const int OFFSET_INITIALIZATION_VECTOR = OFFSET_PUBLIC_KEY + EncryptionProvider.PUBLIC_KEY_SIZE;
+        public const int OFFSET_TIMESTAMP = OFFSET_INITIALIZATION_VECTOR + EncryptionProvider.INITIALIZATION_VECTOR_SIZE;
+
+        public const int HEADER_LENGTH = OFFSET_TIMESTAMP + sizeof(long);
 
         #endregion
 
         public PacketType Type { get; }
         public byte[] PublicKey { get; }
+        public byte[] InitializationVector { get; }
         public DateTime UtcTimestamp { get; }
         public byte[] Content { get; set; }
 
-        public Packet(PacketType type, byte[] publicKey, DateTime utcTimestamp, byte[] content)
+        public Packet(PacketType type, byte[] publicKey, byte[] initializationVector, DateTime utcTimestamp, byte[] content)
         {
             Type = type;
             PublicKey = publicKey;
+            InitializationVector = initializationVector;
             UtcTimestamp = utcTimestamp;
             Content = content;
         }
@@ -67,11 +67,14 @@ namespace Disfigure.Net
 
             ReadOnlySequence<byte> packetTypeSequence = sequence.Slice(OFFSET_PACKET_TYPE, sizeof(byte));
             ReadOnlySequence<byte> publicKeySequence = sequence.Slice(OFFSET_PUBLIC_KEY, EncryptionProvider.PUBLIC_KEY_SIZE);
+            ReadOnlySequence<byte> initializationVectorSequence =
+                sequence.Slice(OFFSET_INITIALIZATION_VECTOR, EncryptionProvider.INITIALIZATION_VECTOR_SIZE);
             ReadOnlySequence<byte> timestampSequence = sequence.Slice(OFFSET_TIMESTAMP, sizeof(long));
             ReadOnlySequence<byte> contentSequence = sequence.Slice(HEADER_LENGTH, packetLength - HEADER_LENGTH);
 
             Type = (PacketType)packetTypeSequence.FirstSpan[0];
             PublicKey = publicKeySequence.ToArray();
+            InitializationVector = initializationVectorSequence.ToArray();
             UtcTimestamp = DateTime.FromBinary(BitConverter.ToInt64(timestampSequence.FirstSpan));
             Content = contentSequence.ToArray();
         }
@@ -84,6 +87,7 @@ namespace Disfigure.Net
             Buffer.BlockCopy(BitConverter.GetBytes(packetLength), 0, serialized, OFFSET_PACKET_LENGTH, sizeof(int));
             serialized[OFFSET_PACKET_TYPE] = (byte)Type;
             Buffer.BlockCopy(PublicKey, 0, serialized, OFFSET_PUBLIC_KEY, PublicKey.Length);
+            Buffer.BlockCopy(InitializationVector, 0, serialized, OFFSET_INITIALIZATION_VECTOR, InitializationVector.Length);
             Buffer.BlockCopy(BitConverter.GetBytes(UtcTimestamp.Ticks), 0, serialized, OFFSET_TIMESTAMP, sizeof(long));
             Buffer.BlockCopy(Content, 0, serialized, HEADER_LENGTH, Content.Length);
 

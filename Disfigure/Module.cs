@@ -37,9 +37,9 @@ namespace Disfigure
 #endif
         }
 
-        protected async ValueTask<Connection> EstablishConnectionAsync(TcpClient tcpClient, bool isServerModule)
+        protected async ValueTask<Connection> EstablishConnectionAsync(TcpClient tcpClient)
         {
-            Connection connection = new Connection(tcpClient, isServerModule);
+            Connection connection = new Connection(tcpClient);
             connection.Disconnected += OnDisconnected;
 
             await connection.Finalize(CancellationToken);

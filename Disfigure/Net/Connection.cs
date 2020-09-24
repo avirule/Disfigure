@@ -35,12 +35,11 @@ namespace Disfigure.Net
 
         public Guid Identity { get; }
         public string Name { get; }
-        public bool IsOwnerServer { get; }
         public EndPoint RemoteEndPoint { get; }
 
         public byte[] PublicKey => _EncryptionProvider.PublicKey;
 
-        public Connection(TcpClient client, bool isOwnerServer)
+        public Connection(TcpClient client)
         {
             _Client = client;
             _Stream = _Client.GetStream();
@@ -50,7 +49,6 @@ namespace Disfigure.Net
 
             Identity = Guid.NewGuid();
             Name = string.Empty;
-            IsOwnerServer = isOwnerServer;
             RemoteEndPoint = _Client.Client.RemoteEndPoint;
 
             _PacketResetEvents = new Dictionary<PacketType, ManualResetEvent>
@@ -65,7 +63,7 @@ namespace Disfigure.Net
         {
             await OnConnected();
 
-            await SendEncryptionKeys(IsOwnerServer, cancellationToken);
+            await SendEncryptionKeys(cancellationToken);
 
             BeginListen(cancellationToken);
 
@@ -165,9 +163,9 @@ namespace Disfigure.Net
 
         #region Writing Data
 
-        public async ValueTask WriteAsync(PacketType type, DateTime timestamp, byte[] content, CancellationToken cancellationToken)
+        public async ValueTask WriteAsync(PacketType type, DateTime utcTimestamp, byte[] content, CancellationToken cancellationToken)
         {
-            await WriteEncryptedAsync(new Packet(type, PublicKey, timestamp, content), cancellationToken);
+            await WriteEncryptedAsync(type, utcTimestamp, content, cancellationToken);
             await _Writer.FlushAsync(cancellationToken);
         }
 
@@ -175,30 +173,33 @@ namespace Disfigure.Net
         {
             foreach ((PacketType type, DateTime timestamp, byte[] content) in packets)
             {
-                await WriteEncryptedAsync(new Packet(type, PublicKey, timestamp, content), cancellationToken);
+                await WriteEncryptedAsync(type, timestamp, content, cancellationToken);
             }
 
             await _Writer.FlushAsync(cancellationToken);
         }
 
-        private async ValueTask WriteEncryptedAsync(Packet packet, CancellationToken cancellationToken)
+        private async ValueTask WriteEncryptedAsync(PacketType type, DateTime utcTimestamp, byte[] content, CancellationToken cancellationToken)
         {
             Log.Verbose(string.Format(FormatHelper.CONNECTION_LOGGING, RemoteEndPoint,
-                $"Write call: {packet.Type} | {packet.UtcTimestamp} | {packet.Content.Length}"));
+                $"Write call: {type} | {utcTimestamp} | {content.Length}"));
 
             Stopwatch stopwatch = _DiagnosticStopwatches.Rent();
 
             stopwatch.Restart();
 
-            if (packet.Content.Length > 0)
+            byte[] initializationVector = Array.Empty<byte>();
+
+            if (content.Length > 0)
             {
-                packet.Content = await _EncryptionProvider.Encrypt(packet.Content, cancellationToken);
+                (initializationVector, content) = await _EncryptionProvider.Encrypt(content, cancellationToken);
                 Log.Verbose(string.Format(FormatHelper.CONNECTION_LOGGING, RemoteEndPoint,
                     $"Encrypted packet in {stopwatch.Elapsed.TotalMilliseconds:0.00}ms."));
 
                 stopwatch.Restart();
             }
 
+            Packet packet = new Packet(type, PublicKey, initializationVector, utcTimestamp, content);
             byte[] serialized = packet.Serialize();
             Log.Verbose(string.Format(FormatHelper.CONNECTION_LOGGING, RemoteEndPoint,
                 $"Serialized packet in {stopwatch.Elapsed.TotalMilliseconds:0.00}ms."));
@@ -211,14 +212,14 @@ namespace Disfigure.Net
             Log.Debug(string.Format(FormatHelper.CONNECTION_LOGGING, RemoteEndPoint, $"OUT: {packet}"));
         }
 
-        private async ValueTask SendEncryptionKeys(bool server, CancellationToken cancellationToken)
+        private async ValueTask SendEncryptionKeys(CancellationToken cancellationToken)
         {
             Debug.Assert(!_EncryptionProvider.EncryptionNegotiated, "Protocol requires that key exchanges happen ONLY ONCE.");
 
             Log.Debug(string.Format(FormatHelper.CONNECTION_LOGGING, RemoteEndPoint, "Sending encryption keys."));
 
-            Packet packet = new Packet(PacketType.EncryptionKeys, _EncryptionProvider.PublicKey, DateTime.UtcNow,
-                server ? _EncryptionProvider.IV : Array.Empty<byte>());
+            Packet packet = new Packet(PacketType.EncryptionKeys, _EncryptionProvider.PublicKey, Array.Empty<byte>(), DateTime.UtcNow,
+                Array.Empty<byte>());
             await _Stream.WriteAsync(packet.Serialize(), cancellationToken);
             await _Stream.FlushAsync(cancellationToken);
         }
@@ -272,7 +273,7 @@ namespace Disfigure.Net
             switch (packet.Type)
             {
                 case PacketType.EncryptionKeys:
-                    _EncryptionProvider.AssignRemoteKeys(packet.Content, packet.PublicKey);
+                    _EncryptionProvider.AssignRemoteKeys(packet.PublicKey);
                     Log.Debug(string.Format(FormatHelper.CONNECTION_LOGGING, RemoteEndPoint, "Assigned given encryption keys."));
                     break;
                 default:
@@ -280,7 +281,8 @@ namespace Disfigure.Net
                     {
                         stopwatch.Restart();
 
-                        packet.Content = await _EncryptionProvider.Decrypt(packet.PublicKey, packet.Content, cancellationToken);
+                        packet.Content = await _EncryptionProvider.Decrypt(packet.InitializationVector, packet.PublicKey, packet.Content,
+                            cancellationToken);
 
                         stopwatch.Stop();
                         DiagnosticsProvider.CommitData<PacketDiagnosticGroup>(new DecryptionTime(stopwatch.Elapsed));
