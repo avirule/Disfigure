@@ -21,6 +21,9 @@ namespace Disfigure.Cryptography
         private static readonly RNGCryptoServiceProvider _CryptoRandom = new RNGCryptoServiceProvider();
         private static readonly ObjectPool<byte[]> _DerivedKeyPool = new ObjectPool<byte[]>(() => new byte[KEY_SIZE]);
 
+        private static readonly byte[] _DummyKey = new byte[KEY_SIZE];
+        private static readonly byte[] _DummyIV = new byte[INITIALIZATION_VECTOR_SIZE];
+
         private readonly byte[] _PrivateKey;
 
         private byte[]? _RemotePublicKey;
@@ -83,7 +86,7 @@ namespace Disfigure.Cryptography
 
             DeriveSharedKey(_RemotePublicKey, derivedKey);
 
-            using AesCryptoServiceProvider aes = new AesCryptoServiceProvider
+            AesCryptoServiceProvider aes = new AesCryptoServiceProvider
             {
                 Key = derivedKey
             };
@@ -116,10 +119,10 @@ namespace Disfigure.Cryptography
 
             DeriveSharedKey(remotePublicKey, derivedKey);
 
-            using AesCryptoServiceProvider aes = new AesCryptoServiceProvider
+            AesCryptoServiceProvider aes = new AesCryptoServiceProvider
             {
-                Key = derivedKey,
-                IV = remoteInitializationVector
+                IV = remoteInitializationVector,
+                Key = derivedKey
             };
             await using MemoryStream cipherBytes = new MemoryStream();
             using ICryptoTransform decryptor = aes.CreateDecryptor();

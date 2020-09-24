@@ -32,7 +32,7 @@ namespace Disfigure
             Connections = new ConcurrentDictionary<Guid, Connection>();
             Channels = new ConcurrentDictionary<Guid, Channel>();
 
-#if DEBUG
+#if false
             DiagnosticsProvider.EnableGroup<PacketDiagnosticGroup>();
 #endif
         }

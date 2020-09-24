@@ -95,11 +95,11 @@ namespace Disfigure.Server
                     pingIntervalTimer.Restart();
                 }
 
-                ManagePendingPingLifetimes(pingFrameTimer);
+                TimeoutExpiredPings(pingFrameTimer);
             }
         }
 
-        private void ManagePendingPingLifetimes(Stopwatch pingFrameTimer)
+        private void TimeoutExpiredPings(Stopwatch pingFrameTimer)
         {
             foreach ((Guid connectionIdentity, PendingPing pendingPing) in _PendingPings)
             {
