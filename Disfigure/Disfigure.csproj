@@ -18,9 +18,10 @@
     </ItemGroup>
 
     <ItemGroup>
-      <None Update="tiny_ecdh.dll">
+      <Content Include="..\References\tiny_ecdh.dll">
+        <Link>tiny_ecdh.dll</Link>
         <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-      </None>
+      </Content>
     </ItemGroup>
 
 </Project>
