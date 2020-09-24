@@ -16,8 +16,6 @@ namespace Disfigure.Client
 {
     public class Client : Module
     {
-        public IReadOnlyDictionary<Guid, Connection> ReadOnlyConnections => Connections;
-
         public Client(LogEventLevel minimumLogLevel) : base(minimumLogLevel) { }
 
         #region Connection

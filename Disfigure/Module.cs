@@ -2,6 +2,7 @@
 
 using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
@@ -20,8 +21,9 @@ namespace Disfigure
         protected readonly ConcurrentDictionary<Guid, Channel> Channels;
 
         public CancellationToken CancellationToken => CancellationTokenSource.Token;
+        public IReadOnlyDictionary<Guid, Connection> ReadOnlyConnections => Connections;
 
-        public Module(LogEventLevel minimumLogLevel)
+        protected Module(LogEventLevel minimumLogLevel)
         {
             Log.Logger = new LoggerConfiguration().WriteTo.Console().MinimumLevel.Is(minimumLogLevel).CreateLogger();
 
@@ -31,7 +33,6 @@ namespace Disfigure
 
 #if DEBUG
             DiagnosticsProvider.EnableGroup<PacketDiagnosticGroup>();
-
 #endif
         }
 

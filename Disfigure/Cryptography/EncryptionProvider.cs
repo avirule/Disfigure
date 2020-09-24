@@ -38,13 +38,13 @@ namespace Disfigure.Cryptography
             PublicKey = new byte[PUBLIC_KEY_SIZE];
 
             GeneratePrivateKey();
-            GeneratePublicKey();
+            DerivePublicKey();
         }
 
 
         private void GeneratePrivateKey() => _CryptoRandom.GetBytes(_PrivateKey);
 
-        private unsafe void GeneratePublicKey()
+        private unsafe void DerivePublicKey()
         {
             fixed (byte* privateKeyFixed = _PrivateKey)
             fixed (byte* publicKeyFixed = PublicKey)
@@ -53,7 +53,7 @@ namespace Disfigure.Cryptography
             }
         }
 
-        private unsafe void DeriveKey(byte[] remotePublicKey, byte[] derivedKey)
+        private unsafe void DeriveSharedKey(byte[] remotePublicKey, byte[] derivedKey)
         {
             fixed (byte* privateKeyFixed = _PrivateKey)
             fixed (byte* remotePublicKeyFixed = remotePublicKey)
@@ -90,7 +90,7 @@ namespace Disfigure.Cryptography
             byte[] sharedKey = _DerivedKeyPool.Rent();
             Array.Clear(sharedKey, 0, sharedKey.Length);
 
-            DeriveKey(_RemotePublicKey, sharedKey);
+            DeriveSharedKey(_RemotePublicKey, sharedKey);
             _AES.Key = sharedKey;
 
             await using MemoryStream cipherBytes = new MemoryStream();
@@ -119,7 +119,7 @@ namespace Disfigure.Cryptography
             byte[] sharedKey = _DerivedKeyPool.Rent();
             Array.Clear(sharedKey, 0, sharedKey.Length);
 
-            DeriveKey(remotePublicKey, sharedKey);
+            DeriveSharedKey(remotePublicKey, sharedKey);
             _AES.Key = sharedKey;
 
             await using MemoryStream cipherBytes = new MemoryStream();
