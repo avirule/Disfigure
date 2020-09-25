@@ -212,14 +212,19 @@ namespace Disfigure.Net
 
         private async ValueTask SendEncryptionKeys(CancellationToken cancellationToken)
         {
-            Debug.Assert(!_EncryptionProvider.EncryptionNegotiated, "Protocol requires that key exchanges happen ONLY ONCE.");
+            if (_EncryptionProvider.EncryptionNegotiated)
+            {
+                Log.Warning("Protocol requires that key exchanges happen ONLY ONCE.");
+            }
+            else
+            {
+                Log.Debug(string.Format(FormatHelper.CONNECTION_LOGGING, RemoteEndPoint, "Sending encryption keys."));
 
-            Log.Debug(string.Format(FormatHelper.CONNECTION_LOGGING, RemoteEndPoint, "Sending encryption keys."));
-
-            Packet packet = new Packet(PacketType.EncryptionKeys, _EncryptionProvider.PublicKey, Array.Empty<byte>(), DateTime.UtcNow,
-                Array.Empty<byte>());
-            await _Stream.WriteAsync(packet.Serialize(), cancellationToken);
-            await _Stream.FlushAsync(cancellationToken);
+                Packet packet = new Packet(PacketType.EncryptionKeys, _EncryptionProvider.PublicKey, Array.Empty<byte>(), DateTime.UtcNow,
+                    Array.Empty<byte>());
+                await _Stream.WriteAsync(packet.Serialize(), cancellationToken);
+                await _Stream.FlushAsync(cancellationToken);
+            }
         }
 
         #endregion

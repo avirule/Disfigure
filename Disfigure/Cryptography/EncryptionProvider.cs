@@ -1,12 +1,12 @@
 #region
 
 using System;
-using System.Diagnostics;
 using System.IO;
 using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
 using Disfigure.Collections;
+using Serilog;
 
 #endregion
 
@@ -20,9 +20,6 @@ namespace Disfigure.Cryptography
 
         private static readonly RNGCryptoServiceProvider _CryptoRandom = new RNGCryptoServiceProvider();
         private static readonly ObjectPool<byte[]> _DerivedKeyPool = new ObjectPool<byte[]>(() => new byte[KEY_SIZE]);
-
-        private static readonly byte[] _DummyKey = new byte[KEY_SIZE];
-        private static readonly byte[] _DummyIV = new byte[INITIALIZATION_VECTOR_SIZE];
 
         private readonly byte[] _PrivateKey;
 
@@ -63,10 +60,15 @@ namespace Disfigure.Cryptography
 
         public void AssignRemoteKeys(byte[] remotePublicKey)
         {
-            Debug.Assert(!EncryptionNegotiated, "Protocol requires that key exchanges happen ONLY ONCE.");
-
-            _RemotePublicKey = remotePublicKey;
-            EncryptionNegotiated = true;
+            if (EncryptionNegotiated)
+            {
+                Log.Warning("Protocol requires that key exchanges happen ONLY ONCE.");
+            }
+            else
+            {
+                _RemotePublicKey = remotePublicKey;
+                EncryptionNegotiated = true;
+            }
         }
 
         public async ValueTask<(byte[] initializationVector, byte[] encrypted)> Encrypt(byte[] unencrypted, CancellationToken cancellationToken)
@@ -85,7 +87,7 @@ namespace Disfigure.Cryptography
 
             DeriveSharedKey(_RemotePublicKey, derivedKey);
 
-            // DO NOT ADD USING FOR AesCryptoServiceProvider
+            // DO NOT ADD USING STATEMENT FOR AesCryptoServiceProvider
             // I'm unsure why, but the AesCryptoServiceProvider dispose method
             // throws an AccessViolationException. The dispose method only
             // clears arrays, so it is safe to NOT USE the using statement.
@@ -122,7 +124,7 @@ namespace Disfigure.Cryptography
 
             DeriveSharedKey(remotePublicKey, derivedKey);
 
-            // DO NOT ADD USING FOR AesCryptoServiceProvider
+            // DO NOT ADD USING STATEMENT FOR AesCryptoServiceProvider
             // I'm unsure why, but the AesCryptoServiceProvider dispose method
             // throws an AccessViolationException. The dispose method only
             // clears arrays, so it is safe to NOT USE the using statement.
