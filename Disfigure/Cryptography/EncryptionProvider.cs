@@ -37,6 +37,8 @@ namespace Disfigure.Cryptography
             DerivePublicKey();
         }
 
+        #region Key Operations
+
         private void GeneratePrivateKey() => _CryptoRandom.GetBytes(_PrivateKey);
 
         private unsafe void DerivePublicKey()
@@ -70,6 +72,10 @@ namespace Disfigure.Cryptography
                 EncryptionNegotiated = true;
             }
         }
+
+        #endregion
+
+        #region Encrypt / Decrypt
 
         public async ValueTask<(byte[] initializationVector, byte[] encrypted)> Encrypt(byte[] unencrypted, CancellationToken cancellationToken)
         {
@@ -144,5 +150,7 @@ namespace Disfigure.Cryptography
 
             return cipherBytes.ToArray();
         }
+
+        #endregion
     }
 }
