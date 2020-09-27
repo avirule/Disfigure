@@ -105,7 +105,7 @@ namespace Disfigure.Cryptography
             using ICryptoTransform encryptor = aes.CreateEncryptor();
             await using (CryptoStream cryptoStream = new CryptoStream(cipherBytes, encryptor, CryptoStreamMode.Write))
             {
-                await cryptoStream.WriteAsync(unencrypted, cancellationToken);
+                await cryptoStream.WriteAsync(unencrypted, cancellationToken).Contextless();
             }
 
             _DerivedKeyPool.Return(derivedKey);
@@ -143,7 +143,7 @@ namespace Disfigure.Cryptography
             using ICryptoTransform decryptor = aes.CreateDecryptor();
             await using (CryptoStream cryptoStream = new CryptoStream(cipherBytes, decryptor, CryptoStreamMode.Write))
             {
-                await cryptoStream.WriteAsync(encrypted, 0, encrypted.Length, cancellationToken);
+                await cryptoStream.WriteAsync(encrypted, 0, encrypted.Length, cancellationToken).Contextless();
             }
 
             _DerivedKeyPool.Return(derivedKey);

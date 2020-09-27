@@ -30,7 +30,7 @@ namespace Disfigure.Client
             {
                 try
                 {
-                    await tcpClient.ConnectAsync(ipEndPoint.Address, ipEndPoint.Port);
+                    await tcpClient.ConnectAsync(ipEndPoint.Address, ipEndPoint.Port).Contextless();
                 }
                 catch (SocketException) when (tries >= maximumRetries)
                 {
@@ -43,12 +43,12 @@ namespace Disfigure.Client
 
                     Log.Warning($"{exception.Message}. Retrying ({tries}/{maximumRetries})...");
 
-                    await Task.Delay(retryDelay, CancellationToken);
+                    await Task.Delay(retryDelay, CancellationToken).Contextless();
                 }
             }
 
-            Connection connection = await EstablishConnectionAsync(tcpClient);
-            connection.PacketReceived += OnPacketReceived;
+            Connection connection = await EstablishConnectionAsync(tcpClient).Contextless();
+            connection.PacketReceived += OnPacketReceivedCallback;
             connection.WaitForPacket(PacketType.EndIdentity);
         }
 
@@ -56,7 +56,7 @@ namespace Disfigure.Client
 
         #region Events
 
-        protected override async ValueTask OnPacketReceived(Connection connection, Packet packet)
+        protected override async ValueTask OnPacketReceivedCallback(Connection connection, Packet packet)
         {
             switch (packet.Type)
             {
@@ -75,11 +75,11 @@ namespace Disfigure.Client
                     break;
                 case PacketType.Ping:
                     Log.Verbose(string.Format(FormatHelper.CONNECTION_LOGGING, connection.RemoteEndPoint, "Received ping, ponging..."));
-                    await connection.WriteAsync(PacketType.Pong, DateTime.UtcNow, packet.Content, CancellationToken);
+                    await connection.WriteAsync(PacketType.Pong, DateTime.UtcNow, packet.Content, CancellationToken).Contextless();
                     break;
             }
 
-            await base.OnPacketReceived(connection, packet);
+            await base.OnPacketReceivedCallback(connection, packet).Contextless();
         }
 
         #endregion

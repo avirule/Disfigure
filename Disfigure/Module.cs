@@ -42,7 +42,7 @@ namespace Disfigure
             Connection connection = new Connection(tcpClient);
             connection.Disconnected += OnDisconnected;
 
-            await connection.Finalize(CancellationToken);
+            await connection.Finalize(CancellationToken).Contextless();
             Connections.TryAdd(connection.Identity, connection);
 
             return connection;
@@ -66,7 +66,7 @@ namespace Disfigure
         {
             if (PacketReceived is { })
             {
-                await PacketReceived(connection, packet);
+                await PacketReceived(connection, packet).Contextless();
             }
         }
 

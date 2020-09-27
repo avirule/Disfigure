@@ -17,7 +17,7 @@ namespace Disfigure.Client
             try
             {
                 using ClientModule clientModule = new ClientModule(LogEventLevel.Verbose);
-                await clientModule.ConnectAsync(new IPEndPoint(IPAddress.IPv6Loopback, 8898), 5, TimeSpan.FromSeconds(0.5d));
+                await clientModule.ConnectAsync(new IPEndPoint(IPAddress.IPv6Loopback, 8898), 5, TimeSpan.FromSeconds(0.5d)).Contextless();
 
                 while (!clientModule.CancellationToken.IsCancellationRequested)
                 {

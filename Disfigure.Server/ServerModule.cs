@@ -26,6 +26,8 @@ namespace Disfigure.Server
         {
             _HostAddress = hostAddress;
             _PendingPings = new ConcurrentDictionary<Guid, PendingPing>();
+
+            PacketReceived += OnPacketReceivedCallback;
         }
 
 
@@ -42,14 +44,14 @@ namespace Disfigure.Server
 
                 while (!CancellationToken.IsCancellationRequested)
                 {
-                    TcpClient tcpClient = await listener.AcceptTcpClientAsync();
+                    TcpClient tcpClient = await listener.AcceptTcpClientAsync().Contextless();
                     Log.Information(string.Format(FormatHelper.CONNECTION_LOGGING, tcpClient.Client.RemoteEndPoint, "Connection accepted."));
 
-                    Connection connection = await EstablishConnectionAsync(tcpClient);
+                    Connection connection = await EstablishConnectionAsync(tcpClient).Contextless();
                     connection.Disconnected += OnDisconnected;
                     connection.PacketReceived += OnPacketReceived;
 
-                    await CommunicateServerIdentities(connection);
+                    await CommunicateServerIdentities(connection).Contextless();
                 }
             }
             catch (SocketException exception) when (exception.ErrorCode == 10048)
@@ -77,7 +79,7 @@ namespace Disfigure.Server
             {
                 pingFrameTimer.Restart();
 
-                await Task.Delay(100);
+                await Task.Delay(100).Contextless();
 
                 if (pingIntervalTimer.Elapsed < _PingInterval)
                 {
@@ -95,7 +97,7 @@ namespace Disfigure.Server
                     {
                         PendingPing pendingPing = new PendingPing();
                         _PendingPings.TryAdd(connectionIdentity, pendingPing);
-                        await connection.WriteAsync(PacketType.Ping, DateTime.UtcNow, pendingPing.Identity.ToByteArray(), CancellationToken);
+                        await connection.WriteAsync(PacketType.Ping, DateTime.UtcNow, pendingPing.Identity.ToByteArray(), CancellationToken).Contextless();
                     }
                 }
 
@@ -111,15 +113,15 @@ namespace Disfigure.Server
         private async ValueTask CommunicateServerIdentities(Connection connection)
         {
             DateTime utcTimestamp = DateTime.UtcNow;
-            await connection.WriteAsync(PacketType.BeginIdentity, utcTimestamp, Array.Empty<byte>(), CancellationToken);
+            await connection.WriteAsync(PacketType.BeginIdentity, utcTimestamp, Array.Empty<byte>(), CancellationToken).Contextless();
 
             if (Channels.Count > 0)
             {
                 await connection.WriteAsync(Channels.Values.Select(channel => (PacketType.ChannelIdentity, utcTimestamp, channel.Serialize())),
-                    CancellationToken);
+                    CancellationToken).Contextless();
             }
 
-            await connection.WriteAsync(PacketType.EndIdentity, utcTimestamp, Array.Empty<byte>(), CancellationToken);
+            await connection.WriteAsync(PacketType.EndIdentity, utcTimestamp, Array.Empty<byte>(), CancellationToken).Contextless();
         }
 
         #endregion
@@ -135,15 +137,14 @@ namespace Disfigure.Server
             return default;
         }
 
-        protected override async ValueTask OnPacketReceived(Connection connection, Packet packet)
+        private ValueTask OnPacketReceivedCallback(Connection connection, Packet packet)
         {
-            // handle pingspongs
             if (packet.Type == PacketType.Pong)
             {
                 PongReceived(connection, packet);
             }
 
-            await base.OnPacketReceived(connection, packet);
+            return default;
         }
 
         private void PongReceived(Connection connection, Packet packet)
