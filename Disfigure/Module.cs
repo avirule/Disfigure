@@ -58,6 +58,20 @@ namespace Disfigure
 
         #endregion
 
+        #region Packet Events
+
+        public event PacketEventHandler? PacketReceived;
+
+        protected virtual async ValueTask OnPacketReceived(Connection connection, Packet packet)
+        {
+            if (PacketReceived is { })
+            {
+                await PacketReceived(connection, packet);
+            }
+        }
+
+        #endregion
+
         #region IDisposable
 
         private bool _Disposed;

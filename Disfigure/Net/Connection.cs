@@ -109,10 +109,9 @@ namespace Disfigure.Net
                         continue;
                     }
 
-                    stopwatch.Stop();
                     DiagnosticsProvider.CommitData<PacketDiagnosticGroup>(new ConstructionTime(stopwatch.Elapsed));
 
-                    await OnPacketReceived(packet, cancellationToken, stopwatch);
+                    await OnPacketReceived(packet, cancellationToken);
                     _Reader.AdvanceTo(consumed, consumed);
                 }
             }
@@ -239,7 +238,7 @@ namespace Disfigure.Net
         {
             if (Connected is { })
             {
-                await Connected.Invoke(this);
+                await Connected(this);
             }
         }
 
@@ -247,7 +246,7 @@ namespace Disfigure.Net
         {
             if (Disconnected is { })
             {
-                await Disconnected.Invoke(this);
+                await Disconnected(this);
             }
         }
 
@@ -257,14 +256,8 @@ namespace Disfigure.Net
         #region Packet Events
 
         public event PacketEventHandler? PacketReceived;
-        public event PacketEventHandler? TextPacketReceived;
-        public event PacketEventHandler? BeginIdentityReceived;
-        public event PacketEventHandler? ChannelIdentityReceived;
-        public event PacketEventHandler? EndIdentityReceived;
-        public event PacketEventHandler? PingReceived;
-        public event PacketEventHandler? PongReceived;
 
-        private async ValueTask OnPacketReceived(Packet packet, CancellationToken cancellationToken, Stopwatch stopwatch)
+        private async ValueTask OnPacketReceived(Packet packet, CancellationToken cancellationToken)
         {
             Log.Debug(string.Format(FormatHelper.CONNECTION_LOGGING, RemoteEndPoint, $"INC: {packet}"));
 
@@ -280,54 +273,32 @@ namespace Disfigure.Net
                     Log.Debug(string.Format(FormatHelper.CONNECTION_LOGGING, RemoteEndPoint, "Assigned given encryption keys."));
                     break;
                 default:
-                    if (packet.Content.Length > 0)
+                    if (packet.Content.Length == 0)
                     {
-                        stopwatch.Restart();
-
-                        packet.Content = await _EncryptionProvider.Decrypt(packet.InitializationVector, packet.PublicKey, packet.Content,
-                            cancellationToken);
-
-                        stopwatch.Stop();
-                        DiagnosticsProvider.CommitData<PacketDiagnosticGroup>(new DecryptionTime(stopwatch.Elapsed));
-
-                        Log.Verbose(string.Format(FormatHelper.CONNECTION_LOGGING, RemoteEndPoint,
-                            $"Decrypted packet in {stopwatch.Elapsed.TotalMilliseconds:0.00}ms."));
+                        // we don't need to decrypt the content
+                        break;
                     }
 
-                    await InvokePacketTypeEvent(packet);
+                    Stopwatch stopwatch = _DiagnosticStopwatches.Rent();
+                    stopwatch.Restart();
+
+                    packet.Content = await _EncryptionProvider.Decrypt(packet.InitializationVector, packet.PublicKey, packet.Content,
+                        cancellationToken);
+
+                    DiagnosticsProvider.CommitData<PacketDiagnosticGroup>(new DecryptionTime(stopwatch.Elapsed));
+
+                    Log.Verbose(string.Format(FormatHelper.CONNECTION_LOGGING, RemoteEndPoint,
+                        $"Decrypted packet in {stopwatch.Elapsed.TotalMilliseconds:0.00}ms."));
+
+                    _DiagnosticStopwatches.Return(stopwatch);
                     break;
             }
 
             if (PacketReceived is { })
             {
-                await PacketReceived.Invoke(this, packet);
-            }
-        }
-
-        private async ValueTask InvokePacketTypeEvent(Packet packet)
-        {
-            Log.Verbose(string.Format(FormatHelper.CONNECTION_LOGGING, RemoteEndPoint, $"Invoking packet type event {packet.Type}."));
-
-            switch (packet.Type)
-            {
-                case PacketType.Ping when PingReceived is { }:
-                    await PingReceived.Invoke(this, packet);
-                    break;
-                case PacketType.Pong when PongReceived is { }:
-                    await PongReceived.Invoke(this, packet);
-                    break;
-                case PacketType.Text when TextPacketReceived is { }:
-                    await TextPacketReceived.Invoke(this, packet);
-                    break;
-                case PacketType.BeginIdentity when BeginIdentityReceived is { }:
-                    await BeginIdentityReceived.Invoke(this, packet);
-                    break;
-                case PacketType.EndIdentity when EndIdentityReceived is { }:
-                    await EndIdentityReceived.Invoke(this, packet);
-                    break;
-                case PacketType.ChannelIdentity when ChannelIdentityReceived is { }:
-                    await ChannelIdentityReceived.Invoke(this, packet);
-                    break;
+                Log.Verbose(string.Format(FormatHelper.CONNECTION_LOGGING, RemoteEndPoint,
+                    $"Invoking packet event ({packet.Type}: {packet.Content.Length} bytes)."));
+                await PacketReceived(this, packet);
             }
         }
 

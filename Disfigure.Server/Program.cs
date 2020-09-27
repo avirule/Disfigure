@@ -19,8 +19,8 @@ namespace Disfigure.Server
             try
             {
                 using ServerModule serverModule = new ServerModule(LogEventLevel.Verbose, new IPEndPoint(IPAddress.IPv6Loopback, port));
-                Task.Run(serverModule.AcceptConnections);
-                Task.Run(serverModule.PingPongLoop);
+                serverModule.AcceptConnections();
+                serverModule.PingPongLoop();
 
                 while (!serverModule.CancellationToken.IsCancellationRequested)
                 {

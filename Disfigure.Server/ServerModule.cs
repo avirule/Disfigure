@@ -31,7 +31,9 @@ namespace Disfigure.Server
 
         #region Runtime
 
-        public async ValueTask AcceptConnections()
+        public void AcceptConnections() => Task.Run(AcceptConnectionsInternal);
+
+        private async ValueTask AcceptConnectionsInternal()
         {
             try
             {
@@ -45,7 +47,7 @@ namespace Disfigure.Server
 
                     Connection connection = await EstablishConnectionAsync(tcpClient);
                     connection.Disconnected += OnDisconnected;
-                    connection.PongReceived += OnPongReceived;
+                    connection.PacketReceived += OnPacketReceived;
 
                     await CommunicateServerIdentities(connection);
                 }
@@ -64,7 +66,9 @@ namespace Disfigure.Server
             }
         }
 
-        public async Task PingPongLoop()
+        public void PingPongLoop() => Task.Run(PingPongLoopInternal);
+
+        private async Task PingPongLoopInternal()
         {
             Stopwatch pingIntervalTimer = Stopwatch.StartNew();
             Stopwatch pingFrameTimer = new Stopwatch();
@@ -75,48 +79,27 @@ namespace Disfigure.Server
 
                 await Task.Delay(100);
 
-                if (pingIntervalTimer.Elapsed >= _PingInterval)
-                {
-                    foreach ((Guid connectionIdentity, Connection connection) in Connections)
-                    {
-                        if (_PendingPings.ContainsKey(connectionIdentity))
-                        {
-                            continue;
-                        }
-
-                        PendingPing pendingPing = new PendingPing();
-                        _PendingPings.TryAdd(connectionIdentity, pendingPing);
-                        await connection.WriteAsync(PacketType.Ping, DateTime.UtcNow, pendingPing.Identity.ToByteArray(), CancellationToken);
-                    }
-
-                    pingIntervalTimer.Restart();
-                }
-
-                TimeoutExpiredPings(pingFrameTimer);
-            }
-        }
-
-        private void TimeoutExpiredPings(Stopwatch pingFrameTimer)
-        {
-            foreach ((Guid connectionIdentity, PendingPing pendingPing) in _PendingPings)
-            {
-                pendingPing.PingLifetime += pingFrameTimer.Elapsed;
-
-                if (pendingPing.PingLifetime < _PingInterval)
+                if (pingIntervalTimer.Elapsed < _PingInterval)
                 {
                     continue;
                 }
 
-                if (Connections.TryGetValue(connectionIdentity, out Connection? connection))
+                foreach ((Guid connectionIdentity, Connection connection) in Connections)
                 {
-                    Log.Warning($"<{connection.RemoteEndPoint}> Pending ping timed out. Forcibly disconnecting.");
-                    connection.Dispose();
+                    if (_PendingPings.ContainsKey(connectionIdentity))
+                    {
+                        Log.Warning($"<{connection.RemoteEndPoint}> Pending ping timed out. Forcibly disconnecting.");
+                        connection.Dispose();
+                    }
+                    else
+                    {
+                        PendingPing pendingPing = new PendingPing();
+                        _PendingPings.TryAdd(connectionIdentity, pendingPing);
+                        await connection.WriteAsync(PacketType.Ping, DateTime.UtcNow, pendingPing.Identity.ToByteArray(), CancellationToken);
+                    }
                 }
-                else
-                {
-                    Log.Error($"Forgetting pending ping (identity {pendingPing.Identity}) because related connection does not exist.");
-                    _PendingPings.TryRemove(connectionIdentity, out _);
-                }
+
+                pingIntervalTimer.Restart();
             }
         }
 
@@ -152,38 +135,39 @@ namespace Disfigure.Server
             return default;
         }
 
-        private ValueTask OnPongReceived(Connection connection, Packet packet)
+        protected override async ValueTask OnPacketReceived(Connection connection, Packet packet)
+        {
+            // handle pingspongs
+            if (packet.Type == PacketType.Pong)
+            {
+                PongReceived(connection, packet);
+            }
+
+            await base.OnPacketReceived(connection, packet);
+        }
+
+        private void PongReceived(Connection connection, Packet packet)
         {
             if (!_PendingPings.TryGetValue(connection.Identity, out PendingPing? pendingPing))
             {
                 Log.Warning($"<{connection.RemoteEndPoint}> Received pong, but no ping was pending.");
-                return default;
+                return;
             }
-
-            if (packet.Content.Length != 16)
+            else if (packet.Content.Length != 16)
             {
                 Log.Warning($"<{connection.RemoteEndPoint}> Ping identity was malformed (too few bytes).");
-                return default;
+                return;
             }
 
             Guid pingIdentity = new Guid(packet.Content);
             if (pendingPing.Identity != pingIdentity)
             {
                 Log.Warning($"<{connection.RemoteEndPoint}> Received pong, but ping identity didn't match.");
-                return default;
+                return;
             }
 
             _PendingPings.TryRemove(connection.Identity, out _);
-
-            return default;
         }
-
-        #endregion
-
-
-        #region Callback Events
-
-        public event PacketEventHandler? PacketReceived;
 
         #endregion
     }

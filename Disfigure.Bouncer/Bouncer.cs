@@ -1,9 +1,12 @@
 #region
 
 using System.Net;
+using System.Reflection.Metadata.Ecma335;
+using System.Runtime.InteropServices.WindowsRuntime;
 using System.Threading;
 using System.Threading.Tasks;
 using Disfigure.Client;
+using Disfigure.Net;
 using Disfigure.Server;
 using Serilog.Events;
 
@@ -30,18 +33,21 @@ namespace Disfigure.Bouncer
         public Bouncer(IPEndPoint hostAddress)
         {
             _ServerModule = new ServerModule(LogEventLevel.Verbose, hostAddress);
+            _ServerModule.PacketReceived += OnServerPacketReceived;
 
             _ClientModule = new ClientModule(LogEventLevel.Verbose);
             _CancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(_ServerModule.CancellationToken,
                 _ClientModule.CancellationToken);
 
-            Task.Run(_ServerModule.AcceptConnections);
-            Task.Run(_ServerModule.PingPongLoop);
+            _ServerModule.AcceptConnections();
+            _ServerModule.PingPongLoop();
         }
 
-        private void OnServerPacketReceived()
+        private ValueTask OnServerPacketReceived(Connection connection, Packet packet)
         {
+            // packet WILL be decrypted by this point
 
+            return default;
         }
     }
 }

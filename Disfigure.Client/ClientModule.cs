@@ -48,8 +48,7 @@ namespace Disfigure.Client
             }
 
             Connection connection = await EstablishConnectionAsync(tcpClient);
-            connection.ChannelIdentityReceived += OnChannelIdentityReceived;
-            connection.PingReceived += OnPingReceived;
+            connection.PacketReceived += OnPacketReceived;
             connection.WaitForPacket(PacketType.EndIdentity);
         }
 
@@ -57,22 +56,30 @@ namespace Disfigure.Client
 
         #region Events
 
-        private unsafe ValueTask OnChannelIdentityReceived(Connection connection, Packet packet)
+        protected override async ValueTask OnPacketReceived(Connection connection, Packet packet)
         {
-            Guid guid = new Guid(packet.Content[..sizeof(Guid)]);
-            string name = Encoding.Unicode.GetString(packet.Content[sizeof(Guid)..]);
+            switch (packet.Type)
+            {
+                case PacketType.ChannelIdentity:
+                    unsafe
+                    {
+                        Guid guid = new Guid(packet.Content[..sizeof(Guid)]);
+                        string name = Encoding.Unicode.GetString(packet.Content[sizeof(Guid)..]);
 
-            Channel channel = new Channel(guid, name);
-            Channels.TryAdd(channel.Guid, channel);
+                        Channel channel = new Channel(guid, name);
+                        Channels.TryAdd(channel.Guid, channel);
 
-            Log.Debug($"Received identity information for channel: #{channel.Name} ({channel.Guid})");
-            return default;
-        }
+                        Log.Debug($"Received identity information for channel: #{channel.Name} ({channel.Guid})");
+                    }
 
-        private async ValueTask OnPingReceived(Connection connection, Packet packet)
-        {
-            Log.Verbose(string.Format(FormatHelper.CONNECTION_LOGGING, connection.RemoteEndPoint, "Received ping, ponging..."));
-            await connection.WriteAsync(PacketType.Pong, DateTime.UtcNow, packet.Content, CancellationToken);
+                    break;
+                case PacketType.Ping:
+                    Log.Verbose(string.Format(FormatHelper.CONNECTION_LOGGING, connection.RemoteEndPoint, "Received ping, ponging..."));
+                    await connection.WriteAsync(PacketType.Pong, DateTime.UtcNow, packet.Content, CancellationToken);
+                    break;
+            }
+
+            await base.OnPacketReceived(connection, packet);
         }
 
         #endregion
