@@ -13,9 +13,9 @@ using Serilog.Events;
 
 namespace Disfigure.Client
 {
-    public class Client : Module
+    public class ClientModule : Module
     {
-        public Client(LogEventLevel minimumLogLevel) : base(minimumLogLevel) { }
+        public ClientModule(LogEventLevel minimumLogLevel) : base(minimumLogLevel) { }
 
         #region Connection
 

@@ -15,19 +15,16 @@ using Serilog.Events;
 
 namespace Disfigure.Server
 {
-    public class Server : Module
+    public class ServerModule : Module
     {
         private static readonly TimeSpan _PingInterval = TimeSpan.FromSeconds(5d);
-        private static readonly TimeSpan _MaximumPingLifetime = TimeSpan.FromSeconds(10d);
 
-        private readonly IPAddress _HostAddress;
-        private readonly int _HostPort;
+        private readonly IPEndPoint _HostAddress;
         private readonly ConcurrentDictionary<Guid, PendingPing> _PendingPings;
 
-        public Server(LogEventLevel logEventLevel, IPAddress ip, int port) : base(logEventLevel)
+        public ServerModule(LogEventLevel logEventLevel, IPEndPoint hostAddress) : base(logEventLevel)
         {
-            _HostAddress = ip;
-            _HostPort = port;
+            _HostAddress = hostAddress;
             _PendingPings = new ConcurrentDictionary<Guid, PendingPing>();
         }
 
@@ -38,7 +35,7 @@ namespace Disfigure.Server
         {
             try
             {
-                TcpListener listener = new TcpListener(_HostAddress, _HostPort);
+                TcpListener listener = new TcpListener(_HostAddress);
                 listener.Start();
 
                 while (!CancellationToken.IsCancellationRequested)
@@ -55,7 +52,7 @@ namespace Disfigure.Server
             }
             catch (SocketException exception) when (exception.ErrorCode == 10048)
             {
-                Log.Fatal($"Provided port is already being listened on (port {_HostPort}).");
+                Log.Fatal($"Provided port is already being listened on (port {_HostAddress.Port}).");
             }
             catch (Exception ex)
             {
@@ -105,7 +102,7 @@ namespace Disfigure.Server
             {
                 pendingPing.PingLifetime += pingFrameTimer.Elapsed;
 
-                if (pendingPing.PingLifetime < _MaximumPingLifetime)
+                if (pendingPing.PingLifetime < _PingInterval)
                 {
                     continue;
                 }
@@ -180,6 +177,13 @@ namespace Disfigure.Server
 
             return default;
         }
+
+        #endregion
+
+
+        #region Callback Events
+
+        public event PacketEventHandler? PacketReceived;
 
         #endregion
     }

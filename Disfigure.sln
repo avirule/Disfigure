@@ -19,6 +19,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Base", "Base", "{916BC403-0
 		Specification.md = Specification.md
 	EndProjectSection
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Disfigure.Bouncer", "Disfigure.Bouncer\Disfigure.Bouncer.csproj", "{BE523E3E-A27D-4980-9761-EB481189159E}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -37,6 +39,10 @@ Global
 		{37B481EE-BFDA-43D3-8051-60F72852F251}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{37B481EE-BFDA-43D3-8051-60F72852F251}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{37B481EE-BFDA-43D3-8051-60F72852F251}.Release|Any CPU.Build.0 = Release|Any CPU
+		{BE523E3E-A27D-4980-9761-EB481189159E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{BE523E3E-A27D-4980-9761-EB481189159E}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{BE523E3E-A27D-4980-9761-EB481189159E}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{BE523E3E-A27D-4980-9761-EB481189159E}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

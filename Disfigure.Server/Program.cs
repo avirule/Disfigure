@@ -18,11 +18,11 @@ namespace Disfigure.Server
 
             try
             {
-                using Server server = new Server(LogEventLevel.Verbose, IPAddress.IPv6Loopback, port);
-                Task.Run(server.AcceptConnections);
-                Task.Run(server.PingPongLoop);
+                using ServerModule serverModule = new ServerModule(LogEventLevel.Verbose, new IPEndPoint(IPAddress.IPv6Loopback, port));
+                Task.Run(serverModule.AcceptConnections);
+                Task.Run(serverModule.PingPongLoop);
 
-                while (!server.CancellationToken.IsCancellationRequested)
+                while (!serverModule.CancellationToken.IsCancellationRequested)
                 {
                     Console.ReadKey();
                 }
