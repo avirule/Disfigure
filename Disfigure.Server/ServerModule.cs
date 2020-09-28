@@ -6,6 +6,7 @@ using System.Diagnostics;
 using System.Linq;
 using System.Net;
 using System.Net.Sockets;
+using System.Reflection.Metadata.Ecma335;
 using System.Threading.Tasks;
 using Disfigure.Net;
 using Serilog;
@@ -27,7 +28,7 @@ namespace Disfigure.Server
             _HostAddress = hostAddress;
             _PendingPings = new ConcurrentDictionary<Guid, PendingPing>();
 
-            PacketReceived += OnPacketReceivedCallback;
+            PacketReceived += HandlePongPacketsCallback;
         }
 
 
@@ -137,37 +138,34 @@ namespace Disfigure.Server
             return default;
         }
 
-        private ValueTask OnPacketReceivedCallback(Connection connection, Packet packet)
+        private ValueTask HandlePongPacketsCallback(Connection connection, Packet packet)
         {
             if (packet.Type == PacketType.Pong)
             {
-                PongReceived(connection, packet);
+                return default;
             }
 
-            return default;
-        }
-
-        private void PongReceived(Connection connection, Packet packet)
-        {
             if (!_PendingPings.TryGetValue(connection.Identity, out PendingPing? pendingPing))
             {
                 Log.Warning($"<{connection.RemoteEndPoint}> Received pong, but no ping was pending.");
-                return;
+                return default;
             }
             else if (packet.Content.Length != 16)
             {
                 Log.Warning($"<{connection.RemoteEndPoint}> Ping identity was malformed (too few bytes).");
-                return;
+                return default;
             }
 
             Guid pingIdentity = new Guid(packet.Content);
             if (pendingPing.Identity != pingIdentity)
             {
                 Log.Warning($"<{connection.RemoteEndPoint}> Received pong, but ping identity didn't match.");
-                return;
+                return default;
             }
 
             _PendingPings.TryRemove(connection.Identity, out _);
+
+            return default;
         }
 
         #endregion

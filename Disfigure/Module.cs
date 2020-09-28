@@ -31,10 +31,6 @@ namespace Disfigure
             CancellationTokenSource = new CancellationTokenSource();
             Connections = new ConcurrentDictionary<Guid, Connection>();
             Channels = new ConcurrentDictionary<Guid, Channel>();
-
-#if false
-            DiagnosticsProvider.EnableGroup<PacketDiagnosticGroup>();
-#endif
         }
 
         protected async ValueTask<Connection> EstablishConnectionAsync(TcpClient tcpClient)
