@@ -36,9 +36,9 @@ namespace Disfigure
         protected async ValueTask<Connection> EstablishConnectionAsync(TcpClient tcpClient)
         {
             Connection connection = new Connection(tcpClient);
-            connection.Disconnected += OnDisconnected;
-
             await connection.Finalize(CancellationToken).Contextless();
+            connection.WaitForPacket(PacketType.EndIdentity);
+            connection.Disconnected += OnDisconnected;
             Connections.TryAdd(connection.Identity, connection);
 
             return connection;

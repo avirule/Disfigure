@@ -2,7 +2,6 @@
 
 using System;
 using System.Net;
-using System.Threading.Tasks;
 using Disfigure.Diagnostics;
 using Serilog;
 using Serilog.Events;

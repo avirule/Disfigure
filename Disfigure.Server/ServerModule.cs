@@ -6,7 +6,6 @@ using System.Diagnostics;
 using System.Linq;
 using System.Net;
 using System.Net.Sockets;
-using System.Reflection.Metadata.Ecma335;
 using System.Threading.Tasks;
 using Disfigure.Net;
 using Serilog;
@@ -98,7 +97,8 @@ namespace Disfigure.Server
                     {
                         PendingPing pendingPing = new PendingPing();
                         _PendingPings.TryAdd(connectionIdentity, pendingPing);
-                        await connection.WriteAsync(PacketType.Ping, DateTime.UtcNow, pendingPing.Identity.ToByteArray(), CancellationToken).Contextless();
+                        await connection.WriteAsync(PacketType.Ping, DateTime.UtcNow, pendingPing.Identity.ToByteArray(), CancellationToken)
+                            .Contextless();
                     }
                 }
 

@@ -14,6 +14,8 @@ namespace Disfigure.Net
     {
         Connect,
         Disconnect,
+        Connected,
+        Disconnected,
         Ping,
         Pong,
         Text,
