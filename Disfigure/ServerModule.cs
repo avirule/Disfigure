@@ -49,7 +49,6 @@ namespace Disfigure
 
                     Connection connection = await EstablishConnectionAsync(tcpClient).Contextless();
                     connection.PacketReceived += HandlePongPacketsCallback;
-                    connection.PacketReceived += PacketReceivedCallback;
 
                     await CommunicateServerIdentities(connection).Contextless();
                 }
@@ -130,16 +129,14 @@ namespace Disfigure
 
         #region Events
 
-        protected override ValueTask OnDisconnected(Connection connection)
+        protected override ValueTask DisconnectedCallback(Connection connection)
         {
-            base.OnDisconnected(connection);
+            base.DisconnectedCallback(connection);
 
             _PendingPings.TryRemove(connection.Identity, out _);
 
             return default;
         }
-
-        protected virtual ValueTask PacketReceivedCallback(Connection connection, Packet packet) => default;
 
         private ValueTask HandlePongPacketsCallback(Connection connection, Packet packet)
         {

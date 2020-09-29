@@ -36,7 +36,8 @@ namespace Disfigure
         {
             Connection connection = new Connection(tcpClient);
             await connection.Finalize(CancellationToken).Contextless();
-            connection.Disconnected += OnDisconnected;
+            connection.Disconnected += DisconnectedCallback;
+            connection.PacketReceived += PacketReceivedCallback;
             Connections.TryAdd(connection.Identity, connection);
 
             return connection;
@@ -44,10 +45,15 @@ namespace Disfigure
 
         #region Connection Events
 
-        protected virtual ValueTask OnDisconnected(Connection connection)
+        protected virtual ValueTask DisconnectedCallback(Connection connection)
         {
             Connections.TryRemove(connection.Identity, out _);
 
+            return default;
+        }
+
+        protected virtual ValueTask PacketReceivedCallback(Connection connection, Packet packet)
+        {
             return default;
         }
 
