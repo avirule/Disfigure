@@ -2,13 +2,10 @@
 
 using System;
 using System.Collections.Concurrent;
-using System.Collections.Generic;
 using System.Net;
 using System.Net.Sockets;
 using System.Threading.Tasks;
 using Disfigure.Net;
-using Disfigure.Server;
-using Serilog;
 using Serilog.Events;
 
 #endregion

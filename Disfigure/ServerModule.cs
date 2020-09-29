@@ -13,7 +13,7 @@ using Serilog.Events;
 
 #endregion
 
-namespace Disfigure.Server
+namespace Disfigure
 {
     public class ServerModule : Module
     {
@@ -139,10 +139,7 @@ namespace Disfigure.Server
             return default;
         }
 
-        protected virtual ValueTask PacketReceivedCallback(Connection connection, Packet packet)
-        {
-            return default;
-        }
+        protected virtual ValueTask PacketReceivedCallback(Connection connection, Packet packet) => default;
 
         private ValueTask HandlePongPacketsCallback(Connection connection, Packet packet)
         {

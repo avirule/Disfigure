@@ -9,8 +9,7 @@
     </PropertyGroup>
 
     <ItemGroup>
-      <ProjectReference Include="..\Disfigure.Client\Disfigure.Client.csproj" />
-      <ProjectReference Include="..\Disfigure.Server\Disfigure.Server.csproj" />
+      <ProjectReference Include="..\Disfigure\Disfigure.csproj" />
     </ItemGroup>
 
 </Project>
