@@ -39,6 +39,7 @@ namespace Disfigure
             await connection.Finalize(CancellationToken).Contextless();
             connection.WaitForPacket(PacketType.EndIdentity);
             connection.Disconnected += OnDisconnected;
+            connection.PacketReceived += OnPacketReceived;
             Connections.TryAdd(connection.Identity, connection);
 
             return connection;
@@ -46,9 +47,10 @@ namespace Disfigure
 
         #region Connection Events
 
-        private ValueTask OnDisconnected(Connection connection)
+        protected virtual ValueTask OnDisconnected(Connection connection)
         {
             Connections.TryRemove(connection.Identity, out _);
+
             return default;
         }
 
@@ -58,7 +60,7 @@ namespace Disfigure
 
         public event PacketEventHandler? PacketReceived;
 
-        protected virtual async ValueTask OnPacketReceived(Connection connection, Packet packet)
+        private async ValueTask OnPacketReceived(Connection connection, Packet packet)
         {
             if (PacketReceived is { })
             {

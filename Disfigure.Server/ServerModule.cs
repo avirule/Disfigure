@@ -42,14 +42,14 @@ namespace Disfigure.Server
                 TcpListener listener = new TcpListener(_HostAddress);
                 listener.Start();
 
+                Log.Information($"{GetType().FullName} now listening on {_HostAddress}.");
+
                 while (!CancellationToken.IsCancellationRequested)
                 {
                     TcpClient tcpClient = await listener.AcceptTcpClientAsync().Contextless();
                     Log.Information(string.Format(FormatHelper.CONNECTION_LOGGING, tcpClient.Client.RemoteEndPoint, "Connection accepted."));
 
                     Connection connection = await EstablishConnectionAsync(tcpClient).Contextless();
-                    connection.Disconnected += OnDisconnected;
-                    connection.PacketReceived += OnPacketReceived;
 
                     await CommunicateServerIdentities(connection).Contextless();
                 }
@@ -130,9 +130,10 @@ namespace Disfigure.Server
 
         #region Events
 
-        private ValueTask OnDisconnected(Connection connection)
+        protected override ValueTask OnDisconnected(Connection connection)
         {
-            Connections.TryRemove(connection.Identity, out _);
+            base.OnDisconnected(connection);
+            
             _PendingPings.TryRemove(connection.Identity, out _);
 
             return default;
