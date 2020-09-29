@@ -26,8 +26,6 @@ namespace Disfigure.Server
         {
             _HostAddress = hostAddress;
             _PendingPings = new ConcurrentDictionary<Guid, PendingPing>();
-
-            PacketReceived += HandlePongPacketsCallback;
         }
 
 
@@ -50,6 +48,8 @@ namespace Disfigure.Server
                     Log.Information(string.Format(FormatHelper.CONNECTION_LOGGING, tcpClient.Client.RemoteEndPoint, "Connection accepted."));
 
                     Connection connection = await EstablishConnectionAsync(tcpClient).Contextless();
+                    connection.PacketReceived += HandlePongPacketsCallback;
+                    connection.PacketReceived += PacketReceivedCallback;
 
                     await CommunicateServerIdentities(connection).Contextless();
                 }
@@ -133,15 +133,20 @@ namespace Disfigure.Server
         protected override ValueTask OnDisconnected(Connection connection)
         {
             base.OnDisconnected(connection);
-            
+
             _PendingPings.TryRemove(connection.Identity, out _);
 
             return default;
         }
 
+        protected virtual ValueTask PacketReceivedCallback(Connection connection, Packet packet)
+        {
+            return default;
+        }
+
         private ValueTask HandlePongPacketsCallback(Connection connection, Packet packet)
         {
-            if (packet.Type == PacketType.Pong)
+            if (packet.Type != PacketType.Pong)
             {
                 return default;
             }

@@ -37,9 +37,7 @@ namespace Disfigure
         {
             Connection connection = new Connection(tcpClient);
             await connection.Finalize(CancellationToken).Contextless();
-            connection.WaitForPacket(PacketType.EndIdentity);
             connection.Disconnected += OnDisconnected;
-            connection.PacketReceived += OnPacketReceived;
             Connections.TryAdd(connection.Identity, connection);
 
             return connection;
@@ -52,20 +50,6 @@ namespace Disfigure
             Connections.TryRemove(connection.Identity, out _);
 
             return default;
-        }
-
-        #endregion
-
-        #region Packet Events
-
-        public event PacketEventHandler? PacketReceived;
-
-        private async ValueTask OnPacketReceived(Connection connection, Packet packet)
-        {
-            if (PacketReceived is { })
-            {
-                await PacketReceived(connection, packet).Contextless();
-            }
         }
 
         #endregion

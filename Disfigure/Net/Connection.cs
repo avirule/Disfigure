@@ -98,7 +98,7 @@ namespace Disfigure.Net
                     if (sequence.IsEmpty)
                     {
                         Log.Warning(string.Format(FormatHelper.CONNECTION_LOGGING, RemoteEndPoint,
-                            "Received no data from reader. This is likely a connection closure, so the loop will halt."));
+                            "Received no data from reader. This is likely a connection error, so the loop will halt."));
                         break;
                     }
 

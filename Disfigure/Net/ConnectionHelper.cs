@@ -44,5 +44,11 @@ namespace Disfigure.Net
 
             return tcpClient;
         }
+
+        public static async ValueTask PongAsync(Connection connection, byte[] pingContents)
+        {
+            Log.Verbose(string.Format(FormatHelper.CONNECTION_LOGGING, connection.RemoteEndPoint, "Received ping, ponging..."));
+            await connection.WriteAsync(PacketType.Pong, DateTime.UtcNow, pingContents, CancellationToken.None).Contextless();
+        }
     }
 }
