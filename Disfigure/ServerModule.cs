@@ -55,7 +55,7 @@ namespace Disfigure
             }
             catch (SocketException exception) when (exception.ErrorCode == 10048)
             {
-                Log.Fatal($"Provided port is already being listened on (port {_HostAddress.Port}).");
+                Log.Fatal($"Port {_HostAddress.Port} is already being listened on.");
             }
             catch (Exception ex)
             {
@@ -71,7 +71,7 @@ namespace Disfigure
 
         private async Task PingPongLoopInternal()
         {
-            Stack<Connection> timedOutIdentities = new Stack<Connection>();
+            Stack<Connection> abandonedConnections = new Stack<Connection>();
 
             while (!CancellationToken.IsCancellationRequested)
             {
@@ -83,22 +83,28 @@ namespace Disfigure
                     {
                         Log.Warning(string.Format(FormatHelper.CONNECTION_LOGGING, connection.RemoteEndPoint,
                             "Pending ping timed out. Queueing force disconnect."));
-                        timedOutIdentities.Push(connection);
+                        abandonedConnections.Push(connection);
                     }
                     else
                     {
-                        PendingPing pendingPing = new PendingPing();
-                        _PendingPings.TryAdd(connectionIdentity, pendingPing);
+                        PendingPing pendingPing = AllocateNewPing();
                         await connection.WriteAsync(PacketType.Ping, DateTime.UtcNow, pendingPing.Identity.ToByteArray(), CancellationToken)
                             .Contextless();
                     }
                 }
 
-                while (timedOutIdentities.TryPop(out Connection? connection))
+                while (abandonedConnections.TryPop(out Connection? connection))
                 {
                     ForceDisconnect(connection);
                 }
             }
+        }
+
+        private PendingPing AllocateNewPing()
+        {
+            PendingPing pendingPing = new PendingPing();
+            _PendingPings.TryAdd(pendingPing.Identity, pendingPing);
+            return pendingPing;
         }
 
         #endregion
