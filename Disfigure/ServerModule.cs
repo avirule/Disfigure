@@ -2,7 +2,7 @@
 
 using System;
 using System.Collections.Concurrent;
-using System.Diagnostics;
+using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using System.Net.Sockets;
@@ -71,22 +71,19 @@ namespace Disfigure
 
         private async Task PingPongLoopInternal()
         {
-            Stopwatch pingIntervalTimer = Stopwatch.StartNew();
-            Stopwatch pingFrameTimer = new Stopwatch();
+            Stack<Connection> timedOutIdentities = new Stack<Connection>();
 
             while (!CancellationToken.IsCancellationRequested)
             {
-                pingFrameTimer.Restart();
-
-                TimeSpan remainingWait = _PingInterval - pingFrameTimer.Elapsed;
-                await Task.Delay(remainingWait).Contextless();
+                await Task.Delay(_PingInterval).Contextless();
 
                 foreach ((Guid connectionIdentity, Connection connection) in Connections)
                 {
                     if (_PendingPings.ContainsKey(connectionIdentity))
                     {
-                        Log.Warning($"<{connection.RemoteEndPoint}> Pending ping timed out. Forcibly disconnecting.");
-                        connection.Dispose();
+                        Log.Warning(string.Format(FormatHelper.CONNECTION_LOGGING, connection.RemoteEndPoint,
+                            "Pending ping timed out. Queueing force disconnect."));
+                        timedOutIdentities.Push(connection);
                     }
                     else
                     {
@@ -97,7 +94,10 @@ namespace Disfigure
                     }
                 }
 
-                pingIntervalTimer.Restart();
+                while (timedOutIdentities.TryPop(out Connection? connection))
+                {
+                    ForceDisconnect(connection);
+                }
             }
         }
 

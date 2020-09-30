@@ -43,6 +43,17 @@ namespace Disfigure
             return connection;
         }
 
+        protected void ForceDisconnect(Connection connection)
+        {
+            if (!Connections.TryRemove(connection.Identity, out _))
+            {
+                return;
+            }
+
+            connection.Dispose();
+            Log.Information(string.Format(FormatHelper.CONNECTION_LOGGING, connection.RemoteEndPoint, "Connection forcibly disconnected."));
+        }
+
         #region Connection Events
 
         protected virtual ValueTask DisconnectedCallback(Connection connection)
