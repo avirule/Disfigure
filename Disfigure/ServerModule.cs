@@ -78,12 +78,8 @@ namespace Disfigure
             {
                 pingFrameTimer.Restart();
 
-                await Task.Delay(100).Contextless();
-
-                if (pingIntervalTimer.Elapsed < _PingInterval)
-                {
-                    continue;
-                }
+                TimeSpan remainingWait = _PingInterval - pingFrameTimer.Elapsed;
+                await Task.Delay(remainingWait).Contextless();
 
                 foreach ((Guid connectionIdentity, Connection connection) in Connections)
                 {
