@@ -24,8 +24,9 @@ namespace Disfigure.Bouncer
             PingPongLoop();
         }
 
-        private async ValueTask<Connection> EstablishServerConnectionAsync(TcpClient tcpClient)
+        private async ValueTask<Connection> EstablishServerConnectionAsync(IPEndPoint ipEndPoint)
         {
+            TcpClient tcpClient = await ConnectionHelper.ConnectAsync(ipEndPoint, ConnectionHelper.DefaultRetry, CancellationToken).Contextless();
             Connection connection = new Connection(tcpClient);
             connection.PacketReceived += ServerPacketReceivedCallback;
             await connection.Finalize(CancellationToken).Contextless();
@@ -41,9 +42,7 @@ namespace Disfigure.Bouncer
             switch (packet.Type)
             {
                 case PacketType.Connect:
-                    TcpClient tcpClient = await ConnectionHelper.ConnectAsync((IPEndPoint)new BinaryEndPoint(packet.Content),
-                        ConnectionHelper.DefaultRetry, CancellationToken).Contextless();
-                    Connection serverConnection = await EstablishServerConnectionAsync(tcpClient);
+                    Connection serverConnection = await EstablishServerConnectionAsync((IPEndPoint)new BinaryEndPoint(packet.Content)).Contextless();
                     await connection.WriteAsync(PacketType.Connected, DateTime.UtcNow, serverConnection.Identity.ToByteArray(),
                         CancellationToken).Contextless();
                     break;
