@@ -24,6 +24,15 @@ namespace Disfigure.Net
 
     public class Connection : IDisposable, IEquatable<Connection>
     {
+        public readonly struct MaximumRetry
+        {
+            public int Retries { get; }
+            public TimeSpan RetryDelay { get; }
+
+            public MaximumRetry(int retries, long retryDelayMilliseconds) =>
+                (Retries, RetryDelay) = (retries, TimeSpan.FromMilliseconds(retryDelayMilliseconds));
+        }
+
         private static readonly ObjectPool<Stopwatch> _DiagnosticStopwatches = new ObjectPool<Stopwatch>(() => new Stopwatch());
 
         private readonly TcpClient _Client;

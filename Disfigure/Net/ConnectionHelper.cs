@@ -13,7 +13,9 @@ namespace Disfigure.Net
 {
     public static class ConnectionHelper
     {
-        public static async ValueTask<TcpClient> ConnectAsync(IPEndPoint ipEndPoint, int maximumRetries, TimeSpan retryDelay,
+        public static Connection.MaximumRetry DefaultRetry = new Connection.MaximumRetry(5, 500);
+
+        public static async ValueTask<TcpClient> ConnectAsync(IPEndPoint ipEndPoint, Connection.MaximumRetry maximumRetries,
             CancellationToken cancellationToken)
         {
             TcpClient tcpClient = new TcpClient();
@@ -27,7 +29,7 @@ namespace Disfigure.Net
                 {
                     await tcpClient.ConnectAsync(ipEndPoint.Address, ipEndPoint.Port).Contextless();
                 }
-                catch (SocketException) when (tries >= maximumRetries)
+                catch (SocketException) when (tries >= maximumRetries.Retries)
                 {
                     Log.Error($"Connection to {ipEndPoint} failed.");
                     throw;
@@ -38,7 +40,7 @@ namespace Disfigure.Net
 
                     Log.Warning($"{exception.Message}. Retrying ({tries}/{maximumRetries})...");
 
-                    await Task.Delay(retryDelay, cancellationToken).Contextless();
+                    await Task.Delay(maximumRetries.RetryDelay, cancellationToken).Contextless();
                 }
             }
 

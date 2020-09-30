@@ -20,8 +20,8 @@ namespace Disfigure.Client
             Log.Logger = new LoggerConfiguration().WriteTo.Console().MinimumLevel.Is(LogEventLevel.Verbose).CreateLogger();
 
             IPEndPoint ipEndPoint = new IPEndPoint(IPAddress.IPv6Loopback, 8899);
-            TcpClient tcpClient = await ConnectionHelper.ConnectAsync(ipEndPoint, 5, TimeSpan.FromMilliseconds(500d),
-                CancellationToken.None).Contextless();
+            TcpClient tcpClient = await ConnectionHelper.ConnectAsync(ipEndPoint, ConnectionHelper.DefaultRetry, CancellationToken.None)
+                .Contextless();
             Connection connection = new Connection(tcpClient);
             connection.PacketReceived += async (origin, packet) =>
             {

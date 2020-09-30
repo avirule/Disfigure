@@ -27,10 +27,9 @@ namespace Disfigure.Bouncer
         private async ValueTask<Connection> EstablishServerConnectionAsync(TcpClient tcpClient)
         {
             Connection connection = new Connection(tcpClient);
+            connection.PacketReceived += ServerPacketReceivedCallback;
             await connection.Finalize(CancellationToken).Contextless();
             _ServerConnections.TryAdd(connection.Identity, connection);
-            await connection.WriteAsync(PacketType.Connected, DateTime.UtcNow, connection.Identity.ToByteArray(),
-                CancellationToken).Contextless();
 
             return connection;
         }
@@ -42,25 +41,25 @@ namespace Disfigure.Bouncer
             switch (packet.Type)
             {
                 case PacketType.Connect:
-                    IPEndPoint endPoint = (IPEndPoint)new BinaryEndPoint(packet.Content);
-                    TcpClient tcpClient = await ConnectionHelper.ConnectAsync(endPoint, 5, TimeSpan.FromMilliseconds(500d), CancellationToken)
-                        .Contextless();
-                    Connection newConnection = await EstablishServerConnectionAsync(tcpClient);
-                    newConnection.PacketReceived += ServerPacketReceivedCallback;
+                    TcpClient tcpClient = await ConnectionHelper.ConnectAsync((IPEndPoint)new BinaryEndPoint(packet.Content),
+                        ConnectionHelper.DefaultRetry, CancellationToken).Contextless();
+                    Connection serverConnection = await EstablishServerConnectionAsync(tcpClient);
+                    await connection.WriteAsync(PacketType.Connected, DateTime.UtcNow, serverConnection.Identity.ToByteArray(),
+                        CancellationToken).Contextless();
                     break;
                 case PacketType.Disconnect:
                     break;
             }
         }
 
-        private async ValueTask ServerPacketReceivedCallback(Connection connection, Packet packet)
+        private static async ValueTask ServerPacketReceivedCallback(Connection connection, Packet packet)
         {
-            switch (packet.Type)
+            if (packet.Type != PacketType.Ping)
             {
-                case PacketType.Ping:
-                    await ConnectionHelper.PongAsync(connection, packet.Content);
-                    break;
+                return;
             }
+
+            await ConnectionHelper.PongAsync(connection, packet.Content);
         }
 
         #endregion
