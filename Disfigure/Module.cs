@@ -63,10 +63,7 @@ namespace Disfigure
             return default;
         }
 
-        protected virtual ValueTask PacketReceivedCallback(Connection connection, Packet packet)
-        {
-            return default;
-        }
+        protected virtual ValueTask PacketReceivedCallback(Connection connection, Packet packet) => default;
 
         #endregion
 
