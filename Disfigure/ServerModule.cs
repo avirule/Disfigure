@@ -3,6 +3,7 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Net;
 using System.Net.Sockets;
 using System.Threading.Tasks;
@@ -90,17 +91,16 @@ namespace Disfigure
 
                 foreach ((Guid connectionIdentity, Connection connection) in Connections)
                 {
-                    if (_PendingPings.ContainsKey(connectionIdentity))
+                    if (TryAllocatePing(connectionIdentity, out PendingPing? pendingPing))
+                    {
+                        await connection.WriteAsync(PacketType.Ping, DateTime.UtcNow, pendingPing.Identity.ToByteArray(), CancellationToken)
+                            .Contextless();
+                    }
+                    else
                     {
                         Log.Warning(string.Format(FormatHelper.CONNECTION_LOGGING, connection.RemoteEndPoint,
                             "Pending ping timed out. Queueing force disconnect."));
                         abandonedConnections.Push(connection);
-                    }
-                    else
-                    {
-                        PendingPing pendingPing = AllocateNewPing();
-                        await connection.WriteAsync(PacketType.Ping, DateTime.UtcNow, pendingPing.Identity.ToByteArray(), CancellationToken)
-                            .Contextless();
                     }
                 }
 
@@ -111,11 +111,10 @@ namespace Disfigure
             }
         }
 
-        private PendingPing AllocateNewPing()
+        private bool TryAllocatePing(Guid connectionIdentity, [NotNullWhen(true)] out PendingPing? pendingPing)
         {
-            PendingPing pendingPing = new PendingPing();
-            _PendingPings.TryAdd(pendingPing.Identity, pendingPing);
-            return pendingPing;
+            pendingPing = new PendingPing();
+            return _PendingPings.TryAdd(connectionIdentity, pendingPing);
         }
 
         #endregion
