@@ -22,10 +22,17 @@ namespace Disfigure.Diagnostics
     {
         private static readonly Dictionary<Type, IDiagnosticGroup> _EnabledGroups;
 
+        /// <summary>
+        ///     Determines whether errors are emitted by the default logger when a particular <see cref="IDiagnosticGroup"/> has not been enabled.
+        /// </summary>
         public static bool EmitNotEnabledErrors { get; set; }
 
         static DiagnosticsProvider() => _EnabledGroups = new Dictionary<Type, IDiagnosticGroup>();
 
+        /// <summary>
+        ///     Enables given <see cref="TDiagnosticGroup"/> for logging data.
+        /// </summary>
+        /// <typeparam name="TDiagnosticGroup"><see cref="IDiagnosticGroup"/> to enable for data logging.</typeparam>
         public static void EnableGroup<TDiagnosticGroup>() where TDiagnosticGroup : class, IDiagnosticGroup, new()
         {
             if (_EnabledGroups.ContainsKey(typeof(TDiagnosticGroup)))
@@ -39,9 +46,11 @@ namespace Disfigure.Diagnostics
             }
         }
 
-        public static TDiagnosticGroup? GetGroup<TDiagnosticGroup>() where TDiagnosticGroup : class, IDiagnosticGroup =>
-            _EnabledGroups[typeof(TDiagnosticGroup)] as TDiagnosticGroup ?? default;
-
+        /// <summary>
+        ///     Commits <see cref="IDiagnosticData"/> to the given <see cref="IDiagnosticGroup"/> of type <see cref="TDiagnosticGroup"/>.
+        /// </summary>
+        /// <param name="diagnosticData"><see cref="IDiagnosticData"/> to commit.</param>
+        /// <typeparam name="TDiagnosticGroup"><see cref="IDiagnosticGroup"/> to commit <see cref="IDiagnosticData"/> to.</typeparam>
         public static void CommitData<TDiagnosticGroup>(IDiagnosticData diagnosticData)
             where TDiagnosticGroup : IDiagnosticGroup
         {
