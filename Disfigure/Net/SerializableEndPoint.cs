@@ -34,14 +34,14 @@ namespace Disfigure.Net
         }
 
         /// <summary>
-        ///     Converts <see cref="SerializableEndPoint"/> to a byte array.
+        ///     Converts <see cref="SerializableEndPoint" /> to a byte array.
         /// </summary>
         /// <remarks>
         ///     Serialized byte layout is as follows [PropertyName (bytes)]:
-        ///      AddressFamily (2) | Port (2) | Address (length - 4)
+        ///     AddressFamily (2) | Port (2) | Address (length - 4)
         /// </remarks>
         /// <returns>
-        ///    Byte array of serialized end point.
+        ///     Byte array of serialized end point.
         /// </returns>
         public byte[] Serialize()
         {
@@ -56,13 +56,13 @@ namespace Disfigure.Net
         }
 
         /// <summary>
-        ///     Converts <see cref="SerializableEndPoint"/> to a <see cref="string"/>.
+        ///     Converts <see cref="SerializableEndPoint" /> to a <see cref="string" />.
         /// </summary>
         /// <remarks>
-        ///     This function returns in the same format as an <see cref="IPEndPoint"/>.
+        ///     This function returns in the same format as an <see cref="IPEndPoint" />.
         /// </remarks>
         /// <returns>
-        ///    <see cref="string"/> representation of <see cref="SerializableEndPoint"/>.
+        ///     <see cref="string" /> representation of <see cref="SerializableEndPoint" />.
         /// </returns>
         public override string ToString()
         {
