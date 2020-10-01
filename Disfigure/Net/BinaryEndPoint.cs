@@ -33,6 +33,8 @@ namespace Disfigure.Net
 
         public BinaryEndPoint(byte[] data) => _Data = data;
 
+        public override string ToString() => ((IPEndPoint)this).ToString();
+
         public static explicit operator IPEndPoint(BinaryEndPoint binaryEndPoint) => new IPEndPoint(binaryEndPoint.Address, binaryEndPoint.Port);
     }
 }
