@@ -16,10 +16,8 @@ namespace Disfigure.Bouncer
     {
         private readonly ConcurrentDictionary<Guid, Connection> _ServerConnections;
 
-        public BouncerModule(LogEventLevel logEventLevel, IPEndPoint hostAddress) : base(logEventLevel, hostAddress)
-        {
+        public BouncerModule(LogEventLevel logEventLevel, IPEndPoint hostAddress) : base(logEventLevel, hostAddress) =>
             _ServerConnections = new ConcurrentDictionary<Guid, Connection>();
-        }
 
         private async ValueTask<Connection> EstablishServerConnectionAsync(IPEndPoint ipEndPoint)
         {

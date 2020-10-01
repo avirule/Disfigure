@@ -6,7 +6,6 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using Disfigure.Net;
-using Microsoft.VisualBasic;
 using Serilog;
 using Serilog.Events;
 
