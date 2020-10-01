@@ -47,10 +47,15 @@ namespace Disfigure
                     TcpClient tcpClient = await listener.AcceptTcpClientAsync().Contextless();
                     Log.Information(string.Format(FormatHelper.CONNECTION_LOGGING, tcpClient.Client.RemoteEndPoint, "Connection accepted."));
 
-                    Connection connection = await EstablishConnectionAsync(tcpClient).Contextless();
-                    connection.PacketReceived += HandlePongPacketsCallback;
+                    Connection connection = await ConnectionHelper.EstablishConnectionAsync(tcpClient, CancellationToken).Contextless();
 
-                    await CommunicateServerIdentities(connection).Contextless();
+                    if (!await RegisterConnection(connection))
+                    {
+                        Log.Error(string.Format(FormatHelper.CONNECTION_LOGGING, connection.RemoteEndPoint,
+                            "Connection with given identity already exists."));
+
+                        connection.Dispose();
+                    }
                 }
             }
             catch (SocketException exception) when (exception.ErrorCode == 10048)
@@ -65,6 +70,13 @@ namespace Disfigure
             {
                 CancellationTokenSource.Cancel();
             }
+        }
+
+        protected override async ValueTask<bool> RegisterConnection(Connection connection)
+        {
+            connection.PacketReceived += HandlePongPacketsCallback;
+
+            return await base.RegisterConnection(connection);
         }
 
         public void PingPongLoop() => Task.Run(PingPongLoopInternal);
@@ -112,16 +124,10 @@ namespace Disfigure
 
         #region Handshakes
 
-        private async ValueTask CommunicateServerIdentities(Connection connection)
+        protected override async ValueTask ShareIdentityAsync(Connection connection)
         {
             DateTime utcTimestamp = DateTime.UtcNow;
             await connection.WriteAsync(PacketType.BeginIdentity, utcTimestamp, Array.Empty<byte>(), CancellationToken).Contextless();
-
-            if (Channels.Count > 0)
-            {
-                await connection.WriteAsync(Channels.Values.Select(channel => (PacketType.ChannelIdentity, utcTimestamp, channel.Serialize())),
-                    CancellationToken).Contextless();
-            }
 
             await connection.WriteAsync(PacketType.EndIdentity, utcTimestamp, Array.Empty<byte>(), CancellationToken).Contextless();
         }

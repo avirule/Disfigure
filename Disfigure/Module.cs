@@ -3,10 +3,10 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
 using Disfigure.Net;
+using Microsoft.VisualBasic;
 using Serilog;
 using Serilog.Events;
 
@@ -16,11 +16,24 @@ namespace Disfigure
 {
     public abstract class Module : IDisposable
     {
+        /// <summary>
+        ///     <see cref="CancellationTokenSource" /> used to provide <see cref="CancellationToken" /> for async operations.
+        /// </summary>
         protected readonly CancellationTokenSource CancellationTokenSource;
-        protected readonly ConcurrentDictionary<Guid, Connection> Connections;
-        protected readonly ConcurrentDictionary<Guid, Channel> Channels;
 
+        /// <summary>
+        ///     Thread-safe dictionary of current connections.
+        /// </summary>
+        protected readonly ConcurrentDictionary<Guid, Connection> Connections;
+
+        /// <summary>
+        ///     <see cref="CancellationToken" /> used for async operations.
+        /// </summary>
         public CancellationToken CancellationToken => CancellationTokenSource.Token;
+
+        /// <summary>
+        ///     Read-only representation of internal connections dictionary.
+        /// </summary>
         public IReadOnlyDictionary<Guid, Connection> ReadOnlyConnections => Connections;
 
         protected Module(LogEventLevel minimumLogLevel)
@@ -29,19 +42,25 @@ namespace Disfigure
 
             CancellationTokenSource = new CancellationTokenSource();
             Connections = new ConcurrentDictionary<Guid, Connection>();
-            Channels = new ConcurrentDictionary<Guid, Channel>();
         }
 
-        protected async ValueTask<Connection> EstablishConnectionAsync(TcpClient tcpClient)
+        protected virtual async ValueTask<bool> RegisterConnection(Connection connection)
         {
-            Connection connection = new Connection(tcpClient);
-            await connection.Finalize(CancellationToken).Contextless();
             connection.Disconnected += DisconnectedCallback;
             connection.PacketReceived += PacketReceivedCallback;
-            Connections.TryAdd(connection.Identity, connection);
 
-            return connection;
+            if (Connections.TryAdd(connection.Identity, connection))
+            {
+                await ShareIdentityAsync(connection).Contextless();
+                return true;
+            }
+            else
+            {
+                return false;
+            }
         }
+
+        protected abstract ValueTask ShareIdentityAsync(Connection connection);
 
         protected void ForceDisconnect(Connection connection)
         {
@@ -53,6 +72,7 @@ namespace Disfigure
             connection.Dispose();
             Log.Information(string.Format(FormatHelper.CONNECTION_LOGGING, connection.RemoteEndPoint, "Connection forcibly disconnected."));
         }
+
 
         #region Connection Events
 
@@ -66,6 +86,7 @@ namespace Disfigure
         protected virtual ValueTask PacketReceivedCallback(Connection connection, Packet packet) => default;
 
         #endregion
+
 
         #region IDisposable
 

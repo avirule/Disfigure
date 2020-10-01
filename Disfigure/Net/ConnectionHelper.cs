@@ -47,6 +47,14 @@ namespace Disfigure.Net
             return tcpClient;
         }
 
+        public static async ValueTask<Connection> EstablishConnectionAsync(TcpClient tcpClient, CancellationToken cancellationToken)
+        {
+            Connection connection = new Connection(tcpClient);
+            await connection.Finalize(cancellationToken).Contextless();
+
+            return connection;
+        }
+
         public static async ValueTask PongAsync(Connection connection, byte[] pingContents)
         {
             Log.Verbose(string.Format(FormatHelper.CONNECTION_LOGGING, connection.RemoteEndPoint, "Received ping, ponging..."));
