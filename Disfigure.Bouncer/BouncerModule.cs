@@ -38,8 +38,8 @@ namespace Disfigure.Bouncer
             {
                 case PacketType.Connect:
                     Connection serverConnection = await EstablishServerConnectionAsync((IPEndPoint)new BinaryEndPoint(packet.Content)).Contextless();
-                    await connection.WriteAsync(PacketType.Connected, DateTime.UtcNow, serverConnection.Identity.ToByteArray(),
-                        CancellationToken).Contextless();
+                    await connection.WriteAsync(PacketType.Connected, DateTime.UtcNow, serverConnection.Identity.ToByteArray(), CancellationToken)
+                        .Contextless();
                     break;
                 case PacketType.Disconnect:
                     break;
@@ -53,7 +53,7 @@ namespace Disfigure.Bouncer
                 return;
             }
 
-            await ConnectionHelper.PongAsync(connection, packet.Content);
+            await ConnectionHelper.PongAsync(connection, packet.Content).Contextless();
         }
 
         #endregion
