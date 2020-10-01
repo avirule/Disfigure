@@ -31,6 +31,12 @@ namespace Disfigure
 
         #region Runtime
 
+        /// <summary>
+        ///     Begins accepting network connections.
+        /// </summary>
+        /// <remarks>
+        ///     This is run on the ThreadPool.
+        /// </remarks>
         public void AcceptConnections() => Task.Run(AcceptConnectionsInternal);
 
         private async ValueTask AcceptConnectionsInternal()
@@ -72,6 +78,7 @@ namespace Disfigure
             }
         }
 
+        /// <inheritdoc />
         protected override async ValueTask<bool> RegisterConnection(Connection connection)
         {
             connection.PacketReceived += HandlePongPacketsCallback;
@@ -79,6 +86,12 @@ namespace Disfigure
             return await base.RegisterConnection(connection);
         }
 
+        /// <summary>
+        ///     Begins the Pong-Pong loop for ensuring connection lifetimes.
+        /// </summary>
+        /// <remarks>
+        ///     This is run on the ThreadPool.
+        /// </remarks>
         public void PingPongLoop() => Task.Run(PingPongLoopInternal);
 
         private async Task PingPongLoopInternal()
@@ -111,6 +124,12 @@ namespace Disfigure
             }
         }
 
+        /// <summary>
+        ///     Attempts to allocate a new <see cref="PendingPing"/> for given <see cref="Connection.Identity"/>.
+        /// </summary>
+        /// <param name="connectionIdentity"><see cref="Connection.Identity"/> to allocate for.</param>
+        /// <param name="pendingPing"><see cref="PendingPing"/> that was allocated.</param>
+        /// <returns><c>True</c> if operation succeeded; otherwise, <c>False</c>.</returns>
         private bool TryAllocatePing(Guid connectionIdentity, [NotNullWhen(true)] out PendingPing? pendingPing)
         {
             pendingPing = new PendingPing();
@@ -122,6 +141,7 @@ namespace Disfigure
 
         #region Handshakes
 
+        /// <inheritdoc />
         protected override async ValueTask ShareIdentityAsync(Connection connection)
         {
             DateTime utcTimestamp = DateTime.UtcNow;
@@ -135,6 +155,7 @@ namespace Disfigure
 
         #region Events
 
+        /// <inheritdoc />
         protected override ValueTask DisconnectedCallback(Connection connection)
         {
             base.DisconnectedCallback(connection);

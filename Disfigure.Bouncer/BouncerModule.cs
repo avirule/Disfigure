@@ -32,6 +32,7 @@ namespace Disfigure.Bouncer
 
         #region PacketReceived Events
 
+        /// <inheritdoc />
         protected override async ValueTask PacketReceivedCallback(Connection connection, Packet packet)
         {
             switch (packet.Type)
