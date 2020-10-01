@@ -36,10 +36,10 @@ namespace Disfigure.Client
                 }
             };
             await connection.Finalize(CancellationToken.None).Contextless();
-            await connection.WriteAsync(PacketType.Connect, DateTime.UtcNow,
-                new BinaryEndPoint(new IPEndPoint(IPAddress.IPv6Loopback, 8898)).Data.ToArray(), CancellationToken.None).Contextless();
+            await connection.WriteAsync(PacketType.Connect, DateTime.UtcNow, new SerializableEndPoint(IPAddress.IPv6Loopback, 8898).Serialize(),
+                CancellationToken.None).Contextless();
 
-            while (true)
+            while (CancellationToken.None.IsCancellationRequested)
             {
                 Console.ReadKey();
             }
