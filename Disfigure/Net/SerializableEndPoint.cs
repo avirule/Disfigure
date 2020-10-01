@@ -51,6 +51,7 @@ namespace Disfigure.Net
             return string.Format(format, Address, Port.ToString(NumberFormatInfo.InvariantInfo));
         }
 
-        public static explicit operator IPEndPoint(SerializableEndPoint serializableEndPoint) => new IPEndPoint(serializableEndPoint.Address, serializableEndPoint.Port);
+        public static explicit operator IPEndPoint(SerializableEndPoint serializableEndPoint) =>
+            new IPEndPoint(serializableEndPoint.Address, serializableEndPoint.Port);
     }
 }

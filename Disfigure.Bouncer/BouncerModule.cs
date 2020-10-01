@@ -38,7 +38,8 @@ namespace Disfigure.Bouncer
             switch (packet.Type)
             {
                 case PacketType.Connect:
-                    Connection serverConnection = await EstablishServerConnectionAsync((IPEndPoint)new BinaryEndPoint(packet.Content)).Contextless();
+                    Connection serverConnection =
+                        await EstablishServerConnectionAsync((IPEndPoint)new SerializableEndPoint(packet.Content)).Contextless();
                     await connection.WriteAsync(PacketType.Connected, DateTime.UtcNow, serverConnection.Identity.ToByteArray(), CancellationToken)
                         .Contextless();
                     break;

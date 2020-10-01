@@ -48,10 +48,10 @@ namespace Disfigure
         /// </summary>
         /// <remarks>
         ///     This involves subscribing any relevant events or handlers, sharing <see cref="Module" /> identity information, and
-        ///      adding the <see cref="Connection" /> to the <see cref="Connections" /> dictionary.
+        ///     adding the <see cref="Connection" /> to the <see cref="Connections" /> dictionary.
         /// </remarks>
-        /// <param name="connection"><see cref="Connection"/> to be registered.</param>
-        /// <returns>Fully registered <see cref="Connection"/>.</returns>
+        /// <param name="connection"><see cref="Connection" /> to be registered.</param>
+        /// <returns>Fully registered <see cref="Connection" />.</returns>
         protected virtual async ValueTask<bool> RegisterConnection(Connection connection)
         {
             connection.Disconnected += DisconnectedCallback;
@@ -71,13 +71,13 @@ namespace Disfigure
         /// <summary>
         ///     Shares identity information to given connection end point.
         /// </summary>
-        /// <param name="connection"><see cref="Connection"/> to share identity information with.</param>
+        /// <param name="connection"><see cref="Connection" /> to share identity information with.</param>
         protected abstract ValueTask ShareIdentityAsync(Connection connection);
 
         /// <summary>
-        ///     Forcibly (and as safely as possible) disconnects the given <see cref="Connection"/>.
+        ///     Forcibly (and as safely as possible) disconnects the given <see cref="Connection" />.
         /// </summary>
-        /// <param name="connection"><see cref="Connection"/> to disconnect.</param>
+        /// <param name="connection"><see cref="Connection" /> to disconnect.</param>
         protected void ForceDisconnect(Connection connection)
         {
             if (!Connections.TryRemove(connection.Identity, out _))
@@ -93,9 +93,9 @@ namespace Disfigure
         #region Connection Events
 
         /// <summary>
-        ///     Callback for the <see cref="Connection.Disconnected"/> <see cref="ConnectionEventHandler"/>.
+        ///     Callback for the <see cref="Connection.Disconnected" /> <see cref="ConnectionEventHandler" />.
         /// </summary>
-        /// <param name="connection"><see cref="Connection"/> that has been disconnected.</param>
+        /// <param name="connection"><see cref="Connection" /> that has been disconnected.</param>
         protected virtual ValueTask DisconnectedCallback(Connection connection)
         {
             Connections.TryRemove(connection.Identity, out _);
@@ -104,10 +104,10 @@ namespace Disfigure
         }
 
         /// <summary>
-        ///     Callback for the <see cref="Connection.PacketReceived"/> <see cref="PacketEventHandler"/>.
+        ///     Callback for the <see cref="Connection.PacketReceived" /> <see cref="PacketEventHandler" />.
         /// </summary>
-        /// <param name="connection"><see cref="Connection"/> from which the <see cref="Packet"/> was received from.</param>
-        /// <param name="packet"><see cref="Packet"/> that was received.</param>
+        /// <param name="connection"><see cref="Connection" /> from which the <see cref="Packet" /> was received from.</param>
+        /// <param name="packet"><see cref="Packet" /> that was received.</param>
         protected virtual ValueTask PacketReceivedCallback(Connection connection, Packet packet) => default;
 
         #endregion

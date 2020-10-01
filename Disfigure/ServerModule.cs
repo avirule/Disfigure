@@ -125,10 +125,10 @@ namespace Disfigure
         }
 
         /// <summary>
-        ///     Attempts to allocate a new <see cref="PendingPing"/> for given <see cref="Connection.Identity"/>.
+        ///     Attempts to allocate a new <see cref="PendingPing" /> for given <see cref="Connection.Identity" />.
         /// </summary>
-        /// <param name="connectionIdentity"><see cref="Connection.Identity"/> to allocate for.</param>
-        /// <param name="pendingPing"><see cref="PendingPing"/> that was allocated.</param>
+        /// <param name="connectionIdentity"><see cref="Connection.Identity" /> to allocate for.</param>
+        /// <param name="pendingPing"><see cref="PendingPing" /> that was allocated.</param>
         /// <returns><c>True</c> if operation succeeded; otherwise, <c>False</c>.</returns>
         private bool TryAllocatePing(Guid connectionIdentity, [NotNullWhen(true)] out PendingPing? pendingPing)
         {
