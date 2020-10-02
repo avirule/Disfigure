@@ -9,7 +9,7 @@ namespace Disfigure.Net
     public class PendingPing
     {
         public Guid Identity { get; }
-        public TimeSpan PingLifetime { get; set; }
+        public TimeSpan PingLifetime { get; }
 
         public PendingPing()
         {

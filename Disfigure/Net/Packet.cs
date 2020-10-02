@@ -41,6 +41,7 @@ namespace Disfigure.Net
 
         #endregion
 
+
         public PacketType Type { get; }
         public DateTime UtcTimestamp { get; }
         public Memory<byte> Content { get; }

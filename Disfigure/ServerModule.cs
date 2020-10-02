@@ -69,7 +69,7 @@ namespace Disfigure
             {
                 Log.Fatal($"Port {_HostAddress.Port} is already being listened on.");
             }
-            catch (IOException exception) when (exception.InnerException is SocketException socketException)
+            catch (IOException exception) when (exception.InnerException is SocketException)
             {
                 Log.Fatal("Remote host forcibly closed connection while connecting.");
             }
@@ -161,13 +161,11 @@ namespace Disfigure
         #region Events
 
         /// <inheritdoc />
-        protected override ValueTask DisconnectedCallback(Connection connection)
+        protected override async ValueTask DisconnectedCallback(Connection connection)
         {
-            base.DisconnectedCallback(connection);
+            await base.DisconnectedCallback(connection).ConfigureAwait(false);
 
             _PendingPings.TryRemove(connection.Identity, out _);
-
-            return default;
         }
 
         private ValueTask HandlePongPacketsCallback(Connection connection, Packet packet)
