@@ -13,32 +13,35 @@ namespace Disfigure.Cryptography
 {
     public class EncryptionProvider
     {
+
         public const int PRIVATE_KEY_SIZE = 32;
         public const int PUBLIC_KEY_SIZE = PRIVATE_KEY_SIZE * 2;
         public const int INITIALIZATION_VECTOR_SIZE = 16;
 
         private static readonly RNGCryptoServiceProvider _CryptoRandom = new RNGCryptoServiceProvider();
+        private static readonly TimeSpan _EncryptionKeysWaitTimeout = TimeSpan.FromSeconds(5d);
 
-        private readonly ManualResetEvent _EncryptionNegotiatedWait;
+        private readonly ManualResetEventSlim _EncryptionKeysWait;
         private readonly byte[] _PrivateKey;
 
-        private byte[]? _DerivedLocalKey;
-        private byte[]? _DerivedRemoteKey;
+        private byte[]? _DerivedKey;
 
         public byte[] PublicKey { get; }
 
         public EncryptionProvider()
         {
-            _EncryptionNegotiatedWait = new ManualResetEvent(false);
+            _EncryptionKeysWait = new ManualResetEventSlim(false);
             _PrivateKey = new byte[PRIVATE_KEY_SIZE];
+
             PublicKey = new byte[PUBLIC_KEY_SIZE];
 
             GeneratePrivateKey();
             DerivePublicKey();
         }
 
-        public bool IsEncryptable() => _DerivedLocalKey is { } && _DerivedRemoteKey is { };
-        public void WaitForKeyExchange() => _EncryptionNegotiatedWait.WaitOne();
+        public bool IsEncryptable() => _DerivedKey is { };
+        public void WaitForRemoteKeys(CancellationToken cancellationToken) => _EncryptionKeysWait.Wait(cancellationToken);
+        public void WaitForRemoteKeys(TimeSpan timeout) => _EncryptionKeysWait.Wait(timeout);
 
         #region Key Operations
 
@@ -75,13 +78,13 @@ namespace Disfigure.Cryptography
             }
             else
             {
-                _EncryptionNegotiatedWait.Set();
+                byte[] derivedRemoteKey = new byte[PUBLIC_KEY_SIZE];
+                DeriveSymmetricKey(remotePublicKey, derivedRemoteKey);
 
-                _DerivedLocalKey = new byte[PUBLIC_KEY_SIZE];
-                _DerivedRemoteKey = new byte[PUBLIC_KEY_SIZE];
+                using SHA256CryptoServiceProvider sha256 = new SHA256CryptoServiceProvider();
+                _DerivedKey = sha256.ComputeHash(derivedRemoteKey);
 
-                DeriveSymmetricKey(PublicKey, _DerivedLocalKey);
-                DeriveSymmetricKey(remotePublicKey, _DerivedRemoteKey);
+                _EncryptionKeysWait.Set();
             }
         }
 
@@ -90,8 +93,10 @@ namespace Disfigure.Cryptography
 
         #region Encrypt / Decrypt
 
-        public async ValueTask<(byte[] initializationVector, byte[] encrypted)> Encrypt(byte[] unencrypted, CancellationToken cancellationToken)
+        public async ValueTask<(byte[] initializationVector, byte[] encrypted)> EncryptAsync(byte[] unencrypted, CancellationToken cancellationToken)
         {
+            WaitForRemoteKeys(_EncryptionKeysWaitTimeout);
+
             if (!IsEncryptable())
             {
                 throw new CryptographicException("Key exchange has not been completed.");
@@ -107,7 +112,7 @@ namespace Disfigure.Cryptography
             // clears arrays, so it is safe to NOT USE the using statement.
             AesCryptoServiceProvider aes = new AesCryptoServiceProvider();
             await using MemoryStream cipherBytes = new MemoryStream();
-            using ICryptoTransform encryptor = aes.CreateEncryptor(_DerivedLocalKey!, aes.IV);
+            using ICryptoTransform encryptor = aes.CreateEncryptor(_DerivedKey!, aes.IV);
             await using (CryptoStream cryptoStream = new CryptoStream(cipherBytes, encryptor, CryptoStreamMode.Write))
             {
                 await cryptoStream.WriteAsync(unencrypted, cancellationToken).Contextless();
@@ -116,9 +121,11 @@ namespace Disfigure.Cryptography
             return (aes.IV, cipherBytes.ToArray());
         }
 
-        public async ValueTask<Memory<byte>> Decrypt(ReadOnlyMemory<byte> initializationVector, ReadOnlyMemory<byte> encrypted,
+        public async ValueTask<Memory<byte>> DecryptAsync(ReadOnlyMemory<byte> initializationVector, ReadOnlyMemory<byte> encrypted,
             CancellationToken cancellationToken)
         {
+            WaitForRemoteKeys(_EncryptionKeysWaitTimeout);
+
             if (!IsEncryptable())
             {
                 throw new CryptographicException("Key exchange has not been completed.");
@@ -134,7 +141,7 @@ namespace Disfigure.Cryptography
             // clears arrays, so it is safe to NOT USE the using statement.
             AesCryptoServiceProvider aes = new AesCryptoServiceProvider();
             await using MemoryStream cipherBytes = new MemoryStream();
-            using ICryptoTransform decryptor = aes.CreateDecryptor(_DerivedRemoteKey!, initializationVector.ToArray());
+            using ICryptoTransform decryptor = aes.CreateDecryptor(_DerivedKey!, initializationVector.ToArray());
             await using (CryptoStream cryptoStream = new CryptoStream(cipherBytes, decryptor, CryptoStreamMode.Write))
             {
                 await cryptoStream.WriteAsync(encrypted, cancellationToken).Contextless();

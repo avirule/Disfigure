@@ -22,7 +22,7 @@ namespace Disfigure.Server
 
                 using ServerModule serverModule = new ServerModule(LogEventLevel.Verbose, new IPEndPoint(IPAddress.IPv6Loopback, port));
                 serverModule.AcceptConnections();
-                //serverModule.PingPongLoop();
+                serverModule.PingPongLoop();
 
                 while (!serverModule.CancellationToken.IsCancellationRequested)
                 {

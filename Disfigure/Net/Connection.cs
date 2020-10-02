@@ -69,7 +69,7 @@ namespace Disfigure.Net
             BeginListen(cancellationToken);
 
             Log.Information(string.Format(FormatHelper.CONNECTION_LOGGING, RemoteEndPoint, "Waiting for encryption keys packet."));
-            _EncryptionProvider.WaitForKeyExchange();
+            _EncryptionProvider.WaitForRemoteKeys(cancellationToken);
 
             Log.Information(string.Format(FormatHelper.CONNECTION_LOGGING, RemoteEndPoint, "Connection finalized."));
         }
@@ -175,7 +175,7 @@ namespace Disfigure.Net
             ReadOnlyMemory<byte> initializationVector = data.Slice(0, EncryptionProvider.INITIALIZATION_VECTOR_SIZE).First;
             ReadOnlyMemory<byte> encrypted = data.Slice(EncryptionProvider.INITIALIZATION_VECTOR_SIZE, data.End).First;
 
-            Memory<byte> decrypted = await _EncryptionProvider.Decrypt(initializationVector, encrypted, cancellationToken).Contextless();
+            Memory<byte> decrypted = await _EncryptionProvider.DecryptAsync(initializationVector, encrypted, cancellationToken).Contextless();
 
             if (decrypted.IsEmpty)
             {
@@ -221,6 +221,7 @@ namespace Disfigure.Net
             byte[] initializationVector, encryptedPacket;
             (initializationVector, encryptedPacket) = await EncryptTransmissionAsync(packetType, utcTimestamp, content, cancellationToken)
                 .Contextless();
+
             Log.Verbose(string.Format(FormatHelper.CONNECTION_LOGGING, RemoteEndPoint,
                 $"Encrypted packet in {stopwatch.Elapsed.TotalMilliseconds:0.00}ms."));
 
@@ -252,7 +253,7 @@ namespace Disfigure.Net
             Buffer.BlockCopy(content, 0, unencryptedPacket, sizeof(PacketType) + sizeof(long), content.Length);
 
             byte[] initializationVector, encryptedPacket;
-            (initializationVector, encryptedPacket) = await _EncryptionProvider.Encrypt(unencryptedPacket, cancellationToken).Contextless();
+            (initializationVector, encryptedPacket) = await _EncryptionProvider.EncryptAsync(unencryptedPacket, cancellationToken).Contextless();
 
             return (initializationVector, encryptedPacket);
         }
