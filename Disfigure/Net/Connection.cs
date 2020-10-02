@@ -24,13 +24,12 @@ namespace Disfigure.Net
 
     public class Connection : IDisposable, IEquatable<Connection>
     {
-        public readonly struct MaximumRetry
+        public readonly struct RetryParameters
         {
             public int Retries { get; }
-            public TimeSpan RetryDelay { get; }
+            public TimeSpan Delay { get; }
 
-            public MaximumRetry(int retries, long retryDelayMilliseconds) =>
-                (Retries, RetryDelay) = (retries, TimeSpan.FromMilliseconds(retryDelayMilliseconds));
+            public RetryParameters(int retries, long delayMilliseconds) => (Retries, Delay) = (retries, TimeSpan.FromMilliseconds(delayMilliseconds));
         }
 
         private static readonly ObjectPool<Stopwatch> _DiagnosticStopwatches = new ObjectPool<Stopwatch>(() => new Stopwatch());
@@ -42,9 +41,19 @@ namespace Disfigure.Net
         private readonly EncryptionProvider _EncryptionProvider;
         private readonly Dictionary<PacketType, ManualResetEvent> _PacketResetEvents;
 
+        /// <summary>
+        ///     Unique identity of <see cref="Connection"/>.
+        /// </summary>
         public Guid Identity { get; }
+
+        /// <summary>
+        ///     <see cref="EndPoint"/> the internal <see cref="TcpClient"/> is connected to.
+        /// </summary>
         public EndPoint RemoteEndPoint { get; }
 
+        /// <summary>
+        ///     32-byte public key to be used for encryption negotiation.
+        /// </summary>
         public byte[] PublicKey => _EncryptionProvider.PublicKey;
 
         public Connection(TcpClient client)

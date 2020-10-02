@@ -19,16 +19,16 @@ namespace Disfigure.Net
         /// <remarks>
         ///     Retries: 5, RetryDelay: 500
         /// </remarks>
-        public static Connection.MaximumRetry DefaultRetry = new Connection.MaximumRetry(5, 500);
+        public static Connection.RetryParameters DefaultRetryParameters = new Connection.RetryParameters(5, 500);
 
         /// <summary>
         ///     Safely connects to a given <see cref="IPEndPoint" />, with optional retry parameters.
         /// </summary>
         /// <param name="ipEndPoint"><see cref="IPEndPoint" /> to connect to.</param>
-        /// <param name="maximumRetries"><see cref="Connection.MaximumRetry" /> to reference retry parameters from.</param>
+        /// <param name="retriesParameters"><see cref="Connection.RetryParameters" /> to reference retry parameters from.</param>
         /// <param name="cancellationToken"><see cref="CancellationToken" /> to observe when retrying.</param>
         /// <returns><see cref="TcpClient" /> representing complete connection.</returns>
-        public static async ValueTask<TcpClient> ConnectAsync(IPEndPoint ipEndPoint, Connection.MaximumRetry maximumRetries,
+        public static async ValueTask<TcpClient> ConnectAsync(IPEndPoint ipEndPoint, Connection.RetryParameters retriesParameters,
             CancellationToken cancellationToken)
         {
             TcpClient tcpClient = new TcpClient();
@@ -42,7 +42,7 @@ namespace Disfigure.Net
                 {
                     await tcpClient.ConnectAsync(ipEndPoint.Address, ipEndPoint.Port).Contextless();
                 }
-                catch (SocketException) when (tries >= maximumRetries.Retries)
+                catch (SocketException) when (tries >= retriesParameters.Retries)
                 {
                     Log.Error($"Connection to {ipEndPoint} failed.");
                     throw;
@@ -51,9 +51,9 @@ namespace Disfigure.Net
                 {
                     tries += 1;
 
-                    Log.Warning($"{exception.Message}. Retrying ({tries}/{maximumRetries})...");
+                    Log.Warning($"{exception.Message}. Retrying ({tries}/{retriesParameters})...");
 
-                    await Task.Delay(maximumRetries.RetryDelay, cancellationToken).Contextless();
+                    await Task.Delay(retriesParameters.Delay, cancellationToken).Contextless();
                 }
             }
 

@@ -21,7 +21,7 @@ namespace Disfigure.Bouncer
 
         private async ValueTask<Connection> EstablishServerConnectionAsync(IPEndPoint ipEndPoint)
         {
-            TcpClient tcpClient = await ConnectionHelper.ConnectAsync(ipEndPoint, ConnectionHelper.DefaultRetry, CancellationToken).Contextless();
+            TcpClient tcpClient = await ConnectionHelper.ConnectAsync(ipEndPoint, ConnectionHelper.DefaultRetryParameters, CancellationToken).Contextless();
             Connection connection = new Connection(tcpClient);
             connection.PacketReceived += ServerPacketReceivedCallback;
             await connection.Finalize(CancellationToken).Contextless();
