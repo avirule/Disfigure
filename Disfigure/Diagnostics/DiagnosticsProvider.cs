@@ -2,6 +2,8 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
+using Disfigure.Collections;
 using Serilog;
 
 #endregion
@@ -21,6 +23,8 @@ namespace Disfigure.Diagnostics
     public static class DiagnosticsProvider
     {
         private static readonly Dictionary<Type, IDiagnosticGroup> _EnabledGroups;
+
+        public static readonly ObjectPool<Stopwatch> Stopwatches = new ObjectPool<Stopwatch>(() => new Stopwatch());
 
         /// <summary>
         ///     Determines whether errors are emitted by the default logger when a particular <see cref="IDiagnosticGroup" /> has

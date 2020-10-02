@@ -27,10 +27,10 @@ namespace Disfigure.Net
 
         public SerializableEndPoint(IPAddress address, ushort port) => (Address, Port) = (address, port);
 
-        public SerializableEndPoint(byte[] data)
+        public SerializableEndPoint(Span<byte> data)
         {
-            Port = BitConverter.ToUInt16(data, _PORT_OFFSET);
-            Address = new IPAddress(data[_IP_ADDRESS_OFFSET..]);
+            Port = BitConverter.ToUInt16(data.Slice(0, sizeof(ushort)));
+            Address = new IPAddress(data.Slice(sizeof(ushort), data.Length - sizeof(ushort)));
         }
 
         /// <summary>

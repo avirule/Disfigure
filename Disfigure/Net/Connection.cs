@@ -9,9 +9,9 @@ using System.IO;
 using System.IO.Pipelines;
 using System.Net;
 using System.Net.Sockets;
+using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
-using Disfigure.Collections;
 using Disfigure.Cryptography;
 using Disfigure.Diagnostics;
 using Serilog;
@@ -32,29 +32,21 @@ namespace Disfigure.Net
             public RetryParameters(int retries, long delayMilliseconds) => (Retries, Delay) = (retries, TimeSpan.FromMilliseconds(delayMilliseconds));
         }
 
-        private static readonly ObjectPool<Stopwatch> _DiagnosticStopwatches = new ObjectPool<Stopwatch>(() => new Stopwatch());
-
         private readonly TcpClient _Client;
         private readonly NetworkStream _Stream;
         private readonly PipeWriter _Writer;
         private readonly PipeReader _Reader;
         private readonly EncryptionProvider _EncryptionProvider;
-        private readonly Dictionary<PacketType, ManualResetEvent> _PacketResetEvents;
 
         /// <summary>
-        ///     Unique identity of <see cref="Connection"/>.
+        ///     Unique identity of <see cref="Connection" />.
         /// </summary>
         public Guid Identity { get; }
 
         /// <summary>
-        ///     <see cref="EndPoint"/> the internal <see cref="TcpClient"/> is connected to.
+        ///     <see cref="EndPoint" /> the internal <see cref="TcpClient" /> is connected to.
         /// </summary>
         public EndPoint RemoteEndPoint { get; }
-
-        /// <summary>
-        ///     32-byte public key to be used for encryption negotiation.
-        /// </summary>
-        public byte[] PublicKey => _EncryptionProvider.PublicKey;
 
         public Connection(TcpClient client)
         {
@@ -66,37 +58,24 @@ namespace Disfigure.Net
 
             Identity = Guid.NewGuid();
             RemoteEndPoint = _Client.Client.RemoteEndPoint;
-
-            _PacketResetEvents = new Dictionary<PacketType, ManualResetEvent>
-            {
-                { PacketType.EncryptionKeys, new ManualResetEvent(false) },
-                { PacketType.BeginIdentity, new ManualResetEvent(false) },
-                { PacketType.EndIdentity, new ManualResetEvent(false) },
-            };
         }
 
         public async ValueTask Finalize(CancellationToken cancellationToken)
         {
             await OnConnected().Contextless();
 
-            await SendEncryptionKeys(cancellationToken).Contextless();
+            await SendEncryptionKeysAsync(cancellationToken).Contextless();
 
             BeginListen(cancellationToken);
 
-            Log.Information(string.Format(FormatHelper.CONNECTION_LOGGING, RemoteEndPoint,
-                $"Waiting for {nameof(PacketType.EncryptionKeys)} packet."));
-            WaitForPacket(PacketType.EncryptionKeys);
+            Log.Information(string.Format(FormatHelper.CONNECTION_LOGGING, RemoteEndPoint, "Waiting for encryption keys packet."));
+            _EncryptionProvider.WaitForKeyExchange();
 
             Log.Information(string.Format(FormatHelper.CONNECTION_LOGGING, RemoteEndPoint, "Connection finalized."));
         }
 
-        public void WaitForPacket(PacketType packetType)
-        {
-            _PacketResetEvents[packetType].WaitOne();
-        }
 
-
-        #region Listening
+        #region Reading Data
 
         private void BeginListen(CancellationToken cancellationToken) => Task.Run(() => ReadLoopAsync(cancellationToken), cancellationToken);
 
@@ -122,14 +101,25 @@ namespace Disfigure.Net
 
                     stopwatch.Restart();
 
-                    if (!TryReadPacket(sequence, out SequencePosition consumed, out Packet packet))
+                    if (!TryReadPacket(sequence, out SequencePosition consumed, out bool encryptionKeys, out ReadOnlySequence<byte> data))
                     {
                         continue;
                     }
 
-                    DiagnosticsProvider.CommitData<PacketDiagnosticGroup>(new ConstructionTime(stopwatch.Elapsed));
+                    if (encryptionKeys)
+                    {
+                        Log.Debug(string.Format(FormatHelper.CONNECTION_LOGGING, RemoteEndPoint, "Encryption keys received."));
+                        _EncryptionProvider.AssignRemoteKeys(data.First.ToArray());
+                    }
+                    else
+                    {
+                        Packet packet = await ConstructPacketAsync(data, cancellationToken).Contextless();
 
-                    await OnPacketReceived(packet, cancellationToken).Contextless();
+                        DiagnosticsProvider.CommitData<PacketDiagnosticGroup>(new ConstructionTime(stopwatch.Elapsed));
+
+                        await PacketReceivedCallback(packet).Contextless();
+                    }
+
                     _Reader.AdvanceTo(consumed, consumed);
                 }
             }
@@ -148,29 +138,55 @@ namespace Disfigure.Net
         }
 
         private static bool TryReadPacket(ReadOnlySequence<byte> sequence, [NotNull] out SequencePosition consumed,
-            [NotNullWhen(true)] out Packet packet)
+            [NotNullWhen(true)] out bool encryptionKeys, [NotNullWhen(true)] out ReadOnlySequence<byte> data)
         {
             consumed = sequence.Start;
-            packet = default;
+            encryptionKeys = false;
+            data = default;
 
             if (sequence.Length < sizeof(int))
             {
                 return false;
             }
 
-            int packetLength = BitConverter.ToInt32(sequence.Slice(0, sizeof(int)).FirstSpan);
+            const int encryption_packet_length = sizeof(int) + EncryptionProvider.PUBLIC_KEY_SIZE;
+            int originalLength = MemoryMarshal.Read<int>(sequence.Slice(0, sizeof(int)).FirstSpan);
 
-            if (sequence.Length < packetLength)
+            if ((originalLength == int.MinValue) && (sequence.Length >= encryption_packet_length))
             {
-                return false;
+                consumed = sequence.GetPosition(encryption_packet_length);
+                encryptionKeys = true;
+            }
+            else if (sequence.Length >= originalLength)
+            {
+                consumed = sequence.GetPosition(originalLength);
             }
             else
             {
-                consumed = sequence.GetPosition(packetLength);
-                packet = new Packet(sequence, packetLength);
-
-                return true;
+                return false;
             }
+
+            data = sequence.Slice(sizeof(int), consumed);
+            return true;
+        }
+
+        private async ValueTask<Packet> ConstructPacketAsync(ReadOnlySequence<byte> data, CancellationToken cancellationToken)
+        {
+            ReadOnlyMemory<byte> initializationVector = data.Slice(0, EncryptionProvider.INITIALIZATION_VECTOR_SIZE).First;
+            ReadOnlyMemory<byte> encrypted = data.Slice(EncryptionProvider.INITIALIZATION_VECTOR_SIZE, data.End).First;
+
+            Memory<byte> decrypted = await _EncryptionProvider.Decrypt(initializationVector, encrypted, cancellationToken).Contextless();
+
+            if (decrypted.IsEmpty)
+            {
+                throw new ArgumentException("Decrypted packet contained no data.", nameof(decrypted));
+            }
+
+            PacketType packetType = MemoryMarshal.Read<PacketType>(decrypted.Slice(Packet.OFFSET_PACKET_TYPE, sizeof(PacketType)).Span);
+            DateTime utcTimestamp = MemoryMarshal.Read<DateTime>(decrypted.Slice(Packet.OFFSET_TIMESTAMP, sizeof(long)).Span);
+            Memory<byte> content = decrypted.Slice(Packet.HEADER_LENGTH, decrypted.Length - Packet.HEADER_LENGTH);
+
+            return new Packet(packetType, utcTimestamp, content);
         }
 
         #endregion
@@ -194,42 +210,56 @@ namespace Disfigure.Net
             await _Writer.FlushAsync(cancellationToken).Contextless();
         }
 
-        private async ValueTask WriteEncryptedAsync(PacketType type, DateTime utcTimestamp, byte[] content, CancellationToken cancellationToken)
+        private async ValueTask WriteEncryptedAsync(PacketType packetType, DateTime utcTimestamp, byte[] content, CancellationToken cancellationToken)
         {
             Log.Verbose(string.Format(FormatHelper.CONNECTION_LOGGING, RemoteEndPoint,
-                $"Write call: {type} | {utcTimestamp} | {content.Length}"));
+                $"Write call: {packetType} | {utcTimestamp} | {content.Length}"));
 
-            Stopwatch stopwatch = _DiagnosticStopwatches.Rent();
+            Stopwatch stopwatch = DiagnosticsProvider.Stopwatches.Rent();
+            stopwatch.Restart();
+
+            byte[] initializationVector, encryptedPacket;
+            (initializationVector, encryptedPacket) = await EncryptTransmissionAsync(packetType, utcTimestamp, content, cancellationToken)
+                .Contextless();
+            Log.Verbose(string.Format(FormatHelper.CONNECTION_LOGGING, RemoteEndPoint,
+                $"Encrypted packet in {stopwatch.Elapsed.TotalMilliseconds:0.00}ms."));
 
             stopwatch.Restart();
 
-            byte[] initializationVector = Array.Empty<byte>();
+            const int header_length = sizeof(int) + EncryptionProvider.INITIALIZATION_VECTOR_SIZE;
 
-            if (content.Length > 0)
-            {
-                (initializationVector, content) = await _EncryptionProvider.Encrypt(content, cancellationToken).Contextless();
-                Log.Verbose(string.Format(FormatHelper.CONNECTION_LOGGING, RemoteEndPoint,
-                    $"Encrypted packet in {stopwatch.Elapsed.TotalMilliseconds:0.00}ms."));
+            byte[] data = new byte[header_length + encryptedPacket.Length];
+            Buffer.BlockCopy(BitConverter.GetBytes(data.Length), 0, data, 0, sizeof(int));
+            Buffer.BlockCopy(initializationVector, 0, data, sizeof(int), initializationVector.Length);
+            Buffer.BlockCopy(encryptedPacket, 0, data, header_length, encryptedPacket.Length);
 
-                stopwatch.Restart();
-            }
-
-            Packet packet = new Packet(type, PublicKey, initializationVector, utcTimestamp, content);
-            byte[] serialized = packet.Serialize();
             Log.Verbose(string.Format(FormatHelper.CONNECTION_LOGGING, RemoteEndPoint,
                 $"Serialized packet in {stopwatch.Elapsed.TotalMilliseconds:0.00}ms."));
 
             stopwatch.Reset();
-            _DiagnosticStopwatches.Return(stopwatch);
+            DiagnosticsProvider.Stopwatches.Return(stopwatch);
 
-            await _Writer.WriteAsync(serialized, cancellationToken).Contextless();
-
-            Log.Debug(string.Format(FormatHelper.CONNECTION_LOGGING, RemoteEndPoint, $"OUT: {packet}"));
+            await _Writer.WriteAsync(data, cancellationToken).Contextless();
         }
 
-        private async ValueTask SendEncryptionKeys(CancellationToken cancellationToken)
+        private async ValueTask<(byte[], byte[])> EncryptTransmissionAsync(PacketType packetType, DateTime utcTimestamp, byte[] content,
+            CancellationToken cancellationToken)
         {
-            if (_EncryptionProvider.EncryptionNegotiated)
+            byte[] unencryptedPacket = new byte[sizeof(PacketType) + sizeof(long) + content.Length];
+
+            unencryptedPacket[0] = (byte)packetType;
+            Buffer.BlockCopy(BitConverter.GetBytes(utcTimestamp.Ticks), 0, unencryptedPacket, sizeof(PacketType), sizeof(long));
+            Buffer.BlockCopy(content, 0, unencryptedPacket, sizeof(PacketType) + sizeof(long), content.Length);
+
+            byte[] initializationVector, encryptedPacket;
+            (initializationVector, encryptedPacket) = await _EncryptionProvider.Encrypt(unencryptedPacket, cancellationToken).Contextless();
+
+            return (initializationVector, encryptedPacket);
+        }
+
+        private async ValueTask SendEncryptionKeysAsync(CancellationToken cancellationToken)
+        {
+            if (_EncryptionProvider.IsEncryptable())
             {
                 Log.Warning("Protocol requires that key exchanges happen ONLY ONCE.");
             }
@@ -237,9 +267,12 @@ namespace Disfigure.Net
             {
                 Log.Debug(string.Format(FormatHelper.CONNECTION_LOGGING, RemoteEndPoint, "Sending encryption keys."));
 
-                Packet packet = new Packet(PacketType.EncryptionKeys, _EncryptionProvider.PublicKey, Array.Empty<byte>(), DateTime.UtcNow,
-                    Array.Empty<byte>());
-                await _Stream.WriteAsync(packet.Serialize(), cancellationToken).Contextless();
+                byte[] serialized = new byte[sizeof(int) + EncryptionProvider.PUBLIC_KEY_SIZE];
+
+                Buffer.BlockCopy(BitConverter.GetBytes(int.MinValue), 0, serialized, 0, sizeof(int));
+                Buffer.BlockCopy(_EncryptionProvider.PublicKey, 0, serialized, sizeof(int), _EncryptionProvider.PublicKey.Length);
+
+                await _Stream.WriteAsync(serialized, cancellationToken).Contextless();
                 await _Stream.FlushAsync(cancellationToken).Contextless();
             }
         }
@@ -275,43 +308,8 @@ namespace Disfigure.Net
 
         public event PacketEventHandler? PacketReceived;
 
-        private async ValueTask OnPacketReceived(Packet packet, CancellationToken cancellationToken)
+        private async ValueTask PacketReceivedCallback(Packet packet)
         {
-            Log.Debug(string.Format(FormatHelper.CONNECTION_LOGGING, RemoteEndPoint, $"INC: {packet}"));
-
-            if (_PacketResetEvents.TryGetValue(packet.Type, out ManualResetEvent? resetEvent))
-            {
-                resetEvent.Set();
-            }
-
-            switch (packet.Type)
-            {
-                case PacketType.EncryptionKeys:
-                    _EncryptionProvider.AssignRemoteKeys(packet.PublicKey);
-                    Log.Debug(string.Format(FormatHelper.CONNECTION_LOGGING, RemoteEndPoint, "Assigned given encryption keys."));
-                    break;
-                default:
-                    if (packet.Content.Length == 0)
-                    {
-                        // we don't need to decrypt the content
-                        break;
-                    }
-
-                    Stopwatch stopwatch = _DiagnosticStopwatches.Rent();
-                    stopwatch.Restart();
-
-                    packet.Content = await _EncryptionProvider.Decrypt(packet.InitializationVector, packet.PublicKey, packet.Content,
-                        cancellationToken).Contextless();
-
-                    DiagnosticsProvider.CommitData<PacketDiagnosticGroup>(new DecryptionTime(stopwatch.Elapsed));
-
-                    Log.Verbose(string.Format(FormatHelper.CONNECTION_LOGGING, RemoteEndPoint,
-                        $"Decrypted packet in {stopwatch.Elapsed.TotalMilliseconds:0.00}ms."));
-
-                    _DiagnosticStopwatches.Return(stopwatch);
-                    break;
-            }
-
             if (PacketReceived is { })
             {
                 Log.Verbose(string.Format(FormatHelper.CONNECTION_LOGGING, RemoteEndPoint,

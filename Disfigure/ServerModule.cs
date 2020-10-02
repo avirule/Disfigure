@@ -4,6 +4,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
+using System.IO;
 using System.Net;
 using System.Net.Sockets;
 using System.Threading.Tasks;
@@ -55,7 +56,7 @@ namespace Disfigure
 
                     Connection connection = await ConnectionHelper.EstablishConnectionAsync(tcpClient, CancellationToken).Contextless();
 
-                    if (!await RegisterConnection(connection))
+                    if (!await RegisterConnection(connection).Contextless())
                     {
                         Log.Error(string.Format(FormatHelper.CONNECTION_LOGGING, connection.RemoteEndPoint,
                             "Connection with given identity already exists."));
@@ -67,6 +68,10 @@ namespace Disfigure
             catch (SocketException exception) when (exception.ErrorCode == 10048)
             {
                 Log.Fatal($"Port {_HostAddress.Port} is already being listened on.");
+            }
+            catch (IOException exception) when (exception.InnerException is SocketException socketException)
+            {
+                Log.Fatal($"Remote host forcibly closed connection while connecting.");
             }
             catch (Exception ex)
             {
@@ -83,7 +88,7 @@ namespace Disfigure
         {
             connection.PacketReceived += HandlePongPacketsCallback;
 
-            return await base.RegisterConnection(connection);
+            return await base.RegisterConnection(connection).Contextless();
         }
 
         /// <summary>
@@ -183,7 +188,7 @@ namespace Disfigure
                 return default;
             }
 
-            Guid pingIdentity = new Guid(packet.Content);
+            Guid pingIdentity = new Guid(packet.Content.Span);
             if (pendingPing.Identity != pingIdentity)
             {
                 Log.Warning($"<{connection.RemoteEndPoint}> Received pong, but ping identity didn't match.");

@@ -19,7 +19,7 @@ namespace Disfigure.Client
         {
             Log.Logger = new LoggerConfiguration().WriteTo.Console().MinimumLevel.Is(LogEventLevel.Verbose).CreateLogger();
 
-            IPEndPoint ipEndPoint = new IPEndPoint(IPAddress.IPv6Loopback, 8899);
+            IPEndPoint ipEndPoint = new IPEndPoint(IPAddress.IPv6Loopback, 8898);
             TcpClient tcpClient = await ConnectionHelper.ConnectAsync(ipEndPoint, ConnectionHelper.DefaultRetryParameters, CancellationToken.None)
                 .Contextless();
             Connection connection = new Connection(tcpClient);
@@ -28,7 +28,7 @@ namespace Disfigure.Client
                 switch (packet.Type)
                 {
                     case PacketType.Ping:
-                        await ConnectionHelper.PongAsync(connection, packet.Content).Contextless();
+                        await ConnectionHelper.PongAsync(connection, packet.Content.ToArray()).Contextless();
                         break;
                     default:
                         Log.Information(packet.ToString());

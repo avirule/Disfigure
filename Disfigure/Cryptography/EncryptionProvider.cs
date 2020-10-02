@@ -5,7 +5,6 @@ using System.IO;
 using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
-using Disfigure.Collections;
 using Serilog;
 
 #endregion
@@ -19,23 +18,27 @@ namespace Disfigure.Cryptography
         public const int INITIALIZATION_VECTOR_SIZE = 16;
 
         private static readonly RNGCryptoServiceProvider _CryptoRandom = new RNGCryptoServiceProvider();
-        private static readonly ObjectPool<byte[]> _DerivedKeyPool = new ObjectPool<byte[]>(() => new byte[KEY_SIZE]);
 
+        private readonly ManualResetEvent _EncryptionNegotiatedWait;
         private readonly byte[] _PrivateKey;
 
         private byte[]? _RemotePublicKey;
+        private byte[]? _DerivedKey;
 
         public byte[] PublicKey { get; }
-        public bool EncryptionNegotiated { get; private set; }
 
         public EncryptionProvider()
         {
+            _EncryptionNegotiatedWait = new ManualResetEvent(false);
             _PrivateKey = new byte[KEY_SIZE];
             PublicKey = new byte[PUBLIC_KEY_SIZE];
 
             GeneratePrivateKey();
             DerivePublicKey();
         }
+
+        public bool IsEncryptable() => _RemotePublicKey is { } && _DerivedKey is { };
+        public void WaitForKeyExchange() => _EncryptionNegotiatedWait.WaitOne();
 
         #region Key Operations
 
@@ -62,24 +65,31 @@ namespace Disfigure.Cryptography
 
         public void AssignRemoteKeys(byte[] remotePublicKey)
         {
-            if (EncryptionNegotiated)
+            if (IsEncryptable())
             {
                 Log.Warning("Protocol requires that key exchanges happen ONLY ONCE.");
+            }
+            else if (remotePublicKey.Length != PUBLIC_KEY_SIZE)
+            {
+                Log.Warning($"Protocol requires that public keys be {PUBLIC_KEY_SIZE} bytes.");
             }
             else
             {
                 _RemotePublicKey = remotePublicKey;
-                EncryptionNegotiated = true;
+                _EncryptionNegotiatedWait.Set();
+                _DerivedKey = new byte[KEY_SIZE];
+                DeriveSharedKey(_RemotePublicKey, _DerivedKey);
             }
         }
 
         #endregion
 
+
         #region Encrypt / Decrypt
 
         public async ValueTask<(byte[] initializationVector, byte[] encrypted)> Encrypt(byte[] unencrypted, CancellationToken cancellationToken)
         {
-            if (!EncryptionNegotiated || _RemotePublicKey is null)
+            if (!IsEncryptable())
             {
                 throw new CryptographicException("Key exchange has not been completed.");
             }
@@ -88,65 +98,44 @@ namespace Disfigure.Cryptography
                 return (Array.Empty<byte>(), unencrypted);
             }
 
-            byte[] derivedKey = _DerivedKeyPool.Rent();
-            Array.Clear(derivedKey, 0, derivedKey.Length);
-
-            DeriveSharedKey(_RemotePublicKey, derivedKey);
-
             // DO NOT ADD USING STATEMENT FOR AesCryptoServiceProvider
             // I'm unsure why, but the AesCryptoServiceProvider dispose method
             // throws an AccessViolationException. The dispose method only
             // clears arrays, so it is safe to NOT USE the using statement.
-            AesCryptoServiceProvider aes = new AesCryptoServiceProvider
-            {
-                Key = derivedKey
-            };
+            AesCryptoServiceProvider aes = new AesCryptoServiceProvider();
             await using MemoryStream cipherBytes = new MemoryStream();
-            using ICryptoTransform encryptor = aes.CreateEncryptor();
+            using ICryptoTransform encryptor = aes.CreateEncryptor(_DerivedKey!, aes.IV);
             await using (CryptoStream cryptoStream = new CryptoStream(cipherBytes, encryptor, CryptoStreamMode.Write))
             {
                 await cryptoStream.WriteAsync(unencrypted, cancellationToken).Contextless();
             }
 
-            _DerivedKeyPool.Return(derivedKey);
-
             return (aes.IV, cipherBytes.ToArray());
         }
 
-        public async ValueTask<byte[]> Decrypt(byte[] remoteInitializationVector, byte[] remotePublicKey, byte[] encrypted,
+        public async ValueTask<Memory<byte>> Decrypt(ReadOnlyMemory<byte> initializationVector, ReadOnlyMemory<byte> encrypted,
             CancellationToken cancellationToken)
         {
-            if (!EncryptionNegotiated || _RemotePublicKey is null)
+            if (!IsEncryptable())
             {
                 throw new CryptographicException("Key exchange has not been completed.");
             }
             else if (encrypted.Length == 0)
             {
-                return encrypted;
+                return default;
             }
-
-            byte[] derivedKey = _DerivedKeyPool.Rent();
-            Array.Clear(derivedKey, 0, derivedKey.Length);
-
-            DeriveSharedKey(remotePublicKey, derivedKey);
 
             // DO NOT ADD USING STATEMENT FOR AesCryptoServiceProvider
             // I'm unsure why, but the AesCryptoServiceProvider dispose method
             // throws an AccessViolationException. The dispose method only
             // clears arrays, so it is safe to NOT USE the using statement.
-            AesCryptoServiceProvider aes = new AesCryptoServiceProvider
-            {
-                IV = remoteInitializationVector,
-                Key = derivedKey
-            };
+            AesCryptoServiceProvider aes = new AesCryptoServiceProvider();
             await using MemoryStream cipherBytes = new MemoryStream();
-            using ICryptoTransform decryptor = aes.CreateDecryptor();
+            using ICryptoTransform decryptor = aes.CreateDecryptor(_DerivedKey!, initializationVector.ToArray());
             await using (CryptoStream cryptoStream = new CryptoStream(cipherBytes, decryptor, CryptoStreamMode.Write))
             {
-                await cryptoStream.WriteAsync(encrypted, 0, encrypted.Length, cancellationToken).Contextless();
+                await cryptoStream.WriteAsync(encrypted, cancellationToken).Contextless();
             }
-
-            _DerivedKeyPool.Return(derivedKey);
 
             return cipherBytes.ToArray();
         }
