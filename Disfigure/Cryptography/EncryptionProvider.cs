@@ -13,8 +13,8 @@ namespace Disfigure.Cryptography
 {
     public class EncryptionProvider
     {
-        public const int KEY_SIZE = 32;
-        public const int PUBLIC_KEY_SIZE = KEY_SIZE * 2;
+        public const int PRIVATE_KEY_SIZE = 32;
+        public const int PUBLIC_KEY_SIZE = PRIVATE_KEY_SIZE * 2;
         public const int INITIALIZATION_VECTOR_SIZE = 16;
 
         private static readonly RNGCryptoServiceProvider _CryptoRandom = new RNGCryptoServiceProvider();
@@ -22,22 +22,22 @@ namespace Disfigure.Cryptography
         private readonly ManualResetEvent _EncryptionNegotiatedWait;
         private readonly byte[] _PrivateKey;
 
-        private byte[]? _RemotePublicKey;
-        private byte[]? _DerivedKey;
+        private byte[]? _DerivedLocalKey;
+        private byte[]? _DerivedRemoteKey;
 
         public byte[] PublicKey { get; }
 
         public EncryptionProvider()
         {
             _EncryptionNegotiatedWait = new ManualResetEvent(false);
-            _PrivateKey = new byte[KEY_SIZE];
+            _PrivateKey = new byte[PRIVATE_KEY_SIZE];
             PublicKey = new byte[PUBLIC_KEY_SIZE];
 
             GeneratePrivateKey();
             DerivePublicKey();
         }
 
-        public bool IsEncryptable() => _RemotePublicKey is { } && _DerivedKey is { };
+        public bool IsEncryptable() => _DerivedLocalKey is { } && _DerivedRemoteKey is { };
         public void WaitForKeyExchange() => _EncryptionNegotiatedWait.WaitOne();
 
         #region Key Operations
@@ -53,13 +53,13 @@ namespace Disfigure.Cryptography
             }
         }
 
-        private unsafe void DeriveSharedKey(byte[] remotePublicKey, byte[] derivedKey)
+        private unsafe void DeriveSymmetricKey(byte[] publicKey, byte[] derivedKey)
         {
             fixed (byte* privateKeyFixed = _PrivateKey)
-            fixed (byte* remotePublicKeyFixed = remotePublicKey)
+            fixed (byte* publicKeyFixed = publicKey)
             fixed (byte* derivedKeyFixed = derivedKey)
             {
-                TinyECDH.DeriveSharedKey(privateKeyFixed, remotePublicKeyFixed, derivedKeyFixed);
+                TinyECDH.DeriveSharedKey(privateKeyFixed, publicKeyFixed, derivedKeyFixed);
             }
         }
 
@@ -75,10 +75,13 @@ namespace Disfigure.Cryptography
             }
             else
             {
-                _RemotePublicKey = remotePublicKey;
                 _EncryptionNegotiatedWait.Set();
-                _DerivedKey = new byte[KEY_SIZE];
-                DeriveSharedKey(_RemotePublicKey, _DerivedKey);
+
+                _DerivedLocalKey = new byte[PUBLIC_KEY_SIZE];
+                _DerivedRemoteKey = new byte[PUBLIC_KEY_SIZE];
+
+                DeriveSymmetricKey(PublicKey, _DerivedLocalKey);
+                DeriveSymmetricKey(remotePublicKey, _DerivedRemoteKey);
             }
         }
 
@@ -104,7 +107,7 @@ namespace Disfigure.Cryptography
             // clears arrays, so it is safe to NOT USE the using statement.
             AesCryptoServiceProvider aes = new AesCryptoServiceProvider();
             await using MemoryStream cipherBytes = new MemoryStream();
-            using ICryptoTransform encryptor = aes.CreateEncryptor(_DerivedKey!, aes.IV);
+            using ICryptoTransform encryptor = aes.CreateEncryptor(_DerivedLocalKey!, aes.IV);
             await using (CryptoStream cryptoStream = new CryptoStream(cipherBytes, encryptor, CryptoStreamMode.Write))
             {
                 await cryptoStream.WriteAsync(unencrypted, cancellationToken).Contextless();
@@ -131,7 +134,7 @@ namespace Disfigure.Cryptography
             // clears arrays, so it is safe to NOT USE the using statement.
             AesCryptoServiceProvider aes = new AesCryptoServiceProvider();
             await using MemoryStream cipherBytes = new MemoryStream();
-            using ICryptoTransform decryptor = aes.CreateDecryptor(_DerivedKey!, initializationVector.ToArray());
+            using ICryptoTransform decryptor = aes.CreateDecryptor(_DerivedRemoteKey!, initializationVector.ToArray());
             await using (CryptoStream cryptoStream = new CryptoStream(cipherBytes, decryptor, CryptoStreamMode.Write))
             {
                 await cryptoStream.WriteAsync(encrypted, cancellationToken).Contextless();

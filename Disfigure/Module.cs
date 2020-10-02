@@ -5,6 +5,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using Disfigure.Diagnostics;
 using Disfigure.Net;
 using Serilog;
 using Serilog.Events;
@@ -59,7 +60,7 @@ namespace Disfigure
 
             if (Connections.TryAdd(connection.Identity, connection))
             {
-                await ShareIdentityAsync(connection).Contextless();
+                //todo await ShareIdentityAsync(connection).Contextless();
                 return true;
             }
             else
@@ -130,18 +131,6 @@ namespace Disfigure
             {
                 connection?.Dispose();
             }
-
-#if DEBUG
-            PacketDiagnosticGroup? packetDiagnosticGroup = DiagnosticsProvider.GetGroup<PacketDiagnosticGroup>();
-
-            if (packetDiagnosticGroup is { })
-            {
-                (double avgConstruction, double avgDecryption) = packetDiagnosticGroup.GetAveragePacketTimes();
-
-                Log.Information($"Construction: {avgConstruction:0.00}ms");
-                Log.Information($"Decryption: {avgDecryption:0.00}ms");
-            }
-#endif
 
             CancellationTokenSource.Cancel();
             _Disposed = true;

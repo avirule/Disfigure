@@ -212,7 +212,7 @@ namespace Disfigure.Net
 
         private async ValueTask WriteEncryptedAsync(PacketType packetType, DateTime utcTimestamp, byte[] content, CancellationToken cancellationToken)
         {
-            Log.Verbose(string.Format(FormatHelper.CONNECTION_LOGGING, RemoteEndPoint,
+            Log.Debug(string.Format(FormatHelper.CONNECTION_LOGGING, RemoteEndPoint,
                 $"Write call: {packetType} | {utcTimestamp} | {content.Length}"));
 
             Stopwatch stopwatch = DiagnosticsProvider.Stopwatches.Rent();

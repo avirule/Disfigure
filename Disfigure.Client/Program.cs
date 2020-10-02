@@ -39,7 +39,7 @@ namespace Disfigure.Client
             await connection.WriteAsync(PacketType.Connect, DateTime.UtcNow, new SerializableEndPoint(IPAddress.IPv6Loopback, 8898).Serialize(),
                 CancellationToken.None).Contextless();
 
-            while (CancellationToken.None.IsCancellationRequested)
+            while (true)
             {
                 Console.ReadKey();
             }
