@@ -62,9 +62,9 @@ namespace Disfigure.Net
 
         public async ValueTask Finalize(CancellationToken cancellationToken)
         {
-            await OnConnected().Contextless();
+            await OnConnected().ConfigureAwait(false);
 
-            await SendEncryptionKeysAsync(cancellationToken).Contextless();
+            await SendEncryptionKeysAsync(cancellationToken).ConfigureAwait(false);
 
             BeginListen(cancellationToken);
 
@@ -89,7 +89,7 @@ namespace Disfigure.Net
 
                 while (!cancellationToken.IsCancellationRequested)
                 {
-                    ReadResult result = await _Reader.ReadAsync(cancellationToken).Contextless();
+                    ReadResult result = await _Reader.ReadAsync(cancellationToken).ConfigureAwait(false);
                     ReadOnlySequence<byte> sequence = result.Buffer;
 
                     if (sequence.IsEmpty)
@@ -113,11 +113,11 @@ namespace Disfigure.Net
                     }
                     else
                     {
-                        Packet packet = await ConstructPacketAsync(data, cancellationToken).Contextless();
+                        Packet packet = await ConstructPacketAsync(data, cancellationToken).ConfigureAwait(false);
 
                         DiagnosticsProvider.CommitData<PacketDiagnosticGroup>(new ConstructionTime(stopwatch.Elapsed));
 
-                        await PacketReceivedCallback(packet).Contextless();
+                        await PacketReceivedCallback(packet).ConfigureAwait(false);
                     }
 
                     _Reader.AdvanceTo(consumed, consumed);
@@ -133,7 +133,7 @@ namespace Disfigure.Net
             }
             finally
             {
-                await OnDisconnected().Contextless();
+                await OnDisconnected().ConfigureAwait(false);
             }
         }
 
@@ -175,7 +175,7 @@ namespace Disfigure.Net
             ReadOnlyMemory<byte> initializationVector = data.Slice(0, EncryptionProvider.INITIALIZATION_VECTOR_SIZE).First;
             ReadOnlyMemory<byte> encrypted = data.Slice(EncryptionProvider.INITIALIZATION_VECTOR_SIZE, data.End).First;
 
-            Memory<byte> decrypted = await _EncryptionProvider.DecryptAsync(initializationVector, encrypted, cancellationToken).Contextless();
+            Memory<byte> decrypted = await _EncryptionProvider.DecryptAsync(initializationVector, encrypted, cancellationToken).ConfigureAwait(false);
 
             if (decrypted.IsEmpty)
             {
@@ -196,18 +196,18 @@ namespace Disfigure.Net
 
         public async ValueTask WriteAsync(PacketType type, DateTime utcTimestamp, byte[] content, CancellationToken cancellationToken)
         {
-            await WriteEncryptedAsync(type, utcTimestamp, content, cancellationToken).Contextless();
-            await _Writer.FlushAsync(cancellationToken).Contextless();
+            await WriteEncryptedAsync(type, utcTimestamp, content, cancellationToken).ConfigureAwait(false);
+            await _Writer.FlushAsync(cancellationToken).ConfigureAwait(false);
         }
 
         public async ValueTask WriteAsync(IEnumerable<(PacketType, DateTime, byte[])> packets, CancellationToken cancellationToken)
         {
             foreach ((PacketType type, DateTime timestamp, byte[] content) in packets)
             {
-                await WriteEncryptedAsync(type, timestamp, content, cancellationToken).Contextless();
+                await WriteEncryptedAsync(type, timestamp, content, cancellationToken).ConfigureAwait(false);
             }
 
-            await _Writer.FlushAsync(cancellationToken).Contextless();
+            await _Writer.FlushAsync(cancellationToken).ConfigureAwait(false);
         }
 
         private async ValueTask WriteEncryptedAsync(PacketType packetType, DateTime utcTimestamp, byte[] content, CancellationToken cancellationToken)
@@ -220,7 +220,7 @@ namespace Disfigure.Net
 
             byte[] initializationVector, encryptedPacket;
             (initializationVector, encryptedPacket) = await EncryptTransmissionAsync(packetType, utcTimestamp, content, cancellationToken)
-                .Contextless();
+                .ConfigureAwait(false);
 
             Log.Verbose(string.Format(FormatHelper.CONNECTION_LOGGING, RemoteEndPoint,
                 $"Encrypted packet in {stopwatch.Elapsed.TotalMilliseconds:0.00}ms."));
@@ -240,7 +240,7 @@ namespace Disfigure.Net
             stopwatch.Reset();
             DiagnosticsProvider.Stopwatches.Return(stopwatch);
 
-            await _Writer.WriteAsync(data, cancellationToken).Contextless();
+            await _Writer.WriteAsync(data, cancellationToken).ConfigureAwait(false);
         }
 
         private async ValueTask<(byte[], byte[])> EncryptTransmissionAsync(PacketType packetType, DateTime utcTimestamp, byte[] content,
@@ -253,7 +253,7 @@ namespace Disfigure.Net
             Buffer.BlockCopy(content, 0, unencryptedPacket, sizeof(PacketType) + sizeof(long), content.Length);
 
             byte[] initializationVector, encryptedPacket;
-            (initializationVector, encryptedPacket) = await _EncryptionProvider.EncryptAsync(unencryptedPacket, cancellationToken).Contextless();
+            (initializationVector, encryptedPacket) = await _EncryptionProvider.EncryptAsync(unencryptedPacket, cancellationToken).ConfigureAwait(false);
 
             return (initializationVector, encryptedPacket);
         }
@@ -273,8 +273,8 @@ namespace Disfigure.Net
                 Buffer.BlockCopy(BitConverter.GetBytes(int.MinValue), 0, serialized, 0, sizeof(int));
                 Buffer.BlockCopy(_EncryptionProvider.PublicKey, 0, serialized, sizeof(int), _EncryptionProvider.PublicKey.Length);
 
-                await _Stream.WriteAsync(serialized, cancellationToken).Contextless();
-                await _Stream.FlushAsync(cancellationToken).Contextless();
+                await _Stream.WriteAsync(serialized, cancellationToken).ConfigureAwait(false);
+                await _Stream.FlushAsync(cancellationToken).ConfigureAwait(false);
             }
         }
 
@@ -290,7 +290,7 @@ namespace Disfigure.Net
         {
             if (Connected is { })
             {
-                await Connected(this).Contextless();
+                await Connected(this).ConfigureAwait(false);
             }
         }
 
@@ -298,7 +298,7 @@ namespace Disfigure.Net
         {
             if (Disconnected is { })
             {
-                await Disconnected(this).Contextless();
+                await Disconnected(this).ConfigureAwait(false);
             }
         }
 
@@ -315,7 +315,7 @@ namespace Disfigure.Net
             {
                 Log.Verbose(string.Format(FormatHelper.CONNECTION_LOGGING, RemoteEndPoint,
                     $"Invoking packet event ({packet.Type}: {packet.Content.Length} bytes)."));
-                await PacketReceived(this, packet).Contextless();
+                await PacketReceived(this, packet).ConfigureAwait(false);
             }
         }
 

@@ -5,7 +5,6 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
-using Disfigure.Diagnostics;
 using Disfigure.Net;
 using Serilog;
 using Serilog.Events;
@@ -60,7 +59,7 @@ namespace Disfigure
 
             if (Connections.TryAdd(connection.Identity, connection))
             {
-                await ShareIdentityAsync(connection).Contextless();
+                await ShareIdentityAsync(connection).ConfigureAwait(false);
                 return true;
             }
             else

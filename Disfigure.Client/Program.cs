@@ -5,7 +5,6 @@ using System.Net;
 using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
-using Disfigure.Cryptography;
 using Disfigure.Net;
 using Serilog;
 using Serilog.Events;
@@ -22,23 +21,23 @@ namespace Disfigure.Client
 
             IPEndPoint ipEndPoint = new IPEndPoint(IPAddress.IPv6Loopback, 8899);
             TcpClient tcpClient = await ConnectionHelper.ConnectAsync(ipEndPoint, ConnectionHelper.DefaultRetryParameters, CancellationToken.None)
-                .Contextless();
+                .ConfigureAwait(false);
             Connection connection = new Connection(tcpClient);
             connection.PacketReceived += async (origin, packet) =>
             {
                 switch (packet.Type)
                 {
                     case PacketType.Ping:
-                        await ConnectionHelper.PongAsync(connection, packet.Content.ToArray()).Contextless();
+                        await ConnectionHelper.PongAsync(connection, packet.Content.ToArray()).ConfigureAwait(false);
                         break;
                     default:
                         Log.Information(string.Format(FormatHelper.CONNECTION_LOGGING, connection.RemoteEndPoint, packet.ToString()));
                         break;
                 }
             };
-            await connection.Finalize(CancellationToken.None).Contextless();
+            await connection.Finalize(CancellationToken.None).ConfigureAwait(false);
             await connection.WriteAsync(PacketType.Connect, DateTime.UtcNow, new SerializableEndPoint(IPAddress.IPv6Loopback, 8898).Serialize(),
-                CancellationToken.None).Contextless();
+                CancellationToken.None).ConfigureAwait(false);
 
             while (true)
             {

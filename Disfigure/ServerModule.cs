@@ -51,12 +51,12 @@ namespace Disfigure
 
                 while (!CancellationToken.IsCancellationRequested)
                 {
-                    TcpClient tcpClient = await listener.AcceptTcpClientAsync().Contextless();
+                    TcpClient tcpClient = await listener.AcceptTcpClientAsync().ConfigureAwait(false);
                     Log.Information(string.Format(FormatHelper.CONNECTION_LOGGING, tcpClient.Client.RemoteEndPoint, "Connection accepted."));
 
-                    Connection connection = await ConnectionHelper.EstablishConnectionAsync(tcpClient, CancellationToken).Contextless();
+                    Connection connection = await ConnectionHelper.EstablishConnectionAsync(tcpClient, CancellationToken).ConfigureAwait(false);
 
-                    if (!await RegisterConnection(connection).Contextless())
+                    if (!await RegisterConnection(connection).ConfigureAwait(false))
                     {
                         Log.Error(string.Format(FormatHelper.CONNECTION_LOGGING, connection.RemoteEndPoint,
                             "Connection with given identity already exists."));
@@ -71,7 +71,7 @@ namespace Disfigure
             }
             catch (IOException exception) when (exception.InnerException is SocketException socketException)
             {
-                Log.Fatal($"Remote host forcibly closed connection while connecting.");
+                Log.Fatal("Remote host forcibly closed connection while connecting.");
             }
             catch (Exception ex)
             {
@@ -88,7 +88,7 @@ namespace Disfigure
         {
             connection.PacketReceived += HandlePongPacketsCallback;
 
-            return await base.RegisterConnection(connection).Contextless();
+            return await base.RegisterConnection(connection).ConfigureAwait(false);
         }
 
         /// <summary>
@@ -105,14 +105,14 @@ namespace Disfigure
 
             while (!CancellationToken.IsCancellationRequested)
             {
-                await Task.Delay(_PingInterval).Contextless();
+                await Task.Delay(_PingInterval).ConfigureAwait(false);
 
                 foreach ((Guid connectionIdentity, Connection connection) in Connections)
                 {
                     if (TryAllocatePing(connectionIdentity, out PendingPing? pendingPing))
                     {
                         await connection.WriteAsync(PacketType.Ping, DateTime.UtcNow, pendingPing.Identity.ToByteArray(), CancellationToken)
-                            .Contextless();
+                            .ConfigureAwait(false);
                     }
                     else
                     {
@@ -150,9 +150,9 @@ namespace Disfigure
         protected override async ValueTask ShareIdentityAsync(Connection connection)
         {
             DateTime utcTimestamp = DateTime.UtcNow;
-            await connection.WriteAsync(PacketType.BeginIdentity, utcTimestamp, Array.Empty<byte>(), CancellationToken).Contextless();
+            await connection.WriteAsync(PacketType.BeginIdentity, utcTimestamp, Array.Empty<byte>(), CancellationToken).ConfigureAwait(false);
 
-            await connection.WriteAsync(PacketType.EndIdentity, utcTimestamp, Array.Empty<byte>(), CancellationToken).Contextless();
+            await connection.WriteAsync(PacketType.EndIdentity, utcTimestamp, Array.Empty<byte>(), CancellationToken).ConfigureAwait(false);
         }
 
         #endregion

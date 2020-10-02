@@ -21,10 +21,11 @@ namespace Disfigure.Bouncer
 
         private async ValueTask<Connection> EstablishServerConnectionAsync(IPEndPoint ipEndPoint)
         {
-            TcpClient tcpClient = await ConnectionHelper.ConnectAsync(ipEndPoint, ConnectionHelper.DefaultRetryParameters, CancellationToken).Contextless();
+            TcpClient tcpClient = await ConnectionHelper.ConnectAsync(ipEndPoint, ConnectionHelper.DefaultRetryParameters, CancellationToken)
+                .ConfigureAwait(false);
             Connection connection = new Connection(tcpClient);
             connection.PacketReceived += ServerPacketReceivedCallback;
-            await connection.Finalize(CancellationToken).Contextless();
+            await connection.Finalize(CancellationToken).ConfigureAwait(false);
             _ServerConnections.TryAdd(connection.Identity, connection);
 
             return connection;
@@ -39,9 +40,9 @@ namespace Disfigure.Bouncer
             {
                 case PacketType.Connect:
                     Connection serverConnection =
-                        await EstablishServerConnectionAsync((IPEndPoint)new SerializableEndPoint(packet.Content.Span)).Contextless();
+                        await EstablishServerConnectionAsync((IPEndPoint)new SerializableEndPoint(packet.Content.Span)).ConfigureAwait(false);
                     await connection.WriteAsync(PacketType.Connected, DateTime.UtcNow, serverConnection.Identity.ToByteArray(), CancellationToken)
-                        .Contextless();
+                        .ConfigureAwait(false);
                     break;
                 case PacketType.Disconnect:
                     break;
@@ -55,7 +56,7 @@ namespace Disfigure.Bouncer
                 return;
             }
 
-            await ConnectionHelper.PongAsync(connection, packet.Content.ToArray()).Contextless();
+            await ConnectionHelper.PongAsync(connection, packet.Content.ToArray()).ConfigureAwait(false);
         }
 
         #endregion

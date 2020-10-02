@@ -40,7 +40,7 @@ namespace Disfigure.Net
             {
                 try
                 {
-                    await tcpClient.ConnectAsync(ipEndPoint.Address, ipEndPoint.Port).Contextless();
+                    await tcpClient.ConnectAsync(ipEndPoint.Address, ipEndPoint.Port).ConfigureAwait(false);
                 }
                 catch (SocketException) when (tries >= retriesParameters.Retries)
                 {
@@ -53,7 +53,7 @@ namespace Disfigure.Net
 
                     Log.Warning($"{exception.Message}. Retrying ({tries}/{retriesParameters})...");
 
-                    await Task.Delay(retriesParameters.Delay, cancellationToken).Contextless();
+                    await Task.Delay(retriesParameters.Delay, cancellationToken).ConfigureAwait(false);
                 }
             }
 
@@ -69,7 +69,7 @@ namespace Disfigure.Net
         public static async ValueTask<Connection> EstablishConnectionAsync(TcpClient tcpClient, CancellationToken cancellationToken)
         {
             Connection connection = new Connection(tcpClient);
-            await connection.Finalize(cancellationToken).Contextless();
+            await connection.Finalize(cancellationToken).ConfigureAwait(false);
 
             return connection;
         }
@@ -82,7 +82,7 @@ namespace Disfigure.Net
         public static async ValueTask PongAsync(Connection connection, byte[] pingContents)
         {
             Log.Verbose(string.Format(FormatHelper.CONNECTION_LOGGING, connection.RemoteEndPoint, "Received ping, ponging..."));
-            await connection.WriteAsync(PacketType.Pong, DateTime.UtcNow, pingContents, CancellationToken.None).Contextless();
+            await connection.WriteAsync(PacketType.Pong, DateTime.UtcNow, pingContents, CancellationToken.None).ConfigureAwait(false);
         }
     }
 }
