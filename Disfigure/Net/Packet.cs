@@ -2,6 +2,7 @@
 
 using System;
 using System.Buffers;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
 using Disfigure.Cryptography;
@@ -55,22 +56,17 @@ namespace Disfigure.Net
 
         public override string ToString()
         {
-            StringBuilder builder = new StringBuilder();
-            builder.Append(Type.ToString());
-            builder.Append(UtcTimestamp.ToString("O"));
-            builder.Append(' ');
-
-            switch (Type)
-            {
-                case PacketType.Text:
-                    builder.Append(Encoding.Unicode.GetString(Content.Span));
-                    break;
-                default:
-                    builder.AppendJoin(' ', Content);
-                    break;
-            }
-
-            return builder.ToString();
+            return new StringBuilder()
+                .Append(Type.ToString())
+                .Append(' ')
+                .Append(UtcTimestamp.ToString("O"))
+                .Append(' ')
+                .Append(Type switch
+                {
+                    PacketType.Text => Encoding.Unicode.GetString(Content.Span),
+                    _ => MemoryMarshal.Cast<byte, char>(Content.Span)
+                })
+                .ToString();
         }
     }
 }

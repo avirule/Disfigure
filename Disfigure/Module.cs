@@ -60,7 +60,7 @@ namespace Disfigure
 
             if (Connections.TryAdd(connection.Identity, connection))
             {
-                //todo await ShareIdentityAsync(connection).Contextless();
+                await ShareIdentityAsync(connection).Contextless();
                 return true;
             }
             else

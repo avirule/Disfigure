@@ -11,10 +11,6 @@ namespace Disfigure.Net
 {
     public readonly struct SerializableEndPoint
     {
-        private const int _ADDRESS_FAMILY_OFFSET = 0;
-        private const int _PORT_OFFSET = _ADDRESS_FAMILY_OFFSET + sizeof(ushort);
-        private const int _IP_ADDRESS_OFFSET = _PORT_OFFSET + sizeof(ushort);
-
         /// <summary>
         ///     Port of <see cref="EndPoint" />.
         /// </summary>
@@ -30,7 +26,7 @@ namespace Disfigure.Net
         public SerializableEndPoint(Span<byte> data)
         {
             Port = BitConverter.ToUInt16(data.Slice(0, sizeof(ushort)));
-            Address = new IPAddress(data.Slice(sizeof(ushort), data.Length - sizeof(ushort)));
+            Address = new IPAddress(data.Slice(sizeof(ushort)));
         }
 
         /// <summary>
@@ -46,11 +42,10 @@ namespace Disfigure.Net
         public byte[] Serialize()
         {
             byte[] addressBytes = Address.GetAddressBytes();
-            byte[] data = new byte[_IP_ADDRESS_OFFSET + addressBytes.Length];
+            byte[] data = new byte[sizeof(ushort) + addressBytes.Length];
 
-            Buffer.BlockCopy(BitConverter.GetBytes((ushort)Address.AddressFamily), 0, data, _ADDRESS_FAMILY_OFFSET, sizeof(ushort));
-            Buffer.BlockCopy(BitConverter.GetBytes(Port), 0, data, _PORT_OFFSET, sizeof(ushort));
-            Buffer.BlockCopy(addressBytes, 0, data, _IP_ADDRESS_OFFSET, addressBytes.Length);
+            Buffer.BlockCopy(BitConverter.GetBytes(Port), 0, data, 0, sizeof(ushort));
+            Buffer.BlockCopy(addressBytes, 0, data, sizeof(ushort), addressBytes.Length);
 
             return data;
         }
