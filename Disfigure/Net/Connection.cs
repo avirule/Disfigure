@@ -253,7 +253,8 @@ namespace Disfigure.Net
             Buffer.BlockCopy(content, 0, unencryptedPacket, sizeof(PacketType) + sizeof(long), content.Length);
 
             byte[] initializationVector, encryptedPacket;
-            (initializationVector, encryptedPacket) = await _EncryptionProvider.EncryptAsync(unencryptedPacket, cancellationToken).ConfigureAwait(false);
+            (initializationVector, encryptedPacket) =
+                await _EncryptionProvider.EncryptAsync(unencryptedPacket, cancellationToken).ConfigureAwait(false);
 
             return (initializationVector, encryptedPacket);
         }
