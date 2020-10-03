@@ -118,6 +118,8 @@ namespace Disfigure.Modules
             _DocumentTable = _DocumentSyntax.ToModel();
             _LoggingTable = (TomlTable)_DocumentTable[_LOGGING_TABLE];
             _HostingTable = (TomlTable)_DocumentTable[_HOSTING_TABLE];
+
+            Log.Information("Configuration successfully loaded.");
         }
     }
 }
