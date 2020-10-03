@@ -60,6 +60,10 @@ namespace Disfigure.Net
             RemoteEndPoint = _Client.Client.RemoteEndPoint;
         }
 
+        /// <summary>
+        ///     Finalizes <see cref="Connection"/>, completing encryption handshake and starting the socket listener.
+        /// </summary>
+        /// <param name="cancellationToken"><see cref="CancellationToken"/> to observe.</param>
         public async ValueTask Finalize(CancellationToken cancellationToken)
         {
             await OnConnected().ConfigureAwait(false);
@@ -99,12 +103,12 @@ namespace Disfigure.Net
                         break;
                     }
 
-                    stopwatch.Restart();
-
                     if (!TryReadPacket(sequence, out SequencePosition consumed, out bool encryptionKeys, out ReadOnlySequence<byte> data))
                     {
                         continue;
                     }
+
+                    stopwatch.Restart();
 
                     if (encryptionKeys)
                     {
@@ -152,20 +156,24 @@ namespace Disfigure.Net
             const int encryption_packet_length = sizeof(int) + EncryptionProvider.PUBLIC_KEY_SIZE;
             int originalLength = MemoryMarshal.Read<int>(sequence.Slice(0, sizeof(int)).FirstSpan);
 
+            // check if packet is encryption keys
             if ((originalLength == int.MinValue) && (sequence.Length >= encryption_packet_length))
             {
                 consumed = sequence.GetPosition(encryption_packet_length);
                 encryptionKeys = true;
             }
-            else if (sequence.Length >= originalLength)
+            // otherwise, check if entire packet has been received
+            else if ((originalLength > 0) && (sequence.Length >= originalLength))
             {
                 consumed = sequence.GetPosition(originalLength);
             }
+            // if none, then wait for more data
             else
             {
                 return false;
             }
 
+            // begin at sizeof(int) to skip originalLength
             data = sequence.Slice(sizeof(int), consumed);
             return true;
         }

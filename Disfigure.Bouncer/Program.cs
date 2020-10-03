@@ -3,6 +3,7 @@
 using System;
 using System.Net;
 using System.Reflection;
+using System.Runtime.InteropServices;
 using Disfigure.Diagnostics;
 using Disfigure.Modules;
 
@@ -16,7 +17,10 @@ namespace Disfigure.Bouncer
         {
             DiagnosticsProvider.EnableGroup<PacketDiagnosticGroup>();
 
-            ServerModuleConfiguration configuration = new ServerModuleConfiguration(Assembly.GetExecutingAssembly().GetName().Name!, true);
+            ServerModuleConfiguration configuration = new ServerModuleConfiguration(Assembly.GetExecutingAssembly().GetName().Name, false);
+
+            ReadOnlySpan<byte> span = new ReadOnlySpan<byte>();
+            var g = MemoryMarshal.Read<int>(span);
 
             BouncerModule bouncerModule = new BouncerModule(configuration.LogLevel, new IPEndPoint(configuration.HostingIPAddress,
                 configuration.HostingPort));

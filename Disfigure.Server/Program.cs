@@ -19,7 +19,7 @@ namespace Disfigure.Server
             {
                 DiagnosticsProvider.EnableGroup<PacketDiagnosticGroup>();
 
-                ServerModuleConfiguration configuration = new ServerModuleConfiguration(Assembly.GetExecutingAssembly().GetName().Name, true);
+                ServerModuleConfiguration configuration = new ServerModuleConfiguration(Assembly.GetExecutingAssembly().GetName().Name, false);
 
                 using ServerModule serverModule = new ServerModule(configuration.LogLevel, new IPEndPoint(configuration.HostingIPAddress,
                     configuration.HostingPort));
