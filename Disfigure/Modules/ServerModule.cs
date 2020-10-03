@@ -14,7 +14,7 @@ using Serilog.Events;
 
 #endregion
 
-namespace Disfigure
+namespace Disfigure.Modules
 {
     public class ServerModule : Module
     {

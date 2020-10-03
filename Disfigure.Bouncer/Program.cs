@@ -15,7 +15,7 @@ namespace Disfigure.Bouncer
         {
             DiagnosticsProvider.EnableGroup<PacketDiagnosticGroup>();
 
-            BouncerModule bouncerModule = new BouncerModule(LogEventLevel.Verbose, new IPEndPoint(IPAddress.IPv6Loopback, 8899));
+            BouncerModule bouncerModule = new BouncerModule(LogEventLevel.Verbose, new IPEndPoint(IPAddress.Loopback, 8899));
             bouncerModule.AcceptConnections();
             bouncerModule.PingPongLoop();
 

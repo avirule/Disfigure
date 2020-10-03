@@ -3,6 +3,7 @@
 using System;
 using System.Net;
 using Disfigure.Diagnostics;
+using Disfigure.Modules;
 using Serilog;
 using Serilog.Events;
 
@@ -20,7 +21,8 @@ namespace Disfigure.Server
             {
                 DiagnosticsProvider.EnableGroup<PacketDiagnosticGroup>();
 
-                using ServerModule serverModule = new ServerModule(LogEventLevel.Verbose, new IPEndPoint(IPAddress.IPv6Loopback, port));
+                using ServerModule serverModule = new ServerModule(LogEventLevel.Verbose, new IPEndPoint(IPAddress.Loopback, 8899));
+
                 serverModule.AcceptConnections();
                 serverModule.PingPongLoop();
 
