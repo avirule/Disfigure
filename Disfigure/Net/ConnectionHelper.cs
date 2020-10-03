@@ -19,7 +19,7 @@ namespace Disfigure.Net
         /// <remarks>
         ///     Retries: 5, RetryDelay: 500
         /// </remarks>
-        public static Connection.RetryParameters DefaultRetryParameters = new Connection.RetryParameters(5, 500);
+        public static RetryParameters DefaultRetryParameters = new RetryParameters(5, 500);
 
         /// <summary>
         ///     Safely connects to a given <see cref="IPEndPoint" />, with optional retry parameters.
@@ -28,7 +28,7 @@ namespace Disfigure.Net
         /// <param name="retriesParameters"><see cref="Connection.RetryParameters" /> to reference retry parameters from.</param>
         /// <param name="cancellationToken"><see cref="CancellationToken" /> to observe when retrying.</param>
         /// <returns><see cref="TcpClient" /> representing complete connection.</returns>
-        public static async ValueTask<TcpClient> ConnectAsync(IPEndPoint ipEndPoint, Connection.RetryParameters retriesParameters,
+        public static async ValueTask<TcpClient> ConnectAsync(IPEndPoint ipEndPoint, RetryParameters retriesParameters,
             CancellationToken cancellationToken)
         {
             TcpClient tcpClient = new TcpClient();
@@ -61,28 +61,14 @@ namespace Disfigure.Net
         }
 
         /// <summary>
-        ///     Takes a <see cref="TcpClient" /> and finalizes a <see cref="Connection" /> object from it.
+        ///     Construct and send a verified pong <see cref="BasicPacket" /> to connection.
         /// </summary>
-        /// <param name="tcpClient"><see cref="TcpClient" /> to finalize <see cref="Connection" /> from.</param>
-        /// <param name="cancellationToken"><see cref="CancellationToken" /> to observe.</param>
-        /// <returns></returns>
-        public static async ValueTask<Connection> EstablishConnectionAsync(TcpClient tcpClient, CancellationToken cancellationToken)
-        {
-            Connection connection = new Connection(tcpClient);
-            await connection.Finalize(cancellationToken).ConfigureAwait(false);
-
-            return connection;
-        }
-
-        /// <summary>
-        ///     Construct and send a verified pong <see cref="Packet" /> to connection.
-        /// </summary>
-        /// <param name="connection"><see cref="Connection" /> to send pong <see cref="Packet" /> to.</param>
+        /// <param name="connection"><see cref="Connection" /> to send pong <see cref="BasicPacket" /> to.</param>
         /// <param name="pingContents"><see cref="Guid" /> bytes to pong back to <see cref="Connection" />.</param>
-        public static async ValueTask PongAsync(Connection connection, byte[] pingContents)
-        {
-            Log.Verbose(string.Format(FormatHelper.CONNECTION_LOGGING, connection.RemoteEndPoint, "Received ping, ponging..."));
-            await connection.WriteAsync(PacketType.Pong, DateTime.UtcNow, pingContents, CancellationToken.None).ConfigureAwait(false);
-        }
+        // public static async ValueTask PongAsync(Connection<BasicPacket> connection, byte[] pingContents)
+        // {
+        //     Log.Verbose(string.Format(FormatHelper.CONNECTION_LOGGING, connection.RemoteEndPoint, "Received ping, ponging..."));
+        //     await connection.WriteAsync(PacketType.Pong, DateTime.UtcNow, pingContents, CancellationToken.None).ConfigureAwait(false);
+        // }
     }
 }

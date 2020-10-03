@@ -15,16 +15,16 @@ namespace Disfigure.Bouncer
 {
     public class BouncerModule : ServerModule
     {
-        private readonly ConcurrentDictionary<Guid, Connection> _ServerConnections;
+        private readonly ConcurrentDictionary<Guid, Connection<BasicPacket>> _ServerConnections;
 
         public BouncerModule(LogEventLevel logEventLevel, IPEndPoint hostAddress) : base(logEventLevel, hostAddress) =>
-            _ServerConnections = new ConcurrentDictionary<Guid, Connection>();
+            _ServerConnections = new ConcurrentDictionary<Guid, Connection<BasicPacket>>();
 
-        private async ValueTask<Connection> EstablishServerConnectionAsync(IPEndPoint ipEndPoint)
+        private async ValueTask<Connection<BasicPacket>> EstablishServerConnectionAsync(IPEndPoint ipEndPoint)
         {
             TcpClient tcpClient = await ConnectionHelper.ConnectAsync(ipEndPoint, ConnectionHelper.DefaultRetryParameters, CancellationToken)
                 .ConfigureAwait(false);
-            Connection connection = new Connection(tcpClient);
+            Connection<BasicPacket> connection = new Connection<BasicPacket>(tcpClient, BasicPacket.Factory);
             connection.PacketReceived += ServerPacketReceivedCallback;
             await connection.Finalize(CancellationToken).ConfigureAwait(false);
             _ServerConnections.TryAdd(connection.Identity, connection);
@@ -35,13 +35,13 @@ namespace Disfigure.Bouncer
         #region PacketReceived Events
 
         /// <inheritdoc />
-        protected override async ValueTask PacketReceivedCallback(Connection connection, Packet packet)
+        protected override async ValueTask PacketReceivedCallback(Connection<BasicPacket> connection, BasicPacket basicPacket)
         {
-            switch (packet.Type)
+            switch (basicPacket.Type)
             {
                 case PacketType.Connect:
-                    Connection serverConnection =
-                        await EstablishServerConnectionAsync((IPEndPoint)new SerializableEndPoint(packet.Content.Span)).ConfigureAwait(false);
+                    Connection<BasicPacket> serverConnection =
+                        await EstablishServerConnectionAsync((IPEndPoint)new SerializableEndPoint(basicPacket.Content.Span)).ConfigureAwait(false);
                     await connection.WriteAsync(PacketType.Connected, DateTime.UtcNow, serverConnection.Identity.ToByteArray(), CancellationToken)
                         .ConfigureAwait(false);
                     break;
@@ -50,14 +50,14 @@ namespace Disfigure.Bouncer
             }
         }
 
-        private static async ValueTask ServerPacketReceivedCallback(Connection connection, Packet packet)
+        private static async ValueTask ServerPacketReceivedCallback(Connection connection, BasicPacket basicPacket)
         {
-            if (packet.Type != PacketType.Ping)
+            if (basicPacket.Type != PacketType.Ping)
             {
                 return;
             }
 
-            await ConnectionHelper.PongAsync(connection, packet.Content.ToArray()).ConfigureAwait(false);
+            await ConnectionHelper.PongAsync(connection, basicPacket.Content.ToArray()).ConfigureAwait(false);
         }
 
         #endregion

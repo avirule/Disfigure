@@ -168,9 +168,9 @@ namespace Disfigure.Modules
             _PendingPings.TryRemove(connection.Identity, out _);
         }
 
-        private ValueTask HandlePongPacketsCallback(Connection connection, Packet packet)
+        private ValueTask HandlePongPacketsCallback(Connection connection, BasicPacket basicPacket)
         {
-            if (packet.Type != PacketType.Pong)
+            if (basicPacket.Type != PacketType.Pong)
             {
                 return default;
             }
@@ -180,13 +180,13 @@ namespace Disfigure.Modules
                 Log.Warning($"<{connection.RemoteEndPoint}> Received pong, but no ping was pending.");
                 return default;
             }
-            else if (packet.Content.Length != 16)
+            else if (basicPacket.Content.Length != 16)
             {
                 Log.Warning($"<{connection.RemoteEndPoint}> Ping identity was malformed (too few bytes).");
                 return default;
             }
 
-            Guid pingIdentity = new Guid(packet.Content.Span);
+            Guid pingIdentity = new Guid(basicPacket.Content.Span);
             if (pendingPing.Identity != pingIdentity)
             {
                 Log.Warning($"<{connection.RemoteEndPoint}> Received pong, but ping identity didn't match.");

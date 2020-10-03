@@ -20,22 +20,18 @@ using Serilog;
 
 namespace Disfigure.Net
 {
-    public delegate ValueTask<bool> PacketFactory<TPacket>(ReadOnlySequence<byte> sequence, EncryptionProvider encryptionProvider,
-        CancellationToken cancellationToken, [NotNull] out SequencePosition consumed, [NotNullWhen(true)] out TPacket packet) where TPacket : IPacket;
+    public delegate ValueTask<(bool, SequencePosition, TPacket)> PacketFactory<TPacket>(ReadOnlySequence<byte> sequence,
+        EncryptionProvider encryptionProvider, CancellationToken cancellationToken) where TPacket : IPacket;
+
+    public delegate ValueTask<(bool, byte[])> PacketEncryptor<in TPacket>(EncryptionProvider encryptionProvider, TPacket packet,
+        CancellationToken cancellationToken);
 
     public delegate ValueTask ConnectionEventHandler<TPacket>(Connection<TPacket> connection) where TPacket : IPacket;
+
     public delegate ValueTask PacketEventHandler<TPacket>(Connection<TPacket> origin, TPacket packet) where TPacket : IPacket;
 
     public class Connection<TPacket> : IDisposable, IEquatable<Connection<TPacket>> where TPacket : IPacket
     {
-        public readonly struct RetryParameters
-        {
-            public int Retries { get; }
-            public TimeSpan Delay { get; }
-
-            public RetryParameters(int retries, long delayMilliseconds) => (Retries, Delay) = (retries, TimeSpan.FromMilliseconds(delayMilliseconds));
-        }
-
         private readonly TcpClient _Client;
         private readonly NetworkStream _Stream;
         private readonly PipeWriter _Writer;
@@ -111,7 +107,10 @@ namespace Disfigure.Net
 
                     stopwatch.Restart();
 
-                    if (!await _PacketFactory(sequence, _EncryptionProvider, cancellationToken, out SequencePosition consumed, out TPacket packet))
+                    (bool success, SequencePosition consumed, TPacket packet) = await _PacketFactory(sequence, _EncryptionProvider,
+                        cancellationToken);
+
+                    if (!success)
                     {
                         continue;
                     }
@@ -135,62 +134,6 @@ namespace Disfigure.Net
             {
                 await OnDisconnected().ConfigureAwait(false);
             }
-        }
-
-        private static bool TryReadPacket(ReadOnlySequence<byte> sequence, [NotNull] out SequencePosition consumed,
-            [NotNullWhen(true)] out bool encryptionKeys, [NotNullWhen(true)] out ReadOnlySequence<byte> data)
-        {
-            consumed = sequence.Start;
-            encryptionKeys = false;
-            data = default;
-
-            if (sequence.Length < sizeof(int))
-            {
-                return false;
-            }
-
-            const int encryption_packet_length = sizeof(int) + EncryptionProvider.PUBLIC_KEY_SIZE;
-            int originalLength = MemoryMarshal.Read<int>(sequence.Slice(0, sizeof(int)).FirstSpan);
-
-            // check if packet is encryption keys
-            if ((originalLength == int.MinValue) && (sequence.Length >= encryption_packet_length))
-            {
-                consumed = sequence.GetPosition(encryption_packet_length);
-                encryptionKeys = true;
-            }
-            // otherwise, check if entire packet has been received
-            else if ((originalLength > 0) && (sequence.Length >= originalLength))
-            {
-                consumed = sequence.GetPosition(originalLength);
-            }
-            // if none, then wait for more data
-            else
-            {
-                return false;
-            }
-
-            // begin at sizeof(int) to skip originalLength
-            data = sequence.Slice(sizeof(int), consumed);
-            return true;
-        }
-
-        private async ValueTask<Packet> ConstructPacketAsync(ReadOnlySequence<byte> data, CancellationToken cancellationToken)
-        {
-            ReadOnlyMemory<byte> initializationVector = data.Slice(0, EncryptionProvider.INITIALIZATION_VECTOR_SIZE).First;
-            ReadOnlyMemory<byte> encrypted = data.Slice(EncryptionProvider.INITIALIZATION_VECTOR_SIZE, data.End).First;
-
-            Memory<byte> decrypted = await _EncryptionProvider.DecryptAsync(initializationVector, encrypted, cancellationToken).ConfigureAwait(false);
-
-            if (decrypted.IsEmpty)
-            {
-                throw new ArgumentException("Decrypted packet contained no data.", nameof(decrypted));
-            }
-
-            PacketType packetType = MemoryMarshal.Read<PacketType>(decrypted.Slice(Packet.OFFSET_PACKET_TYPE, sizeof(PacketType)).Span);
-            DateTime utcTimestamp = MemoryMarshal.Read<DateTime>(decrypted.Slice(Packet.OFFSET_TIMESTAMP, sizeof(long)).Span);
-            Memory<byte> content = decrypted.Slice(Packet.HEADER_LENGTH, decrypted.Length - Packet.HEADER_LENGTH);
-
-            return new Packet(packetType, utcTimestamp, content);
         }
 
         #endregion

@@ -106,9 +106,9 @@ namespace Disfigure.Modules
         /// <summary>
         ///     Callback for the <see cref="Connection.PacketReceived" /> <see cref="PacketEventHandler" />.
         /// </summary>
-        /// <param name="connection"><see cref="Connection" /> from which the <see cref="Packet" /> was received from.</param>
-        /// <param name="packet"><see cref="Packet" /> that was received.</param>
-        protected virtual ValueTask PacketReceivedCallback(Connection connection, Packet packet) => default;
+        /// <param name="connection"><see cref="Connection" /> from which the <see cref="BasicPacket" /> was received from.</param>
+        /// <param name="basicPacket"><see cref="BasicPacket" /> that was received.</param>
+        protected virtual ValueTask PacketReceivedCallback(Connection connection, BasicPacket basicPacket) => default;
 
         #endregion
 
