@@ -3,6 +3,8 @@
 using System;
 using System.IO;
 using System.Net;
+using System.Reflection;
+using System.Runtime.CompilerServices;
 using System.Text;
 using Serilog;
 using Tomlyn;
@@ -24,15 +26,15 @@ namespace Disfigure.Modules
         private TomlTable? _HostingTable;
 
         public IPAddress HostingIPAddress => IPAddress.Parse((string)_HostingTable[_IP_ADDRESS_VALUE]);
-        public ushort HostingPort => (ushort)_HostingTable[_PORT_VALUE];
+        public ushort HostingPort => Convert.ToUInt16((long)_HostingTable[_PORT_VALUE]);
 
-        public ServerModuleConfiguration(bool executeInPlaceMode)
+        public ServerModuleConfiguration(string configurationName, bool executeInPlaceMode)
         {
             string configurationDirectoryPath = executeInPlaceMode
                 ? @"./Configurations/"
                 : $"{Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData)}/Disfigure/Configurations";
 
-            string configurationFilePath = Path.Combine(configurationDirectoryPath, $"{GetType().Assembly.GetName()}.toml");
+            string configurationFilePath = Path.Combine(configurationDirectoryPath, $"{configurationName}.toml");
 
             ValidateFileStructure(configurationDirectoryPath, configurationFilePath);
             LoadDocumentSyntax(configurationFilePath);
@@ -55,7 +57,7 @@ namespace Disfigure.Modules
 
         private static void CreateConfigurationFile(string configurationFilePath)
         {
-            File.Create(configurationFilePath);
+            using FileStream fileStream = File.Create(configurationFilePath);
 
             DocumentSyntax documentSyntax = new DocumentSyntax
             {
@@ -66,13 +68,14 @@ namespace Disfigure.Modules
                         Items =
                         {
                             { _IP_ADDRESS_VALUE, IPAddress.Loopback.ToString() },
-                            { _PORT_VALUE, (ushort)8898 }
+                            { _PORT_VALUE, 8898 }
                         }
                     }
                 }
             };
 
-            File.WriteAllText(configurationFilePath, documentSyntax.ToString(), Encoding.Unicode);
+            fileStream.Write(Encoding.ASCII.GetBytes(documentSyntax.ToString()));
+            fileStream.Flush();
         }
 
         private void LoadDocumentSyntax(string configurationFilePath)
