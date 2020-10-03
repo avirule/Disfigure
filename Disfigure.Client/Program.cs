@@ -19,7 +19,7 @@ namespace Disfigure.Client
         {
             Log.Logger = new LoggerConfiguration().WriteTo.Console().MinimumLevel.Is(LogEventLevel.Verbose).CreateLogger();
 
-            IPEndPoint ipEndPoint = new IPEndPoint(IPAddress.IPv6Loopback, 8899);
+            IPEndPoint ipEndPoint = new IPEndPoint(IPAddress.Loopback, 8899);
             TcpClient tcpClient = await ConnectionHelper.ConnectAsync(ipEndPoint, ConnectionHelper.DefaultRetryParameters, CancellationToken.None)
                 .ConfigureAwait(false);
             Connection connection = new Connection(tcpClient);
@@ -36,7 +36,7 @@ namespace Disfigure.Client
                 }
             };
             await connection.Finalize(CancellationToken.None).ConfigureAwait(false);
-            await connection.WriteAsync(PacketType.Connect, DateTime.UtcNow, new SerializableEndPoint(IPAddress.IPv6Loopback, 8898).Serialize(),
+            await connection.WriteAsync(PacketType.Connect, DateTime.UtcNow, new SerializableEndPoint(IPAddress.Loopback, 8898).Serialize(),
                 CancellationToken.None).ConfigureAwait(false);
 
             while (true)
