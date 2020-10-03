@@ -2,8 +2,9 @@
 
 using System;
 using System.Net;
+using System.Reflection;
 using Disfigure.Diagnostics;
-using Serilog.Events;
+using Disfigure.Modules;
 
 #endregion
 
@@ -15,7 +16,10 @@ namespace Disfigure.Bouncer
         {
             DiagnosticsProvider.EnableGroup<PacketDiagnosticGroup>();
 
-            BouncerModule bouncerModule = new BouncerModule(LogEventLevel.Verbose, new IPEndPoint(IPAddress.Loopback, 8899));
+            ServerModuleConfiguration configuration = new ServerModuleConfiguration(Assembly.GetExecutingAssembly().GetName().Name!, true);
+
+            BouncerModule bouncerModule = new BouncerModule(configuration.LogLevel, new IPEndPoint(configuration.HostingIPAddress,
+                configuration.HostingPort));
             bouncerModule.AcceptConnections();
             bouncerModule.PingPongLoop();
 
