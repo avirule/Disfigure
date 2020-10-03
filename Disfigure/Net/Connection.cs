@@ -20,9 +20,13 @@ using Serilog;
 
 namespace Disfigure.Net
 {
-    public delegate ValueTask ConnectionEventHandler(Connection connection);
+    public delegate ValueTask<bool> PacketFactory<TPacket>(ReadOnlySequence<byte> sequence, EncryptionProvider encryptionProvider,
+        CancellationToken cancellationToken, [NotNull] out SequencePosition consumed, [NotNullWhen(true)] out TPacket packet) where TPacket : IPacket;
 
-    public class Connection : IDisposable, IEquatable<Connection>
+    public delegate ValueTask ConnectionEventHandler<TPacket>(Connection<TPacket> connection) where TPacket : IPacket;
+    public delegate ValueTask PacketEventHandler<TPacket>(Connection<TPacket> origin, TPacket packet) where TPacket : IPacket;
+
+    public class Connection<TPacket> : IDisposable, IEquatable<Connection<TPacket>> where TPacket : IPacket
     {
         public readonly struct RetryParameters
         {
@@ -37,6 +41,7 @@ namespace Disfigure.Net
         private readonly PipeWriter _Writer;
         private readonly PipeReader _Reader;
         private readonly EncryptionProvider _EncryptionProvider;
+        private readonly PacketFactory<TPacket> _PacketFactory;
 
         /// <summary>
         ///     Unique identity of <see cref="Connection" />.
@@ -48,22 +53,23 @@ namespace Disfigure.Net
         /// </summary>
         public EndPoint RemoteEndPoint { get; }
 
-        public Connection(TcpClient client)
+        public Connection(TcpClient client, PacketFactory<TPacket> packetFactory)
         {
             _Client = client;
             _Stream = _Client.GetStream();
             _Writer = PipeWriter.Create(_Stream);
             _Reader = PipeReader.Create(_Stream);
             _EncryptionProvider = new EncryptionProvider();
+            _PacketFactory = packetFactory;
 
             Identity = Guid.NewGuid();
             RemoteEndPoint = _Client.Client.RemoteEndPoint;
         }
 
         /// <summary>
-        ///     Finalizes <see cref="Connection"/>, completing encryption handshake and starting the socket listener.
+        ///     Finalizes <see cref="Connection" />, completing encryption handshake and starting the socket listener.
         /// </summary>
-        /// <param name="cancellationToken"><see cref="CancellationToken"/> to observe.</param>
+        /// <param name="cancellationToken"><see cref="CancellationToken" /> to observe.</param>
         public async ValueTask Finalize(CancellationToken cancellationToken)
         {
             await OnConnected().ConfigureAwait(false);
@@ -103,26 +109,16 @@ namespace Disfigure.Net
                         break;
                     }
 
-                    if (!TryReadPacket(sequence, out SequencePosition consumed, out bool encryptionKeys, out ReadOnlySequence<byte> data))
+                    stopwatch.Restart();
+
+                    if (!await _PacketFactory(sequence, _EncryptionProvider, cancellationToken, out SequencePosition consumed, out TPacket packet))
                     {
                         continue;
                     }
 
-                    stopwatch.Restart();
+                    DiagnosticsProvider.CommitData<PacketDiagnosticGroup>(new ConstructionTime(stopwatch.Elapsed));
 
-                    if (encryptionKeys)
-                    {
-                        Log.Debug(string.Format(FormatHelper.CONNECTION_LOGGING, RemoteEndPoint, "Encryption keys received."));
-                        _EncryptionProvider.AssignRemoteKeys(data.First.ToArray());
-                    }
-                    else
-                    {
-                        Packet packet = await ConstructPacketAsync(data, cancellationToken).ConfigureAwait(false);
-
-                        DiagnosticsProvider.CommitData<PacketDiagnosticGroup>(new ConstructionTime(stopwatch.Elapsed));
-
-                        await PacketReceivedCallback(packet).ConfigureAwait(false);
-                    }
+                    await PacketReceivedCallback(packet).ConfigureAwait(false);
 
                     _Reader.AdvanceTo(consumed, consumed);
                 }
@@ -292,8 +288,8 @@ namespace Disfigure.Net
 
         #region Connection Events
 
-        public event ConnectionEventHandler? Connected;
-        public event ConnectionEventHandler? Disconnected;
+        public event ConnectionEventHandler<TPacket>? Connected;
+        public event ConnectionEventHandler<TPacket>? Disconnected;
 
         private async ValueTask OnConnected()
         {
@@ -316,14 +312,12 @@ namespace Disfigure.Net
 
         #region Packet Events
 
-        public event PacketEventHandler? PacketReceived;
+        public event PacketEventHandler<TPacket>? PacketReceived;
 
-        private async ValueTask PacketReceivedCallback(Packet packet)
+        private async ValueTask PacketReceivedCallback(TPacket packet)
         {
             if (PacketReceived is { })
             {
-                Log.Verbose(string.Format(FormatHelper.CONNECTION_LOGGING, RemoteEndPoint,
-                    $"Invoking packet event ({packet.Type}: {packet.Content.Length} bytes)."));
                 await PacketReceived(this, packet).ConfigureAwait(false);
             }
         }
@@ -364,7 +358,7 @@ namespace Disfigure.Net
 
         #region IEquatable<Connection>
 
-        public bool Equals(Connection? other)
+        public bool Equals(Connection<TPacket>? other)
         {
             if (ReferenceEquals(null, other))
             {
@@ -396,14 +390,14 @@ namespace Disfigure.Net
                 return false;
             }
 
-            return Equals((Connection)obj);
+            return Equals((Connection<TPacket>)obj);
         }
 
         public override int GetHashCode() => Identity.GetHashCode();
 
-        public static bool operator ==(Connection? left, Connection? right) => Equals(left, right);
+        public static bool operator ==(Connection<TPacket>? left, Connection<TPacket>? right) => Equals(left, right);
 
-        public static bool operator !=(Connection? left, Connection? right) => !Equals(left, right);
+        public static bool operator !=(Connection<TPacket>? left, Connection<TPacket>? right) => !Equals(left, right);
 
         #endregion
     }

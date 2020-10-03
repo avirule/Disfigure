@@ -29,9 +29,7 @@ namespace Disfigure.Net
         EndIdentity
     }
 
-    public delegate ValueTask PacketEventHandler(Connection origin, Packet packet);
-
-    public readonly struct Packet
+    public readonly struct Packet : IPacket
     {
         #region Static
 
