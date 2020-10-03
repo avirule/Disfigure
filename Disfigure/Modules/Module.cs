@@ -11,7 +11,7 @@ using Serilog.Events;
 
 #endregion
 
-namespace Disfigure
+namespace Disfigure.Modules
 {
     public abstract class Module : IDisposable
     {

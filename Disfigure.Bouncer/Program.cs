@@ -2,10 +2,9 @@
 
 using System;
 using System.Net;
-using CommandLine;
-using Disfigure.CLI;
+using System.Reflection;
 using Disfigure.Diagnostics;
-using Serilog.Events;
+using Disfigure.Modules;
 
 #endregion
 
@@ -17,16 +16,11 @@ namespace Disfigure.Bouncer
         {
             DiagnosticsProvider.EnableGroup<PacketDiagnosticGroup>();
 
-            ServerModuleOption? serverModuleOption = null;
-            ModuleParser.Parser.ParseArguments<ServerModuleOption>(args).WithParsed(obj =>
-                serverModuleOption = obj as ServerModuleOption);
+            ServerModuleConfiguration configuration = new ServerModuleConfiguration(Assembly.GetExecutingAssembly().GetName().Name!, true);
 
-            if (!IPAddress.TryParse(serverModuleOption!.IPAddress, out IPAddress ipAddress))
-            {
-                throw new ArgumentException("Hosting IP address is in incorrect format.", nameof(serverModuleOption.IPAddress));
-            }
+            BouncerModule bouncerModule = new BouncerModule(configuration.LogLevel, new IPEndPoint(configuration.HostingIPAddress,
+                configuration.HostingPort));
 
-            BouncerModule bouncerModule = new BouncerModule(LogEventLevel.Verbose, new IPEndPoint(ipAddress, serverModuleOption.Port));
             bouncerModule.AcceptConnections();
             bouncerModule.PingPongLoop();
 

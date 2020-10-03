@@ -2,11 +2,10 @@
 
 using System;
 using System.Net;
-using CommandLine;
-using Disfigure.CLI;
+using System.Reflection;
 using Disfigure.Diagnostics;
+using Disfigure.Modules;
 using Serilog;
-using Serilog.Events;
 
 #endregion
 
@@ -20,16 +19,11 @@ namespace Disfigure.Server
             {
                 DiagnosticsProvider.EnableGroup<PacketDiagnosticGroup>();
 
-                ServerModuleOption? serverModuleOption = null;
-                ModuleParser.Parser.ParseArguments<ServerModuleOption>(args).WithParsed(obj =>
-                    serverModuleOption = obj as ServerModuleOption);
+                ServerModuleConfiguration configuration = new ServerModuleConfiguration(Assembly.GetExecutingAssembly().GetName().Name, true);
 
-                if (!IPAddress.TryParse(serverModuleOption!.IPAddress, out IPAddress ipAddress))
-                {
-                    throw new ArgumentException("Hosting IP address is in incorrect format.", nameof(serverModuleOption.IPAddress));
-                }
+                using ServerModule serverModule = new ServerModule(configuration.LogLevel, new IPEndPoint(configuration.HostingIPAddress,
+                    configuration.HostingPort));
 
-                using ServerModule serverModule = new ServerModule(LogEventLevel.Verbose, new IPEndPoint(ipAddress, serverModuleOption.Port));
                 serverModule.AcceptConnections();
                 serverModule.PingPongLoop();
 
