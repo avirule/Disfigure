@@ -22,13 +22,14 @@ namespace Disfigure.Client
             IPEndPoint ipEndPoint = new IPEndPoint(IPAddress.Loopback, 8899);
             TcpClient tcpClient = await ConnectionHelper.ConnectAsync(ipEndPoint, ConnectionHelper.DefaultRetryParameters, CancellationToken.None)
                 .ConfigureAwait(false);
-            Connection connection = new Connection(tcpClient);
+            Connection<BasicPacket> connection = new Connection<BasicPacket>(tcpClient, BasicPacket.Factory);
             connection.PacketReceived += async (origin, packet) =>
             {
                 switch (packet.Type)
                 {
                     case PacketType.Ping:
-                        await ConnectionHelper.PongAsync(connection, packet.Content.ToArray()).ConfigureAwait(false);
+                        Log.Verbose(string.Format(FormatHelper.CONNECTION_LOGGING, connection.RemoteEndPoint, "Received ping, ponging..."));
+                        await connection.WriteAsync(PacketType.Pong, DateTime.UtcNow, packet.Content, CancellationToken.None).ConfigureAwait(false);
                         break;
                     default:
                         Log.Information(string.Format(FormatHelper.CONNECTION_LOGGING, connection.RemoteEndPoint, packet.ToString()));

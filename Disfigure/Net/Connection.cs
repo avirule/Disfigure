@@ -20,7 +20,7 @@ using Serilog;
 
 namespace Disfigure.Net
 {
-    public delegate ValueTask<(bool, SequencePosition, TPacket)> PacketFactory<TPacket>(ReadOnlySequence<byte> sequence,
+    public delegate ValueTask<(bool, SequencePosition, TPacket)> PacketFactoryAsync<TPacket>(ReadOnlySequence<byte> sequence,
         EncryptionProvider encryptionProvider, CancellationToken cancellationToken) where TPacket : IPacket;
 
     public delegate ValueTask<(bool, byte[])> PacketEncryptor<in TPacket>(EncryptionProvider encryptionProvider, TPacket packet,
@@ -37,7 +37,7 @@ namespace Disfigure.Net
         private readonly PipeWriter _Writer;
         private readonly PipeReader _Reader;
         private readonly EncryptionProvider _EncryptionProvider;
-        private readonly PacketFactory<TPacket> _PacketFactory;
+        private readonly PacketFactoryAsync<TPacket> _PacketFactoryAsync;
 
         /// <summary>
         ///     Unique identity of <see cref="Connection" />.
@@ -49,14 +49,14 @@ namespace Disfigure.Net
         /// </summary>
         public EndPoint RemoteEndPoint { get; }
 
-        public Connection(TcpClient client, PacketFactory<TPacket> packetFactory)
+        public Connection(TcpClient client, PacketFactoryAsync<TPacket> packetFactoryAsync)
         {
             _Client = client;
             _Stream = _Client.GetStream();
             _Writer = PipeWriter.Create(_Stream);
             _Reader = PipeReader.Create(_Stream);
             _EncryptionProvider = new EncryptionProvider();
-            _PacketFactory = packetFactory;
+            _PacketFactoryAsync = packetFactoryAsync;
 
             Identity = Guid.NewGuid();
             RemoteEndPoint = _Client.Client.RemoteEndPoint;
@@ -107,7 +107,7 @@ namespace Disfigure.Net
 
                     stopwatch.Restart();
 
-                    (bool success, SequencePosition consumed, TPacket packet) = await _PacketFactory(sequence, _EncryptionProvider,
+                    (bool success, SequencePosition consumed, TPacket packet) = await _PacketFactoryAsync(sequence, _EncryptionProvider,
                         cancellationToken);
 
                     if (!success)

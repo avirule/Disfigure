@@ -13,7 +13,7 @@ using Serilog.Events;
 
 namespace Disfigure.Modules
 {
-    public abstract class Module : IDisposable
+    public abstract class Module<TPacket> : IDisposable where TPacket : IPacket
     {
         /// <summary>
         ///     <see cref="CancellationTokenSource" /> used to provide <see cref="CancellationToken" /> for async operations.
@@ -23,7 +23,7 @@ namespace Disfigure.Modules
         /// <summary>
         ///     Thread-safe dictionary of current connections.
         /// </summary>
-        protected readonly ConcurrentDictionary<Guid, Connection> Connections;
+        protected readonly ConcurrentDictionary<Guid, Connection<TPacket>> Connections;
 
         /// <summary>
         ///     <see cref="CancellationToken" /> used for async operations.
@@ -33,14 +33,14 @@ namespace Disfigure.Modules
         /// <summary>
         ///     Read-only representation of internal connections dictionary.
         /// </summary>
-        public IReadOnlyDictionary<Guid, Connection> ReadOnlyConnections => Connections;
+        public IReadOnlyDictionary<Guid, Connection<TPacket>> ReadOnlyConnections => Connections;
 
         protected Module(LogEventLevel minimumLogLevel)
         {
             Log.Logger = new LoggerConfiguration().WriteTo.Console().MinimumLevel.Is(minimumLogLevel).CreateLogger();
 
             CancellationTokenSource = new CancellationTokenSource();
-            Connections = new ConcurrentDictionary<Guid, Connection>();
+            Connections = new ConcurrentDictionary<Guid, Connection<TPacket>>();
         }
 
         /// <summary>
@@ -52,10 +52,10 @@ namespace Disfigure.Modules
         /// </remarks>
         /// <param name="connection"><see cref="Connection" /> to be registered.</param>
         /// <returns>Fully registered <see cref="Connection" />.</returns>
-        protected virtual async ValueTask<bool> RegisterConnection(Connection connection)
+        protected virtual async ValueTask<bool> RegisterConnection(Connection<TPacket> connection)
         {
             connection.Disconnected += DisconnectedCallback;
-            connection.PacketReceived += PacketReceivedCallback;
+            connection.PacketReceived += OnClientPacketReceived;
 
             if (Connections.TryAdd(connection.Identity, connection))
             {
@@ -72,15 +72,14 @@ namespace Disfigure.Modules
         ///     Shares identity information to given connection end point.
         /// </summary>
         /// <param name="connection"><see cref="Connection" /> to share identity information with.</param>
-        protected abstract ValueTask ShareIdentityAsync(Connection connection);
+        protected abstract ValueTask ShareIdentityAsync(Connection<TPacket> connection);
 
         /// <summary>
-        ///     Forcibly (and as safely as possible) disconnects the given <see cref="Connection" />.
+        ///     Forcibly (and as safely as possible) disconnects the given <see cref="Connection{T}" />.
         /// </summary>
-        /// <param name="connection"><see cref="Connection" /> to disconnect.</param>
-        protected void ForceDisconnect(Connection connection)
+        public void ForceDisconnect(Guid connectionIdentity)
         {
-            if (!Connections.TryRemove(connection.Identity, out _))
+            if (!Connections.TryRemove(connectionIdentity, out Connection<TPacket>? connection))
             {
                 return;
             }
@@ -89,26 +88,32 @@ namespace Disfigure.Modules
             Log.Information(string.Format(FormatHelper.CONNECTION_LOGGING, connection.RemoteEndPoint, "Connection forcibly disconnected."));
         }
 
+        #region Packet Events
+
+        public event PacketEventHandler<TPacket>? ClientPacketReceived;
+
+        private async ValueTask OnClientPacketReceived(Connection<TPacket> connection, TPacket packet)
+        {
+            if (ClientPacketReceived is { })
+            {
+                await ClientPacketReceived(connection, packet);
+            }
+        }
+
+        #endregion
 
         #region Connection Events
 
         /// <summary>
-        ///     Callback for the <see cref="Connection.Disconnected" /> <see cref="ConnectionEventHandler" />.
+        ///     Callback for the <see cref="Connection{T}.Disconnected" /> <see cref="ConnectionEventHandler{T}" />.
         /// </summary>
-        /// <param name="connection"><see cref="Connection" /> that has been disconnected.</param>
-        protected virtual ValueTask DisconnectedCallback(Connection connection)
+        /// <param name="connection"><see cref="Connection{T}" /> that has been disconnected.</param>
+        protected virtual ValueTask DisconnectedCallback(Connection<TPacket> connection)
         {
             Connections.TryRemove(connection.Identity, out _);
 
             return default;
         }
-
-        /// <summary>
-        ///     Callback for the <see cref="Connection.PacketReceived" /> <see cref="PacketEventHandler" />.
-        /// </summary>
-        /// <param name="connection"><see cref="Connection" /> from which the <see cref="BasicPacket" /> was received from.</param>
-        /// <param name="basicPacket"><see cref="BasicPacket" /> that was received.</param>
-        protected virtual ValueTask PacketReceivedCallback(Connection connection, BasicPacket basicPacket) => default;
 
         #endregion
 
@@ -126,7 +131,7 @@ namespace Disfigure.Modules
 
             CancellationTokenSource.Cancel();
 
-            foreach ((Guid _, Connection connection) in Connections)
+            foreach ((Guid _, Connection<TPacket> connection) in Connections)
             {
                 connection?.Dispose();
             }

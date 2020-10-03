@@ -60,7 +60,7 @@ namespace Disfigure.Net
 
             PacketType packetType = MemoryMarshal.Read<PacketType>(decrypted.Slice(offset_packet_type, sizeof(PacketType)).Span);
             DateTime utcTimestamp = MemoryMarshal.Read<DateTime>(decrypted.Slice(offset_timestamp, sizeof(long)).Span);
-            Memory<byte> content = decrypted.Slice(header_length, decrypted.Length - header_length);
+            byte[] content = decrypted.Slice(header_length, decrypted.Length - header_length).ToArray();
 
             return (default, consumed, new BasicPacket(packetType, utcTimestamp, content));
         }
@@ -98,9 +98,9 @@ namespace Disfigure.Net
 
         public PacketType Type { get; }
         public DateTime UtcTimestamp { get; }
-        public Memory<byte> Content { get; }
+        public byte[] Content { get; }
 
-        public BasicPacket(PacketType type, DateTime utcTimestamp, Memory<byte> content)
+        public BasicPacket(PacketType type, DateTime utcTimestamp, byte[] content)
         {
             Type = type;
             UtcTimestamp = utcTimestamp;
@@ -116,8 +116,8 @@ namespace Disfigure.Net
                 .Append(' ')
                 .Append(Type switch
                 {
-                    PacketType.Text => Encoding.Unicode.GetString(Content.Span),
-                    _ => MemoryMarshal.Cast<byte, char>(Content.Span)
+                    PacketType.Text => Encoding.Unicode.GetString(Content),
+                    _ => MemoryMarshal.Cast<byte, char>(Content)
                 })
                 .ToString();
         }

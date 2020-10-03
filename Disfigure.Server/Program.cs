@@ -5,6 +5,7 @@ using System.Net;
 using System.Reflection;
 using Disfigure.Diagnostics;
 using Disfigure.Modules;
+using Disfigure.Net;
 using Serilog;
 
 #endregion
@@ -21,11 +22,10 @@ namespace Disfigure.Server
 
                 ServerModuleConfiguration configuration = new ServerModuleConfiguration(Assembly.GetExecutingAssembly().GetName().Name, false);
 
-                using ServerModule serverModule = new ServerModule(configuration.LogLevel, new IPEndPoint(configuration.HostingIPAddress,
-                    configuration.HostingPort));
+                using ServerModule<BasicPacket> serverModule = new ServerModule<BasicPacket>(configuration.LogLevel,
+                    new IPEndPoint(configuration.HostingIPAddress, configuration.HostingPort));
 
-                serverModule.AcceptConnections();
-                serverModule.PingPongLoop();
+                serverModule.AcceptConnections(BasicPacket.Factory);
 
                 while (!serverModule.CancellationToken.IsCancellationRequested)
                 {

@@ -16,188 +16,121 @@ using Serilog.Events;
 
 namespace Disfigure.Modules
 {
-    public class ServerModule : Module
+    public class ServerModule<TPacket> : Module<TPacket> where TPacket : IPacket
     {
-        private static readonly TimeSpan _PingInterval = TimeSpan.FromSeconds(5d);
 
-        private readonly IPEndPoint _HostAddress;
-        private readonly ConcurrentDictionary<Guid, PendingPing> _PendingPings;
+    private readonly IPEndPoint _HostAddress;
 
-        public ServerModule(LogEventLevel logEventLevel, IPEndPoint hostAddress) : base(logEventLevel)
+    public ServerModule(LogEventLevel logEventLevel, IPEndPoint hostAddress) : base(logEventLevel)
+    {
+        _HostAddress = hostAddress;
+    }
+
+
+    #region Runtime
+
+    /// <summary>
+    ///     Begins accepting network connections.
+    /// </summary>
+    /// <remarks>
+    ///     This is run on the ThreadPool.
+    /// </remarks>
+    public void AcceptConnections(PacketFactoryAsync<TPacket> packetFactoryAsync) => Task.Run(() => AcceptConnectionsInternal(packetFactoryAsync));
+
+    private async ValueTask AcceptConnectionsInternal(PacketFactoryAsync<TPacket> packetFactoryAsync)
+    {
+        try
         {
-            _HostAddress = hostAddress;
-            _PendingPings = new ConcurrentDictionary<Guid, PendingPing>();
-        }
+            TcpListener listener = new TcpListener(_HostAddress);
+            listener.Start();
 
-
-        #region Runtime
-
-        /// <summary>
-        ///     Begins accepting network connections.
-        /// </summary>
-        /// <remarks>
-        ///     This is run on the ThreadPool.
-        /// </remarks>
-        public void AcceptConnections() => Task.Run(AcceptConnectionsInternal);
-
-        private async ValueTask AcceptConnectionsInternal()
-        {
-            try
-            {
-                TcpListener listener = new TcpListener(_HostAddress);
-                listener.Start();
-
-                Log.Information($"{GetType().FullName} now listening on {_HostAddress}.");
-
-                while (!CancellationToken.IsCancellationRequested)
-                {
-                    TcpClient tcpClient = await listener.AcceptTcpClientAsync().ConfigureAwait(false);
-                    Log.Information(string.Format(FormatHelper.CONNECTION_LOGGING, tcpClient.Client.RemoteEndPoint, "Connection accepted."));
-
-                    Connection connection = await ConnectionHelper.EstablishConnectionAsync(tcpClient, CancellationToken).ConfigureAwait(false);
-
-                    if (!await RegisterConnection(connection).ConfigureAwait(false))
-                    {
-                        Log.Error(string.Format(FormatHelper.CONNECTION_LOGGING, connection.RemoteEndPoint,
-                            "Connection with given identity already exists."));
-
-                        connection.Dispose();
-                    }
-                }
-            }
-            catch (SocketException exception) when (exception.ErrorCode == 10048)
-            {
-                Log.Fatal($"Port {_HostAddress.Port} is already being listened on.");
-            }
-            catch (IOException exception) when (exception.InnerException is SocketException)
-            {
-                Log.Fatal("Remote host forcibly closed connection while connecting.");
-            }
-            catch (Exception ex)
-            {
-                Log.Error(ex.ToString());
-            }
-            finally
-            {
-                CancellationTokenSource.Cancel();
-            }
-        }
-
-        /// <inheritdoc />
-        protected override async ValueTask<bool> RegisterConnection(Connection connection)
-        {
-            connection.PacketReceived += HandlePongPacketsCallback;
-
-            return await base.RegisterConnection(connection).ConfigureAwait(false);
-        }
-
-        /// <summary>
-        ///     Begins the Pong-Pong loop for ensuring connection lifetimes.
-        /// </summary>
-        /// <remarks>
-        ///     This is run on the ThreadPool.
-        /// </remarks>
-        public void PingPongLoop() => Task.Run(PingPongLoopInternal);
-
-        private async Task PingPongLoopInternal()
-        {
-            Stack<Connection> abandonedConnections = new Stack<Connection>();
+            Log.Information($"{GetType().FullName} now listening on {_HostAddress}.");
 
             while (!CancellationToken.IsCancellationRequested)
             {
-                await Task.Delay(_PingInterval).ConfigureAwait(false);
+                TcpClient tcpClient = await listener.AcceptTcpClientAsync().ConfigureAwait(false);
+                Log.Information(string.Format(FormatHelper.CONNECTION_LOGGING, tcpClient.Client.RemoteEndPoint, "Connection accepted."));
 
-                foreach ((Guid connectionIdentity, Connection connection) in Connections)
-                {
-                    if (TryAllocatePing(connectionIdentity, out PendingPing? pendingPing))
-                    {
-                        await connection.WriteAsync(PacketType.Ping, DateTime.UtcNow, pendingPing.Identity.ToByteArray(), CancellationToken)
-                            .ConfigureAwait(false);
-                    }
-                    else
-                    {
-                        Log.Warning(string.Format(FormatHelper.CONNECTION_LOGGING, connection.RemoteEndPoint,
-                            "Pending ping timed out. Queueing force disconnect."));
-                        abandonedConnections.Push(connection);
-                    }
-                }
+                Connection<TPacket> connection = new Connection<TPacket>(tcpClient, packetFactoryAsync);
+                await connection.Finalize(CancellationToken).ConfigureAwait(false);
 
-                while (abandonedConnections.TryPop(out Connection? connection))
+                if (!await RegisterConnection(connection).ConfigureAwait(false))
                 {
-                    ForceDisconnect(connection);
+                    Log.Error(string.Format(FormatHelper.CONNECTION_LOGGING, connection.RemoteEndPoint,
+                        "Connection with given identity already exists."));
+
+                    connection.Dispose();
                 }
             }
         }
-
-        /// <summary>
-        ///     Attempts to allocate a new <see cref="PendingPing" /> for given <see cref="Connection.Identity" />.
-        /// </summary>
-        /// <param name="connectionIdentity"><see cref="Connection.Identity" /> to allocate for.</param>
-        /// <param name="pendingPing"><see cref="PendingPing" /> that was allocated.</param>
-        /// <returns><c>True</c> if operation succeeded; otherwise, <c>False</c>.</returns>
-        private bool TryAllocatePing(Guid connectionIdentity, [NotNullWhen(true)] out PendingPing? pendingPing)
+        catch (SocketException exception) when (exception.ErrorCode == 10048)
         {
-            pendingPing = new PendingPing();
-            return _PendingPings.TryAdd(connectionIdentity, pendingPing);
+            Log.Fatal($"Port {_HostAddress.Port} is already being listened on.");
         }
-
-        #endregion
-
-
-        #region Handshakes
-
-        /// <inheritdoc />
-        protected override async ValueTask ShareIdentityAsync(Connection connection)
+        catch (IOException exception) when (exception.InnerException is SocketException)
         {
-            DateTime utcTimestamp = DateTime.UtcNow;
-            await connection.WriteAsync(PacketType.BeginIdentity, utcTimestamp, Array.Empty<byte>(), CancellationToken).ConfigureAwait(false);
-
-            await connection.WriteAsync(PacketType.EndIdentity, utcTimestamp, Array.Empty<byte>(), CancellationToken).ConfigureAwait(false);
+            Log.Fatal("Remote host forcibly closed connection while connecting.");
         }
-
-        #endregion
-
-
-        #region Events
-
-        /// <inheritdoc />
-        protected override async ValueTask DisconnectedCallback(Connection connection)
+        catch (Exception ex)
         {
-            await base.DisconnectedCallback(connection).ConfigureAwait(false);
-
-            _PendingPings.TryRemove(connection.Identity, out _);
+            Log.Error(ex.ToString());
         }
-
-        private ValueTask HandlePongPacketsCallback(Connection connection, BasicPacket basicPacket)
+        finally
         {
-            if (basicPacket.Type != PacketType.Pong)
-            {
-                return default;
-            }
-
-            if (!_PendingPings.TryGetValue(connection.Identity, out PendingPing? pendingPing))
-            {
-                Log.Warning($"<{connection.RemoteEndPoint}> Received pong, but no ping was pending.");
-                return default;
-            }
-            else if (basicPacket.Content.Length != 16)
-            {
-                Log.Warning($"<{connection.RemoteEndPoint}> Ping identity was malformed (too few bytes).");
-                return default;
-            }
-
-            Guid pingIdentity = new Guid(basicPacket.Content.Span);
-            if (pendingPing.Identity != pingIdentity)
-            {
-                Log.Warning($"<{connection.RemoteEndPoint}> Received pong, but ping identity didn't match.");
-                return default;
-            }
-
-            _PendingPings.TryRemove(connection.Identity, out _);
-
-            return default;
+            CancellationTokenSource.Cancel();
         }
+    }
 
-        #endregion
+    #endregion
+
+
+    #region Handshakes
+
+    /// <inheritdoc />
+    protected override async ValueTask ShareIdentityAsync(Connection<TPacket> connection)
+    {
+        DateTime utcTimestamp = DateTime.UtcNow;
+        await connection.WriteAsync(PacketType.BeginIdentity, utcTimestamp, Array.Empty<byte>(), CancellationToken).ConfigureAwait(false);
+
+        await connection.WriteAsync(PacketType.EndIdentity, utcTimestamp, Array.Empty<byte>(), CancellationToken).ConfigureAwait(false);
+    }
+
+    #endregion
+
+
+    #region Events
+
+    // private ValueTask HandlePongPacketsCallback(Connection<TPacket> connection, TPacket basicPacket)
+    // {
+    //     if (basicPacket.Type != PacketType.Pong)
+    //     {
+    //         return default;
+    //     }
+    //
+    //     if (!_PendingPings.TryGetValue(connection.Identity, out PendingPing? pendingPing))
+    //     {
+    //         Log.Warning($"<{connection.RemoteEndPoint}> Received pong, but no ping was pending.");
+    //         return default;
+    //     }
+    //     else if (basicPacket.Content.Length != 16)
+    //     {
+    //         Log.Warning($"<{connection.RemoteEndPoint}> Ping identity was malformed (too few bytes).");
+    //         return default;
+    //     }
+    //
+    //     Guid pingIdentity = new Guid(basicPacket.Content.Span);
+    //     if (pendingPing.Identity != pingIdentity)
+    //     {
+    //         Log.Warning($"<{connection.RemoteEndPoint}> Received pong, but ping identity didn't match.");
+    //         return default;
+    //     }
+    //
+    //     _PendingPings.TryRemove(connection.Identity, out _);
+    //
+    //     return default;
+    // }
+
+    #endregion
+
     }
 }
