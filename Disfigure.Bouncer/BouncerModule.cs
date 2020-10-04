@@ -7,6 +7,7 @@ using System.Net.Sockets;
 using System.Threading.Tasks;
 using Disfigure.Modules;
 using Disfigure.Net;
+using Disfigure.Net.Packets;
 using Serilog.Events;
 
 #endregion

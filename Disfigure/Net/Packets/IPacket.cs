@@ -1,6 +1,10 @@
+#region
+
 using System;
 
-namespace Disfigure.Net
+#endregion
+
+namespace Disfigure.Net.Packets
 {
     public interface IPacket<out TPacket> where TPacket : IPacket<TPacket>
     {
