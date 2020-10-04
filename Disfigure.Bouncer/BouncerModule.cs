@@ -26,6 +26,7 @@ namespace Disfigure.Bouncer
             TcpClient tcpClient = await ConnectionHelper.ConnectAsync(ipEndPoint, ConnectionHelper.DefaultRetryParameters, CancellationToken)
                 ;
             Connection<TPacket> connection = new Connection<TPacket>(tcpClient, packetEncryptorAsync, packetFactoryAsync);
+            connection.Connected += OnServerConnected;
             connection.PacketReceived += OnServerPacketReceived;
             await connection.StartAsync(CancellationToken);
             _ServerConnections.TryAdd(connection.Identity, connection);
@@ -34,7 +35,7 @@ namespace Disfigure.Bouncer
         }
 
 
-        #region PacketReceived Events
+        #region Server PacketReceived Events
 
         public event PacketEventHandler<TPacket>? ServerPacketReceived;
 
@@ -43,6 +44,21 @@ namespace Disfigure.Bouncer
             if (ServerPacketReceived is { })
             {
                 await ServerPacketReceived(connection, packet);
+            }
+        }
+
+        #endregion
+
+
+        #region Server Connection Events
+
+        public event ConnectionEventHandler<TPacket>? ServerConnected;
+
+        private async ValueTask OnServerConnected(Connection<TPacket> connection)
+        {
+            if (ServerConnected is { })
+            {
+                await ServerConnected(connection);
             }
         }
 

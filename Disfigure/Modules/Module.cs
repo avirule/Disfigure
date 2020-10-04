@@ -77,13 +77,13 @@ namespace Disfigure.Modules
 
         #region Packet Events
 
-        public event PacketEventHandler<TPacket>? ClientPacketReceived;
+        public event PacketEventHandler<TPacket>? PacketReceived;
 
         private async ValueTask OnClientPacketReceived(Connection<TPacket> connection, TPacket packet)
         {
-            if (ClientPacketReceived is { })
+            if (PacketReceived is { })
             {
-                await ClientPacketReceived(connection, packet);
+                await PacketReceived(connection, packet);
             }
         }
 

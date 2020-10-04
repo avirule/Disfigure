@@ -26,7 +26,7 @@ namespace Disfigure.Server
                 using ServerModule<BasicPacket> module = new ServerModule<BasicPacket>(configuration.LogLevel,
                     new IPEndPoint(configuration.HostingIPAddress, configuration.HostingPort));
                 module.Connected += BasicPacket.SendEncryptionKeys;
-                module.ClientPacketReceived += ClientPacketReceivedCallback;
+                module.PacketReceived += PacketReceivedCallback;
 
                 module.AcceptConnections(BasicPacket.EncryptorAsync, BasicPacket.FactoryAsync);
                 BasicPacket.PingPongLoop(module, TimeSpan.FromSeconds(5d), module.CancellationToken);
@@ -43,7 +43,7 @@ namespace Disfigure.Server
             }
         }
 
-        private static ValueTask ClientPacketReceivedCallback(Connection<BasicPacket> connection, BasicPacket packet)
+        private static ValueTask PacketReceivedCallback(Connection<BasicPacket> connection, BasicPacket packet)
         {
             switch (packet.Type)
             {

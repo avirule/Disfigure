@@ -235,7 +235,7 @@ namespace Disfigure.Net
                 return default;
             }
 
-            module.ClientPacketReceived += PongPacketCallbackImpl;
+            module.PacketReceived += PongPacketCallbackImpl;
 
             while (!cancellationToken.IsCancellationRequested)
             {

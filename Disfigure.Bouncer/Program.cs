@@ -27,7 +27,8 @@ namespace Disfigure.Bouncer
             _Module = new BouncerModule<BasicPacket>(configuration.LogLevel,
                 new IPEndPoint(configuration.HostingIPAddress, configuration.HostingPort));
             _Module.Connected += BasicPacket.SendEncryptionKeys;
-            _Module.ClientPacketReceived += ClientPacketReceivedCallback;
+            _Module.PacketReceived += PacketReceivedCallback;
+            _Module.ServerConnected += BasicPacket.SendEncryptionKeys;
             _Module.ServerPacketReceived += ServerPacketReceivedCallback;
 
             _Module.AcceptConnections(BasicPacket.EncryptorAsync, BasicPacket.FactoryAsync);
@@ -39,7 +40,7 @@ namespace Disfigure.Bouncer
             }
         }
 
-        private static async ValueTask ClientPacketReceivedCallback(Connection<BasicPacket> connection, BasicPacket packet)
+        private static async ValueTask PacketReceivedCallback(Connection<BasicPacket> connection, BasicPacket packet)
         {
             switch (packet.Type)
             {
