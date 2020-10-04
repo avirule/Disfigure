@@ -42,6 +42,7 @@ namespace Disfigure.Cryptography
         public void WaitForRemoteKeys(CancellationToken cancellationToken) => _EncryptionKeysWait.Wait(cancellationToken);
         public void WaitForRemoteKeys(TimeSpan timeout) => _EncryptionKeysWait.Wait(timeout);
 
+
         #region Key Operations
 
         private void GeneratePrivateKey() => _CryptoRandom.GetBytes(_PrivateKey);
@@ -114,7 +115,7 @@ namespace Disfigure.Cryptography
             using ICryptoTransform encryptor = aes.CreateEncryptor(_DerivedKey!, aes.IV);
             await using (CryptoStream cryptoStream = new CryptoStream(cipherBytes, encryptor, CryptoStreamMode.Write))
             {
-                await cryptoStream.WriteAsync(unencrypted, cancellationToken).ConfigureAwait(false);
+                await cryptoStream.WriteAsync(unencrypted, cancellationToken);
             }
 
             return (aes.IV, cipherBytes.ToArray());
@@ -143,7 +144,7 @@ namespace Disfigure.Cryptography
             using ICryptoTransform decryptor = aes.CreateDecryptor(_DerivedKey!, initializationVector.ToArray());
             await using (CryptoStream cryptoStream = new CryptoStream(cipherBytes, decryptor, CryptoStreamMode.Write))
             {
-                await cryptoStream.WriteAsync(encrypted, cancellationToken).ConfigureAwait(false);
+                await cryptoStream.WriteAsync(encrypted, cancellationToken);
             }
 
             return cipherBytes.ToArray();

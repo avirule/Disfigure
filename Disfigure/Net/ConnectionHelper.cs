@@ -7,6 +7,7 @@ using System.Net;
 using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
+using Disfigure.Modules;
 using Serilog;
 
 #endregion
@@ -36,13 +37,13 @@ namespace Disfigure.Net
             TcpClient tcpClient = new TcpClient();
             int tries = 0;
 
-            Log.Debug($"Connecting to {ipEndPoint}.");
+            Log.Information($"Connecting to {ipEndPoint}.");
 
             while (!cancellationToken.IsCancellationRequested && !tcpClient.Connected)
             {
                 try
                 {
-                    await tcpClient.ConnectAsync(ipEndPoint.Address, ipEndPoint.Port).ConfigureAwait(false);
+                    await tcpClient.ConnectAsync(ipEndPoint.Address, ipEndPoint.Port);
                 }
                 catch (SocketException) when (tries >= retriesParameters.Retries)
                 {
@@ -55,45 +56,11 @@ namespace Disfigure.Net
 
                     Log.Warning($"{exception.Message}. Retrying ({tries}/{retriesParameters})...");
 
-                    await Task.Delay(retriesParameters.Delay, cancellationToken).ConfigureAwait(false);
+                    await Task.Delay(retriesParameters.Delay, cancellationToken);
                 }
             }
 
             return tcpClient;
-        }
-
-        public static async Task PingPongLoop<TPacket>(TimeSpan pingInterval, IReadOnlyDictionary<Guid, Connection<TPacket>> connections,
-            Action<Guid> forceDisconnect, CancellationToken cancellationToken) where TPacket : IPacket
-        {
-            ConcurrentDictionary<Guid, PendingPing> pendingPings = new ConcurrentDictionary<Guid, PendingPing>();
-            Stack<Guid> abandonedConnections = new Stack<Guid>();
-
-            while (!cancellationToken.IsCancellationRequested)
-            {
-                await Task.Delay(pingInterval, cancellationToken).ConfigureAwait(false);
-
-                foreach ((Guid connectionIdentity, Connection<TPacket> connection) in connections)
-                {
-                    PendingPing pendingPing = new PendingPing();
-
-                    if (pendingPings.TryAdd(connectionIdentity, pendingPing))
-                    {
-                        await connection.WriteAsync(PacketType.Ping, DateTime.UtcNow, pendingPing.Identity.ToByteArray(), cancellationToken)
-                            .ConfigureAwait(false);
-                    }
-                    else
-                    {
-                        Log.Warning(string.Format(FormatHelper.CONNECTION_LOGGING, connection.RemoteEndPoint,
-                            "Pending ping timed out. Queueing force disconnect."));
-                        abandonedConnections.Push(connectionIdentity);
-                    }
-                }
-
-                while (abandonedConnections.TryPop(out Guid connectionIdentity))
-                {
-                    forceDisconnect(connectionIdentity);
-                }
-            }
         }
     }
 }

@@ -2,7 +2,6 @@
 
 using System;
 using System.Collections.Concurrent;
-using System.ComponentModel.Design;
 using System.Net;
 using System.Net.Sockets;
 using System.Threading.Tasks;
@@ -14,7 +13,7 @@ using Serilog.Events;
 
 namespace Disfigure.Bouncer
 {
-    public class BouncerModule<TPacket> : ServerModule<TPacket> where TPacket : IPacket
+    public class BouncerModule<TPacket> : ServerModule<TPacket> where TPacket : IPacket<TPacket>
     {
         private readonly ConcurrentDictionary<Guid, Connection<TPacket>> _ServerConnections;
 
@@ -22,13 +21,13 @@ namespace Disfigure.Bouncer
             _ServerConnections = new ConcurrentDictionary<Guid, Connection<TPacket>>();
 
         public async ValueTask<Connection<TPacket>> EstablishServerConnectionAsync(IPEndPoint ipEndPoint,
-            PacketFactoryAsync<TPacket> packetFactoryAsync)
+            PacketEncryptorAsync<TPacket> packetEncryptorAsync, PacketFactoryAsync<TPacket> packetFactoryAsync)
         {
             TcpClient tcpClient = await ConnectionHelper.ConnectAsync(ipEndPoint, ConnectionHelper.DefaultRetryParameters, CancellationToken)
-                .ConfigureAwait(false);
-            Connection<TPacket> connection = new Connection<TPacket>(tcpClient, packetFactoryAsync);
+                ;
+            Connection<TPacket> connection = new Connection<TPacket>(tcpClient, packetEncryptorAsync, packetFactoryAsync);
             connection.PacketReceived += OnPacketReceived;
-            await connection.Finalize(CancellationToken).ConfigureAwait(false);
+            await connection.StartAsync(CancellationToken);
             _ServerConnections.TryAdd(connection.Identity, connection);
 
             return connection;

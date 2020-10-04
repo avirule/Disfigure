@@ -26,7 +26,7 @@ namespace Disfigure.Bouncer
                 }
 
                 Log.Verbose(string.Format(FormatHelper.CONNECTION_LOGGING, connection.RemoteEndPoint, "Received ping, ponging..."));
-                await connection.WriteAsync(PacketType.Pong, DateTime.UtcNow, basicPacket.Content, CancellationToken.None).ConfigureAwait(false);
+                await connection.WriteAsync(new BasicPacket(PacketType.Pong, DateTime.UtcNow, basicPacket.Content), CancellationToken.None);
             }
 
             DiagnosticsProvider.EnableGroup<PacketDiagnosticGroup>();
@@ -37,7 +37,7 @@ namespace Disfigure.Bouncer
                 configuration.HostingPort));
             bouncerModule.ServerPacketReceived += ServerPacketReceivedCallback;
 
-            bouncerModule.AcceptConnections(BasicPacket.Factory);
+            bouncerModule.AcceptConnections(BasicPacket.EncryptorAsync, BasicPacket.FactoryAsync);
             //bouncerModule.PingPongLoop();
 
             while (!bouncerModule.CancellationToken.IsCancellationRequested)

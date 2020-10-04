@@ -16,7 +16,7 @@ using Serilog.Events;
 
 namespace Disfigure.Modules
 {
-    public class ServerModule<TPacket> : Module<TPacket> where TPacket : IPacket
+    public class ServerModule<TPacket> : Module<TPacket> where TPacket : IPacket<TPacket>
     {
 
     private readonly IPEndPoint _HostAddress;
@@ -35,9 +35,11 @@ namespace Disfigure.Modules
     /// <remarks>
     ///     This is run on the ThreadPool.
     /// </remarks>
-    public void AcceptConnections(PacketFactoryAsync<TPacket> packetFactoryAsync) => Task.Run(() => AcceptConnectionsInternal(packetFactoryAsync));
+    public void AcceptConnections(PacketEncryptorAsync<TPacket> packetEncryptorAsync, PacketFactoryAsync<TPacket> packetFactoryAsync) =>
+        Task.Run(() => AcceptConnectionsInternal(packetEncryptorAsync, packetFactoryAsync));
 
-    private async ValueTask AcceptConnectionsInternal(PacketFactoryAsync<TPacket> packetFactoryAsync)
+    private async ValueTask AcceptConnectionsInternal(PacketEncryptorAsync<TPacket> packetEncryptorAsync,
+        PacketFactoryAsync<TPacket> packetFactoryAsync)
     {
         try
         {
@@ -48,19 +50,13 @@ namespace Disfigure.Modules
 
             while (!CancellationToken.IsCancellationRequested)
             {
-                TcpClient tcpClient = await listener.AcceptTcpClientAsync().ConfigureAwait(false);
+                TcpClient tcpClient = await listener.AcceptTcpClientAsync();
                 Log.Information(string.Format(FormatHelper.CONNECTION_LOGGING, tcpClient.Client.RemoteEndPoint, "Connection accepted."));
 
-                Connection<TPacket> connection = new Connection<TPacket>(tcpClient, packetFactoryAsync);
-                await connection.Finalize(CancellationToken).ConfigureAwait(false);
+                Connection<TPacket> connection = new Connection<TPacket>(tcpClient, packetEncryptorAsync, packetFactoryAsync);
+                RegisterConnection(connection);
 
-                if (!await RegisterConnection(connection).ConfigureAwait(false))
-                {
-                    Log.Error(string.Format(FormatHelper.CONNECTION_LOGGING, connection.RemoteEndPoint,
-                        "Connection with given identity already exists."));
-
-                    connection.Dispose();
-                }
+                await connection.StartAsync(CancellationToken);
             }
         }
         catch (SocketException exception) when (exception.ErrorCode == 10048)
@@ -82,55 +78,5 @@ namespace Disfigure.Modules
     }
 
     #endregion
-
-
-    #region Handshakes
-
-    /// <inheritdoc />
-    protected override async ValueTask ShareIdentityAsync(Connection<TPacket> connection)
-    {
-        DateTime utcTimestamp = DateTime.UtcNow;
-        await connection.WriteAsync(PacketType.BeginIdentity, utcTimestamp, Array.Empty<byte>(), CancellationToken).ConfigureAwait(false);
-
-        await connection.WriteAsync(PacketType.EndIdentity, utcTimestamp, Array.Empty<byte>(), CancellationToken).ConfigureAwait(false);
-    }
-
-    #endregion
-
-
-    #region Events
-
-    // private ValueTask HandlePongPacketsCallback(Connection<TPacket> connection, TPacket basicPacket)
-    // {
-    //     if (basicPacket.Type != PacketType.Pong)
-    //     {
-    //         return default;
-    //     }
-    //
-    //     if (!_PendingPings.TryGetValue(connection.Identity, out PendingPing? pendingPing))
-    //     {
-    //         Log.Warning($"<{connection.RemoteEndPoint}> Received pong, but no ping was pending.");
-    //         return default;
-    //     }
-    //     else if (basicPacket.Content.Length != 16)
-    //     {
-    //         Log.Warning($"<{connection.RemoteEndPoint}> Ping identity was malformed (too few bytes).");
-    //         return default;
-    //     }
-    //
-    //     Guid pingIdentity = new Guid(basicPacket.Content.Span);
-    //     if (pendingPing.Identity != pingIdentity)
-    //     {
-    //         Log.Warning($"<{connection.RemoteEndPoint}> Received pong, but ping identity didn't match.");
-    //         return default;
-    //     }
-    //
-    //     _PendingPings.TryRemove(connection.Identity, out _);
-    //
-    //     return default;
-    // }
-
-    #endregion
-
     }
 }

@@ -3,6 +3,7 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Reflection.Metadata.Ecma335;
 using System.Threading;
 using System.Threading.Tasks;
 using Disfigure.Net;
@@ -13,7 +14,7 @@ using Serilog.Events;
 
 namespace Disfigure.Modules
 {
-    public abstract class Module<TPacket> : IDisposable where TPacket : IPacket
+    public abstract class Module<TPacket> : IDisposable where TPacket : IPacket<TPacket>
     {
         /// <summary>
         ///     <see cref="CancellationTokenSource" /> used to provide <see cref="CancellationToken" /> for async operations.
@@ -41,38 +42,25 @@ namespace Disfigure.Modules
 
             CancellationTokenSource = new CancellationTokenSource();
             Connections = new ConcurrentDictionary<Guid, Connection<TPacket>>();
+
+            Connected += connection =>
+            {
+                Connections.TryAdd(connection.Identity, connection);
+                return default;
+            };
+            Disconnected += connection =>
+            {
+                Connections.TryRemove(connection.Identity, out _);
+                return default;
+            };
         }
 
-        /// <summary>
-        ///     Registers given <see cref="Connection" /> with <see cref="Module" />.
-        /// </summary>
-        /// <remarks>
-        ///     This involves subscribing any relevant events or handlers, sharing <see cref="Module" /> identity information, and
-        ///     adding the <see cref="Connection" /> to the <see cref="Connections" /> dictionary.
-        /// </remarks>
-        /// <param name="connection"><see cref="Connection" /> to be registered.</param>
-        /// <returns>Fully registered <see cref="Connection" />.</returns>
-        protected virtual async ValueTask<bool> RegisterConnection(Connection<TPacket> connection)
+        protected void RegisterConnection(Connection<TPacket> connection)
         {
-            connection.Disconnected += DisconnectedCallback;
+            connection.Connected += OnConnected;
+            connection.Disconnected += OnDisconnected;
             connection.PacketReceived += OnClientPacketReceived;
-
-            if (Connections.TryAdd(connection.Identity, connection))
-            {
-                await ShareIdentityAsync(connection).ConfigureAwait(false);
-                return true;
-            }
-            else
-            {
-                return false;
-            }
         }
-
-        /// <summary>
-        ///     Shares identity information to given connection end point.
-        /// </summary>
-        /// <param name="connection"><see cref="Connection" /> to share identity information with.</param>
-        protected abstract ValueTask ShareIdentityAsync(Connection<TPacket> connection);
 
         /// <summary>
         ///     Forcibly (and as safely as possible) disconnects the given <see cref="Connection{T}" />.
@@ -104,15 +92,24 @@ namespace Disfigure.Modules
 
         #region Connection Events
 
-        /// <summary>
-        ///     Callback for the <see cref="Connection{T}.Disconnected" /> <see cref="ConnectionEventHandler{T}" />.
-        /// </summary>
-        /// <param name="connection"><see cref="Connection{T}" /> that has been disconnected.</param>
-        protected virtual ValueTask DisconnectedCallback(Connection<TPacket> connection)
-        {
-            Connections.TryRemove(connection.Identity, out _);
+        public event ConnectionEventHandler<TPacket>? Connected;
+        public event ConnectionEventHandler<TPacket>? Disconnected;
 
-            return default;
+
+        protected virtual async ValueTask OnConnected(Connection<TPacket> connection)
+        {
+            if (Connected is { })
+            {
+                await Connected(connection);
+            }
+        }
+
+        protected virtual async ValueTask OnDisconnected(Connection<TPacket> connection)
+        {
+            if (Disconnected is { })
+            {
+                await Disconnected(connection);
+            }
         }
 
         #endregion

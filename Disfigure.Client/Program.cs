@@ -19,26 +19,30 @@ namespace Disfigure.Client
         {
             Log.Logger = new LoggerConfiguration().WriteTo.Console().MinimumLevel.Is(LogEventLevel.Verbose).CreateLogger();
 
-            IPEndPoint ipEndPoint = new IPEndPoint(IPAddress.Loopback, 8899);
-            TcpClient tcpClient = await ConnectionHelper.ConnectAsync(ipEndPoint, ConnectionHelper.DefaultRetryParameters, CancellationToken.None)
-                .ConfigureAwait(false);
-            Connection<BasicPacket> connection = new Connection<BasicPacket>(tcpClient, BasicPacket.Factory);
+            IPEndPoint ipEndPoint = new IPEndPoint(IPAddress.Loopback, 8898);
+            TcpClient tcpClient = await ConnectionHelper.ConnectAsync(ipEndPoint, ConnectionHelper.DefaultRetryParameters, CancellationToken.None);
+            Connection<BasicPacket> connection = new Connection<BasicPacket>(tcpClient, BasicPacket.EncryptorAsync, BasicPacket.FactoryAsync);
             connection.PacketReceived += async (origin, packet) =>
             {
                 switch (packet.Type)
                 {
+                    case PacketType.EncryptionKeys:
+                        connection.AssignRemoteKeys(packet.Content);
+                        break;
                     case PacketType.Ping:
-                        Log.Verbose(string.Format(FormatHelper.CONNECTION_LOGGING, connection.RemoteEndPoint, "Received ping, ponging..."));
-                        await connection.WriteAsync(PacketType.Pong, DateTime.UtcNow, packet.Content, CancellationToken.None).ConfigureAwait(false);
+                        await connection.WriteAsync(new BasicPacket(PacketType.Pong, DateTime.UtcNow, packet.Content), CancellationToken.None);
                         break;
                     default:
                         Log.Information(string.Format(FormatHelper.CONNECTION_LOGGING, connection.RemoteEndPoint, packet.ToString()));
                         break;
                 }
             };
-            await connection.Finalize(CancellationToken.None).ConfigureAwait(false);
-            await connection.WriteAsync(PacketType.Connect, DateTime.UtcNow, new SerializableEndPoint(IPAddress.Loopback, 8898).Serialize(),
-                CancellationToken.None).ConfigureAwait(false);
+            connection.Connected += async conn => await conn.WriteAsync(new BasicPacket(PacketType.EncryptionKeys,
+                DateTime.UtcNow, conn.PublicKey), CancellationToken.None);
+
+            await connection.StartAsync(CancellationToken.None);
+            await connection.WriteAsync(new BasicPacket(PacketType.Connect, DateTime.UtcNow,
+                    new SerializableEndPoint(IPAddress.Loopback, 8898).Serialize()), CancellationToken.None);
 
             while (true)
             {
