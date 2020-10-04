@@ -4,6 +4,7 @@ using System;
 using System.Buffers;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
@@ -39,27 +40,28 @@ namespace Disfigure.Net
 
     public readonly struct BasicPacket : IPacket<BasicPacket>
     {
-        public readonly PacketType Type;
-        public readonly DateTime UtcTimestamp;
-        public readonly byte[] Content;
+        private const int _OFFSET_PACKET_TYPE = 0;
+        private const int _OFFSET_TIMESTAMP = _OFFSET_PACKET_TYPE + sizeof(PacketType);
+        private const int _HEADER_LENGTH = _OFFSET_TIMESTAMP + sizeof(long);
 
-        public BasicPacket(PacketType type, DateTime utcTimestamp, byte[] content)
+        public readonly ReadOnlyMemory<byte> Data;
+        public PacketType Type => MemoryMarshal.Read<PacketType>(Data.Span.Slice(_OFFSET_PACKET_TYPE));
+        public DateTime UtcTimestamp => MemoryMarshal.Read<DateTime>(Data.Span.Slice(_OFFSET_TIMESTAMP));
+        public ReadOnlyMemory<byte> Content => Data.Slice(_HEADER_LENGTH);
+
+        public BasicPacket(ReadOnlyMemory<byte> data) => Data = data;
+
+        public BasicPacket(PacketType packetType, DateTime utcTimestamp, ReadOnlyMemory<byte> content)
         {
-            Type = type;
-            UtcTimestamp = utcTimestamp;
-            Content = content;
+            Memory<byte> data = new byte[_HEADER_LENGTH + content.Length];
+            MemoryMarshal.Write(data.Slice(_OFFSET_PACKET_TYPE).Span, ref packetType);
+            MemoryMarshal.Write(data.Slice(_OFFSET_TIMESTAMP).Span, ref utcTimestamp);
+            content.CopyTo(data.Slice(_HEADER_LENGTH));
+
+            Data = data;
         }
 
-        public unsafe byte[] Serialize()
-        {
-            byte[] serialized = new byte[sizeof(PacketType) + sizeof(DateTime) + Content.Length];
-
-            serialized[0] = (byte)Type;
-            Buffer.BlockCopy(BitConverter.GetBytes(UtcTimestamp.Ticks), 0, serialized, sizeof(PacketType), sizeof(long));
-            Buffer.BlockCopy(Content, 0, serialized, sizeof(PacketType) + sizeof(long), Content.Length);
-
-            return serialized;
-        }
+        public ReadOnlyMemory<byte> Serialize() => Data;
 
         public override string ToString()
         {
@@ -70,8 +72,8 @@ namespace Disfigure.Net
                 .Append(' ')
                 .Append(Type switch
                 {
-                    PacketType.Text => Encoding.Unicode.GetString(Content),
-                    _ => MemoryMarshal.Cast<byte, char>(Content)
+                    PacketType.Text => Encoding.Unicode.GetString(Content.Span),
+                    _ => MemoryMarshal.Cast<byte, char>(Content.Span)
                 })
                 .ToString();
         }
@@ -86,7 +88,8 @@ namespace Disfigure.Net
         public static async ValueTask<byte[]> EncryptorAsync(BasicPacket packet, EncryptionProvider encryptionProvider,
             CancellationToken cancellationToken)
         {
-            byte[] initializationVector = Array.Empty<byte>(), packetData = packet.Serialize();
+            byte[] initializationVector = Array.Empty<byte>();
+            ReadOnlyMemory<byte> packetData = packet.Serialize();
 
             if (encryptionProvider.IsEncryptable())
             {
@@ -120,10 +123,6 @@ namespace Disfigure.Net
                 return (false, default, default);
             }
 
-            const int offset_packet_type = 0;
-            const int offset_timestamp = offset_packet_type + sizeof(byte);
-            const int header_length = offset_timestamp + sizeof(long);
-
             ReadOnlyMemory<byte> initializationVector = data.Slice(0, EncryptionProvider.INITIALIZATION_VECTOR_SIZE).First;
             ReadOnlyMemory<byte> packetData = data.Slice(EncryptionProvider.INITIALIZATION_VECTOR_SIZE, data.End).First;
 
@@ -141,11 +140,7 @@ namespace Disfigure.Net
                 Log.Warning($"Packet data has been received, but the {nameof(EncryptionProvider)} has no keys.");
             }
 
-            PacketType packetType = MemoryMarshal.Read<PacketType>(packetData.Span.Slice(offset_packet_type));
-            DateTime utcTimestamp = MemoryMarshal.Read<DateTime>(packetData.Span.Slice(offset_timestamp));
-            byte[] content = packetData.Slice(header_length).ToArray();
-
-            return (true, consumed, new BasicPacket(packetType, utcTimestamp, content));
+            return (true, consumed, new BasicPacket(packetData));
         }
 
         private static bool TryGetPacketData(ReadOnlySequence<byte> sequence, out SequencePosition consumed, out ReadOnlySequence<byte> data)
@@ -207,7 +202,7 @@ namespace Disfigure.Net
                     return default;
                 }
 
-                Guid pingIdentity = new Guid(basicPacket.Content);
+                Guid pingIdentity = new Guid(basicPacket.Content.Span);
                 if (pendingPing.Identity != pingIdentity)
                 {
                     Log.Warning($"<{connection.RemoteEndPoint}> Received pong, but ping identity didn't match.");

@@ -2,6 +2,7 @@
 
 using System;
 using System.IO;
+using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
@@ -56,17 +57,17 @@ namespace Disfigure.Cryptography
             }
         }
 
-        private unsafe void DeriveSymmetricKey(byte[] publicKey, byte[] derivedKey)
+        private unsafe void DeriveSymmetricKey(byte[] remotePublicKey, byte[] derivedKey)
         {
             fixed (byte* privateKeyFixed = _PrivateKey)
-            fixed (byte* publicKeyFixed = publicKey)
+            fixed (byte* publicKeyFixed = remotePublicKey)
             fixed (byte* derivedKeyFixed = derivedKey)
             {
                 TinyECDH.DeriveSharedKey(privateKeyFixed, publicKeyFixed, derivedKeyFixed);
             }
         }
 
-        public void AssignRemoteKeys(byte[] remotePublicKey)
+        public void AssignRemoteKeys(ReadOnlyMemory<byte> remotePublicKey)
         {
             if (IsEncryptable())
             {
@@ -78,8 +79,13 @@ namespace Disfigure.Cryptography
             }
             else
             {
+                if (!MemoryMarshal.TryGetArray(remotePublicKey, out ArraySegment<byte> segment) || segment.Array is null)
+                {
+                    throw new Exception($"Failed to get underlying array from provided {nameof(Memory<byte>)}.");
+                }
+
                 byte[] derivedRemoteKey = new byte[PUBLIC_KEY_SIZE];
-                DeriveSymmetricKey(remotePublicKey, derivedRemoteKey);
+                DeriveSymmetricKey(remotePublicKey.ToArray(), derivedRemoteKey);
 
                 using SHA256CryptoServiceProvider sha256 = new SHA256CryptoServiceProvider();
                 _DerivedKey = sha256.ComputeHash(derivedRemoteKey);
@@ -93,7 +99,7 @@ namespace Disfigure.Cryptography
 
         #region Encrypt / Decrypt
 
-        public async ValueTask<(byte[] initializationVector, byte[] encrypted)> EncryptAsync(byte[] unencrypted, CancellationToken cancellationToken)
+        public async ValueTask<(byte[] initializationVector, ReadOnlyMemory<byte> encrypted)> EncryptAsync(ReadOnlyMemory<byte> unencrypted, CancellationToken cancellationToken)
         {
             WaitForRemoteKeys(_EncryptionKeysWaitTimeout);
 

@@ -47,7 +47,7 @@ namespace Disfigure.Bouncer
                     connection.AssignRemoteKeys(packet.Content);
                     break;
                 case PacketType.Connect:
-                    SerializableEndPoint serializableEndPoint = new SerializableEndPoint(packet.Content);
+                    SerializableEndPoint serializableEndPoint = new SerializableEndPoint(packet.Content.Span);
                     await _Module.EstablishServerConnectionAsync((IPEndPoint)serializableEndPoint, BasicPacket.EncryptorAsync,
                         BasicPacket.FactoryAsync);
                     break;

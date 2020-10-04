@@ -24,10 +24,10 @@ namespace Disfigure.Net
         ///     Safely connects to a given <see cref="IPEndPoint" />, with optional retry parameters.
         /// </summary>
         /// <param name="ipEndPoint"><see cref="IPEndPoint" /> to connect to.</param>
-        /// <param name="retriesParameters"><see cref="RetryParameters" /> to reference retry parameters from.</param>
+        /// <param name="retryParameters"><see cref="RetryParameters" /> to reference retry parameters from.</param>
         /// <param name="cancellationToken"><see cref="CancellationToken" /> to observe when retrying.</param>
         /// <returns><see cref="TcpClient" /> representing complete connection.</returns>
-        public static async ValueTask<TcpClient> ConnectAsync(IPEndPoint ipEndPoint, RetryParameters retriesParameters,
+        public static async ValueTask<TcpClient> ConnectAsync(IPEndPoint ipEndPoint, RetryParameters retryParameters,
             CancellationToken cancellationToken)
         {
             TcpClient tcpClient = new TcpClient();
@@ -41,7 +41,7 @@ namespace Disfigure.Net
                 {
                     await tcpClient.ConnectAsync(ipEndPoint.Address, ipEndPoint.Port);
                 }
-                catch (SocketException) when (tries >= retriesParameters.Retries)
+                catch (SocketException) when (tries >= retryParameters.Retries)
                 {
                     Log.Error($"Connection to {ipEndPoint} failed.");
                     throw;
@@ -50,9 +50,9 @@ namespace Disfigure.Net
                 {
                     tries += 1;
 
-                    Log.Warning($"{exception.Message}. Retrying ({tries}/{retriesParameters})...");
+                    Log.Warning($"{exception.Message}. Retrying ({tries}/{retryParameters.Retries})...");
 
-                    await Task.Delay(retriesParameters.Delay, cancellationToken);
+                    await Task.Delay(retryParameters.Delay, cancellationToken);
                 }
             }
 

@@ -81,7 +81,7 @@ namespace Disfigure.Net
 
         public byte[] PublicKey => _EncryptionProvider.PublicKey;
 
-        public void AssignRemoteKeys(byte[] remotePublicKey) => _EncryptionProvider.AssignRemoteKeys(remotePublicKey);
+        public void AssignRemoteKeys(ReadOnlyMemory<byte> remotePublicKey) => _EncryptionProvider.AssignRemoteKeys(remotePublicKey);
 
         #endregion
 

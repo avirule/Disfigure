@@ -4,6 +4,7 @@ using System;
 using System.Globalization;
 using System.Net;
 using System.Net.Sockets;
+using System.Runtime.InteropServices;
 
 #endregion
 
@@ -23,9 +24,9 @@ namespace Disfigure.Net
 
         public SerializableEndPoint(IPAddress address, ushort port) => (Address, Port) = (address, port);
 
-        public SerializableEndPoint(Span<byte> data)
+        public SerializableEndPoint(ReadOnlySpan<byte> data)
         {
-            Port = BitConverter.ToUInt16(data.Slice(0, sizeof(ushort)));
+            Port = MemoryMarshal.Read<ushort>(data.Slice(0));
             Address = new IPAddress(data.Slice(sizeof(ushort)));
         }
 
