@@ -14,7 +14,7 @@ using Serilog.Events;
 
 namespace Disfigure.Modules
 {
-    public class ServerModule<TPacket> : Module<TPacket> where TPacket : IPacket<TPacket>
+    public class ServerModule<TPacket> : Module<TPacket> where TPacket : IPacket
     {
         private readonly IPEndPoint _HostAddress;
 

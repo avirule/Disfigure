@@ -14,7 +14,7 @@ using Serilog.Events;
 
 namespace Disfigure.Bouncer
 {
-    public class BouncerModule<TPacket> : ServerModule<TPacket> where TPacket : IPacket<TPacket>
+    public class BouncerModule<TPacket> : ServerModule<TPacket> where TPacket : IPacket
     {
         private readonly ConcurrentDictionary<Guid, Connection<TPacket>> _ServerConnections;
 

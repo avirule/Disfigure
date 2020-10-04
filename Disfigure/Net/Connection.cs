@@ -19,16 +19,16 @@ using Serilog;
 namespace Disfigure.Net
 {
     public delegate ValueTask<(bool, SequencePosition, TPacket)> PacketFactoryAsync<TPacket>(ReadOnlySequence<byte> sequence,
-        EncryptionProvider encryptionProvider, CancellationToken cancellationToken) where TPacket : IPacket<TPacket>;
+        EncryptionProvider encryptionProvider, CancellationToken cancellationToken) where TPacket : IPacket;
 
     public delegate ValueTask<ReadOnlyMemory<byte>> PacketEncryptorAsync<in TPacket>(TPacket packet, EncryptionProvider encryptionProvider,
         CancellationToken cancellationToken);
 
-    public delegate ValueTask ConnectionEventHandler<TPacket>(Connection<TPacket> connection) where TPacket : IPacket<TPacket>;
+    public delegate ValueTask ConnectionEventHandler<TPacket>(Connection<TPacket> connection) where TPacket : IPacket;
 
-    public delegate ValueTask PacketEventHandler<TPacket>(Connection<TPacket> origin, TPacket packet) where TPacket : IPacket<TPacket>;
+    public delegate ValueTask PacketEventHandler<TPacket>(Connection<TPacket> origin, TPacket packet) where TPacket : IPacket;
 
-    public class Connection<TPacket> : IDisposable, IEquatable<Connection<TPacket>> where TPacket : IPacket<TPacket>
+    public class Connection<TPacket> : IDisposable, IEquatable<Connection<TPacket>> where TPacket : IPacket
     {
         private readonly TcpClient _Client;
         private readonly NetworkStream _Stream;

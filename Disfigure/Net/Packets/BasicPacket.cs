@@ -37,7 +37,7 @@ namespace Disfigure.Net.Packets
         EndIdentity
     }
 
-    public readonly struct BasicPacket : IPacket<BasicPacket>
+    public readonly struct BasicPacket : IPacket
     {
         private const int _OFFSET_PACKET_TYPE = 0;
         private const int _OFFSET_TIMESTAMP = _OFFSET_PACKET_TYPE + sizeof(PacketType);

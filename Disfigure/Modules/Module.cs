@@ -14,7 +14,7 @@ using Serilog.Events;
 
 namespace Disfigure.Modules
 {
-    public abstract class Module<TPacket> : IDisposable where TPacket : IPacket<TPacket>
+    public abstract class Module<TPacket> : IDisposable where TPacket : IPacket
     {
         /// <summary>
         ///     <see cref="CancellationTokenSource" /> used to provide <see cref="CancellationToken" /> for async operations.

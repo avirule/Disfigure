@@ -6,7 +6,7 @@ using System;
 
 namespace Disfigure.Net.Packets
 {
-    public interface IPacket<out TPacket> where TPacket : IPacket<TPacket>
+    public interface IPacket
     {
         public ReadOnlyMemory<byte> Serialize();
 
