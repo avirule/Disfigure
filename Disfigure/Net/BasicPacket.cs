@@ -4,6 +4,7 @@ using System;
 using System.Buffers;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
@@ -39,9 +40,8 @@ namespace Disfigure.Net
 
     public readonly struct BasicPacket : IPacket<BasicPacket>
     {
-        public PacketType Type { get; }
-        public DateTime UtcTimestamp { get; }
-        public byte[] Content { get; }
+        public readonly PacketType Type;
+        public readonly byte[] Content;
 
         public BasicPacket(PacketType type, DateTime utcTimestamp, byte[] content)
         {
@@ -86,16 +86,15 @@ namespace Disfigure.Net
         public static async ValueTask<byte[]> EncryptorAsync(BasicPacket packet, EncryptionProvider encryptionProvider,
             CancellationToken cancellationToken)
         {
-            byte[] initializationVector = new byte[EncryptionProvider.INITIALIZATION_VECTOR_SIZE], packetData;
+            byte[] initializationVector = Array.Empty<byte>(), packetData = packet.Serialize();
 
             if (encryptionProvider.IsEncryptable())
             {
-                (initializationVector, packetData) = await EncryptTransmissionAsync(packet, encryptionProvider, cancellationToken);
+                (initializationVector, packetData) = await encryptionProvider.EncryptAsync(packetData, cancellationToken);
             }
             else
             {
                 Log.Warning($"Write call has been received, but the {nameof(EncryptionProvider)} has no keys.");
-                packetData = packet.Serialize();
             }
 
             const int header_length = sizeof(int) + EncryptionProvider.INITIALIZATION_VECTOR_SIZE;
@@ -106,22 +105,6 @@ namespace Disfigure.Net
             Buffer.BlockCopy(packetData, 0, data, header_length, packetData.Length);
 
             return data;
-        }
-
-        private static async ValueTask<(byte[], byte[])> EncryptTransmissionAsync(BasicPacket packet, EncryptionProvider encryptionProvider,
-            CancellationToken cancellationToken)
-        {
-            byte[] unencryptedPacket = new byte[sizeof(PacketType) + sizeof(long) + packet.Content.Length];
-
-            unencryptedPacket[0] = (byte)packet.Type;
-            Buffer.BlockCopy(BitConverter.GetBytes(packet.UtcTimestamp.Ticks), 0, unencryptedPacket, sizeof(PacketType), sizeof(long));
-            Buffer.BlockCopy(packet.Content, 0, unencryptedPacket, sizeof(PacketType) + sizeof(long), packet.Content.Length);
-
-            byte[] initializationVector, encryptedPacket;
-            (initializationVector, encryptedPacket) =
-                await encryptionProvider.EncryptAsync(unencryptedPacket, cancellationToken);
-
-            return (initializationVector, encryptedPacket);
         }
 
         #endregion
@@ -158,9 +141,9 @@ namespace Disfigure.Net
                 Log.Warning($"Packet data has been received, but the {nameof(EncryptionProvider)} has no keys.");
             }
 
-            PacketType packetType = MemoryMarshal.Read<PacketType>(packetData.Slice(offset_packet_type, sizeof(PacketType)).Span);
-            DateTime utcTimestamp = MemoryMarshal.Read<DateTime>(packetData.Slice(offset_timestamp, sizeof(long)).Span);
-            byte[] content = packetData.Slice(header_length, packetData.Length - header_length).ToArray();
+            PacketType packetType = MemoryMarshal.Read<PacketType>(packetData.Span.Slice(offset_packet_type));
+            DateTime utcTimestamp = MemoryMarshal.Read<DateTime>(packetData.Span.Slice(offset_timestamp));
+            byte[] content = packetData.Slice(header_length).ToArray();
 
             return (true, consumed, new BasicPacket(packetType, utcTimestamp, content));
         }
@@ -175,7 +158,7 @@ namespace Disfigure.Net
                 return false;
             }
 
-            int length = MemoryMarshal.Read<int>(sequence.Slice(0, sizeof(int)).FirstSpan);
+            int length = MemoryMarshal.Read<int>(sequence.FirstSpan);
 
             // otherwise, check if entire packet has been received
             if ((length > 0) && (sequence.Length >= length))

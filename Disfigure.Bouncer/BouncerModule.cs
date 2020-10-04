@@ -27,6 +27,7 @@ namespace Disfigure.Bouncer
                 ;
             Connection<TPacket> connection = new Connection<TPacket>(tcpClient, packetEncryptorAsync, packetFactoryAsync);
             connection.Connected += OnServerConnected;
+            connection.Disconnected += OnServerDisconnected;
             connection.PacketReceived += OnServerPacketReceived;
             await connection.StartAsync(CancellationToken);
             _ServerConnections.TryAdd(connection.Identity, connection);
@@ -53,12 +54,21 @@ namespace Disfigure.Bouncer
         #region Server Connection Events
 
         public event ConnectionEventHandler<TPacket>? ServerConnected;
+        public event ConnectionEventHandler<TPacket>? ServerDisconnected;
 
         private async ValueTask OnServerConnected(Connection<TPacket> connection)
         {
             if (ServerConnected is { })
             {
                 await ServerConnected(connection);
+            }
+        }
+
+        private async ValueTask OnServerDisconnected(Connection<TPacket> connection)
+        {
+            if (ServerDisconnected is { })
+            {
+                await ServerDisconnected(connection);
             }
         }
 

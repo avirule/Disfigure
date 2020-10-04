@@ -1,8 +1,11 @@
 ﻿#region
 
 using System;
+using System.Buffers;
 using System.Net;
 using System.Net.Sockets;
+using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
 using Disfigure.Net;
@@ -19,7 +22,7 @@ namespace Disfigure.Client
         {
             Log.Logger = new LoggerConfiguration().WriteTo.Console().MinimumLevel.Is(LogEventLevel.Verbose).CreateLogger();
 
-            IPEndPoint ipEndPoint = new IPEndPoint(IPAddress.Loopback, 8899);
+            IPEndPoint ipEndPoint = new IPEndPoint(IPAddress.Loopback, 8898);
             TcpClient tcpClient = await ConnectionHelper.ConnectAsync(ipEndPoint, ConnectionHelper.DefaultRetryParameters, CancellationToken.None);
             Connection<BasicPacket> connection = new Connection<BasicPacket>(tcpClient, BasicPacket.EncryptorAsync, BasicPacket.FactoryAsync);
             connection.Connected += BasicPacket.SendEncryptionKeys;
