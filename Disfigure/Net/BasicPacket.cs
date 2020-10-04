@@ -44,18 +44,32 @@ namespace Disfigure.Net
         private const int _HEADER_LENGTH = _OFFSET_TIMESTAMP + sizeof(long);
 
         public readonly ReadOnlyMemory<byte> Data;
-        public PacketType Type => MemoryMarshal.Read<PacketType>(Data.Span.Slice(_OFFSET_PACKET_TYPE));
-        public DateTime UtcTimestamp => MemoryMarshal.Read<DateTime>(Data.Span.Slice(_OFFSET_TIMESTAMP));
-        public ReadOnlyMemory<byte> Content => Data.Slice(_HEADER_LENGTH);
+        public readonly PacketType Type;
+        public readonly DateTime UtcTimestamp;
 
-        public BasicPacket(ReadOnlyMemory<byte> data) => Data = data;
+        public ReadOnlySpan<byte> Content => Data.Slice(_HEADER_LENGTH).Span;
 
-        public BasicPacket(PacketType packetType, DateTime utcTimestamp, ReadOnlyMemory<byte> content)
+        public BasicPacket(ReadOnlyMemory<byte> data)
         {
+            ReadOnlySpan<byte> destination = data.Span;
+
+            Type = MemoryMarshal.Read<PacketType>(destination.Slice(_OFFSET_PACKET_TYPE));
+            UtcTimestamp = MemoryMarshal.Read<DateTime>(destination.Slice(_OFFSET_TIMESTAMP));
+
+            Data = data;
+        }
+
+        public BasicPacket(PacketType packetType, DateTime utcTimestamp, ReadOnlySpan<byte> content)
+        {
+            Type = packetType;
+            UtcTimestamp = utcTimestamp;
+
             Memory<byte> data = new byte[_HEADER_LENGTH + content.Length];
-            MemoryMarshal.Write(data.Slice(_OFFSET_PACKET_TYPE).Span, ref packetType);
-            MemoryMarshal.Write(data.Slice(_OFFSET_TIMESTAMP).Span, ref utcTimestamp);
-            content.CopyTo(data.Slice(_HEADER_LENGTH));
+            Span<byte> destination = data.Span;
+
+            MemoryMarshal.Write(destination.Slice(_OFFSET_PACKET_TYPE), ref packetType);
+            MemoryMarshal.Write(destination.Slice(_OFFSET_TIMESTAMP), ref utcTimestamp);
+            content.CopyTo(destination.Slice(_HEADER_LENGTH));
 
             Data = data;
         }
@@ -71,8 +85,8 @@ namespace Disfigure.Net
                 .Append(' ')
                 .Append(Type switch
                 {
-                    PacketType.Text => Encoding.Unicode.GetString(Content.Span),
-                    _ => MemoryMarshal.Cast<byte, char>(Content.Span)
+                    PacketType.Text => Encoding.Unicode.GetString(Content),
+                    _ => MemoryMarshal.Cast<byte, char>(Content)
                 })
                 .ToString();
         }
@@ -202,7 +216,7 @@ namespace Disfigure.Net
                     return default;
                 }
 
-                Guid pingIdentity = new Guid(basicPacket.Content.Span);
+                Guid pingIdentity = new Guid(basicPacket.Content);
                 if (pendingPing.Identity != pingIdentity)
                 {
                     Log.Warning($"<{connection.RemoteEndPoint}> Received pong, but ping identity didn't match.");

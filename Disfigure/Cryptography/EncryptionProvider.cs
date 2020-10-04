@@ -2,7 +2,6 @@
 
 using System;
 using System.IO;
-using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
@@ -58,17 +57,17 @@ namespace Disfigure.Cryptography
             }
         }
 
-        private unsafe void DeriveSymmetricKey(byte[] remotePublicKey, byte[] derivedKey)
+        private unsafe void DeriveSymmetricKey(ReadOnlySpan<byte> publicKey, ReadOnlySpan<byte> derivedKey)
         {
             fixed (byte* privateKeyFixed = _PrivateKey)
-            fixed (byte* publicKeyFixed = remotePublicKey)
+            fixed (byte* publicKeyFixed = publicKey)
             fixed (byte* derivedKeyFixed = derivedKey)
             {
                 TinyECDH.DeriveSharedKey(privateKeyFixed, publicKeyFixed, derivedKeyFixed);
             }
         }
 
-        public void AssignRemoteKeys(ReadOnlyMemory<byte> remotePublicKey)
+        public void AssignRemoteKeys(ReadOnlySpan<byte> remotePublicKey)
         {
             if (IsEncryptable)
             {
@@ -80,13 +79,8 @@ namespace Disfigure.Cryptography
             }
             else
             {
-                if (!MemoryMarshal.TryGetArray(remotePublicKey, out ArraySegment<byte> segment) || segment.Array is null)
-                {
-                    throw new Exception($"Failed to get underlying array from provided {nameof(Memory<byte>)}.");
-                }
-
                 byte[] derivedRemoteKey = new byte[PUBLIC_KEY_SIZE];
-                DeriveSymmetricKey(remotePublicKey.ToArray(), derivedRemoteKey);
+                DeriveSymmetricKey(remotePublicKey, derivedRemoteKey);
 
                 using SHA256CryptoServiceProvider sha256 = new SHA256CryptoServiceProvider();
                 _DerivedKey = sha256.ComputeHash(derivedRemoteKey);
