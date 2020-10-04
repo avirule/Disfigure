@@ -4,7 +4,6 @@ using System;
 using System.Buffers;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
@@ -41,6 +40,7 @@ namespace Disfigure.Net
     public readonly struct BasicPacket : IPacket<BasicPacket>
     {
         public readonly PacketType Type;
+        public readonly DateTime UtcTimestamp;
         public readonly byte[] Content;
 
         public BasicPacket(PacketType type, DateTime utcTimestamp, byte[] content)
