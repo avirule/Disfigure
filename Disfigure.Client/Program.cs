@@ -19,9 +19,10 @@ namespace Disfigure.Client
         {
             Log.Logger = new LoggerConfiguration().WriteTo.Console().MinimumLevel.Is(LogEventLevel.Verbose).CreateLogger();
 
-            IPEndPoint ipEndPoint = new IPEndPoint(IPAddress.Loopback, 8898);
+            IPEndPoint ipEndPoint = new IPEndPoint(IPAddress.Loopback, 8899);
             TcpClient tcpClient = await ConnectionHelper.ConnectAsync(ipEndPoint, ConnectionHelper.DefaultRetryParameters, CancellationToken.None);
             Connection<BasicPacket> connection = new Connection<BasicPacket>(tcpClient, BasicPacket.EncryptorAsync, BasicPacket.FactoryAsync);
+            connection.Connected += BasicPacket.SendEncryptionKeys;
             connection.PacketReceived += async (origin, packet) =>
             {
                 switch (packet.Type)
@@ -37,8 +38,6 @@ namespace Disfigure.Client
                         break;
                 }
             };
-            connection.Connected += async conn => await conn.WriteAsync(new BasicPacket(PacketType.EncryptionKeys,
-                DateTime.UtcNow, conn.PublicKey), CancellationToken.None);
 
             await connection.StartAsync(CancellationToken.None);
             await connection.WriteAsync(new BasicPacket(PacketType.Connect, DateTime.UtcNow,

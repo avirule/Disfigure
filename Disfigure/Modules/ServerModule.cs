@@ -39,7 +39,7 @@ namespace Disfigure.Modules
                 TcpListener listener = new TcpListener(_HostAddress);
                 listener.Start();
 
-                Log.Information($"{GetType().FullName} now listening on {_HostAddress}.");
+                Log.Information($"Module is now listening on {_HostAddress}.");
 
                 while (!CancellationToken.IsCancellationRequested)
                 {

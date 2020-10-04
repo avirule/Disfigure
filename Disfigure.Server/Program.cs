@@ -23,16 +23,15 @@ namespace Disfigure.Server
 
                 ServerModuleConfiguration configuration = new ServerModuleConfiguration(Assembly.GetExecutingAssembly().GetName().Name, false);
 
-                using ServerModule<BasicPacket> serverModule = new ServerModule<BasicPacket>(configuration.LogLevel,
+                using ServerModule<BasicPacket> module = new ServerModule<BasicPacket>(configuration.LogLevel,
                     new IPEndPoint(configuration.HostingIPAddress, configuration.HostingPort));
-                serverModule.Connected += async conn => await conn.WriteAsync(new BasicPacket(PacketType.EncryptionKeys,
-                    DateTime.UtcNow, conn.PublicKey), serverModule.CancellationToken);
-                serverModule.ClientPacketReceived += ClientPacketReceivedCallback;
+                module.Connected += BasicPacket.SendEncryptionKeys;
+                module.ClientPacketReceived += ClientPacketReceivedCallback;
 
-                serverModule.AcceptConnections(BasicPacket.EncryptorAsync, BasicPacket.FactoryAsync);
-                BasicPacket.PingPongLoop(serverModule, TimeSpan.FromSeconds(5d), serverModule.CancellationToken);
+                module.AcceptConnections(BasicPacket.EncryptorAsync, BasicPacket.FactoryAsync);
+                BasicPacket.PingPongLoop(module, TimeSpan.FromSeconds(5d), module.CancellationToken);
 
-                while (!serverModule.CancellationToken.IsCancellationRequested)
+                while (!module.CancellationToken.IsCancellationRequested)
                 {
                     Console.ReadKey();
                 }

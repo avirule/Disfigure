@@ -77,6 +77,10 @@ namespace Disfigure.Net
         }
 
 
+        public static async ValueTask SendEncryptionKeys(Connection<BasicPacket> connection) =>
+            await connection.WriteAsync(new BasicPacket(PacketType.EncryptionKeys, DateTime.UtcNow, connection.PublicKey), CancellationToken.None);
+
+
         #region PacketEncryptorAsync
 
         public static async ValueTask<byte[]> EncryptorAsync(BasicPacket packet, EncryptionProvider encryptionProvider,
