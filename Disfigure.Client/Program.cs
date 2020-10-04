@@ -42,7 +42,7 @@ namespace Disfigure.Client
 
             await connection.StartAsync(CancellationToken.None);
             await connection.WriteAsync(new BasicPacket(PacketType.Connect, DateTime.UtcNow,
-                    new SerializableEndPoint(IPAddress.Loopback, 8898).Serialize()), CancellationToken.None);
+                new SerializableEndPoint(IPAddress.Loopback, 8898).Serialize()), CancellationToken.None);
 
             while (true)
             {

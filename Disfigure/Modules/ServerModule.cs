@@ -1,9 +1,6 @@
 ﻿#region
 
 using System;
-using System.Collections.Concurrent;
-using System.Collections.Generic;
-using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Net;
 using System.Net.Sockets;
@@ -18,65 +15,61 @@ namespace Disfigure.Modules
 {
     public class ServerModule<TPacket> : Module<TPacket> where TPacket : IPacket<TPacket>
     {
+        private readonly IPEndPoint _HostAddress;
 
-    private readonly IPEndPoint _HostAddress;
-
-    public ServerModule(LogEventLevel logEventLevel, IPEndPoint hostAddress) : base(logEventLevel)
-    {
-        _HostAddress = hostAddress;
-    }
+        public ServerModule(LogEventLevel logEventLevel, IPEndPoint hostAddress) : base(logEventLevel) => _HostAddress = hostAddress;
 
 
-    #region Runtime
+        #region Runtime
 
-    /// <summary>
-    ///     Begins accepting network connections.
-    /// </summary>
-    /// <remarks>
-    ///     This is run on the ThreadPool.
-    /// </remarks>
-    public void AcceptConnections(PacketEncryptorAsync<TPacket> packetEncryptorAsync, PacketFactoryAsync<TPacket> packetFactoryAsync) =>
-        Task.Run(() => AcceptConnectionsInternal(packetEncryptorAsync, packetFactoryAsync));
+        /// <summary>
+        ///     Begins accepting network connections.
+        /// </summary>
+        /// <remarks>
+        ///     This is run on the ThreadPool.
+        /// </remarks>
+        public void AcceptConnections(PacketEncryptorAsync<TPacket> packetEncryptorAsync, PacketFactoryAsync<TPacket> packetFactoryAsync) =>
+            Task.Run(() => AcceptConnectionsInternal(packetEncryptorAsync, packetFactoryAsync));
 
-    private async ValueTask AcceptConnectionsInternal(PacketEncryptorAsync<TPacket> packetEncryptorAsync,
-        PacketFactoryAsync<TPacket> packetFactoryAsync)
-    {
-        try
+        private async ValueTask AcceptConnectionsInternal(PacketEncryptorAsync<TPacket> packetEncryptorAsync,
+            PacketFactoryAsync<TPacket> packetFactoryAsync)
         {
-            TcpListener listener = new TcpListener(_HostAddress);
-            listener.Start();
-
-            Log.Information($"{GetType().FullName} now listening on {_HostAddress}.");
-
-            while (!CancellationToken.IsCancellationRequested)
+            try
             {
-                TcpClient tcpClient = await listener.AcceptTcpClientAsync();
-                Log.Information(string.Format(FormatHelper.CONNECTION_LOGGING, tcpClient.Client.RemoteEndPoint, "Connection accepted."));
+                TcpListener listener = new TcpListener(_HostAddress);
+                listener.Start();
 
-                Connection<TPacket> connection = new Connection<TPacket>(tcpClient, packetEncryptorAsync, packetFactoryAsync);
-                RegisterConnection(connection);
+                Log.Information($"{GetType().FullName} now listening on {_HostAddress}.");
 
-                await connection.StartAsync(CancellationToken);
+                while (!CancellationToken.IsCancellationRequested)
+                {
+                    TcpClient tcpClient = await listener.AcceptTcpClientAsync();
+                    Log.Information(string.Format(FormatHelper.CONNECTION_LOGGING, tcpClient.Client.RemoteEndPoint, "Connection accepted."));
+
+                    Connection<TPacket> connection = new Connection<TPacket>(tcpClient, packetEncryptorAsync, packetFactoryAsync);
+                    RegisterConnection(connection);
+
+                    await connection.StartAsync(CancellationToken);
+                }
+            }
+            catch (SocketException exception) when (exception.ErrorCode == 10048)
+            {
+                Log.Fatal($"Port {_HostAddress.Port} is already being listened on.");
+            }
+            catch (IOException exception) when (exception.InnerException is SocketException)
+            {
+                Log.Fatal("Remote host forcibly closed connection while connecting.");
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex.ToString());
+            }
+            finally
+            {
+                CancellationTokenSource.Cancel();
             }
         }
-        catch (SocketException exception) when (exception.ErrorCode == 10048)
-        {
-            Log.Fatal($"Port {_HostAddress.Port} is already being listened on.");
-        }
-        catch (IOException exception) when (exception.InnerException is SocketException)
-        {
-            Log.Fatal("Remote host forcibly closed connection while connecting.");
-        }
-        catch (Exception ex)
-        {
-            Log.Error(ex.ToString());
-        }
-        finally
-        {
-            CancellationTokenSource.Cancel();
-        }
-    }
 
-    #endregion
+        #endregion
     }
 }

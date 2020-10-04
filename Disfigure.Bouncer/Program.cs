@@ -33,7 +33,8 @@ namespace Disfigure.Bouncer
 
             ServerModuleConfiguration configuration = new ServerModuleConfiguration(Assembly.GetExecutingAssembly().GetName().Name, false);
 
-            BouncerModule<BasicPacket> bouncerModule = new BouncerModule<BasicPacket>(configuration.LogLevel, new IPEndPoint(configuration.HostingIPAddress,
+            BouncerModule<BasicPacket> bouncerModule = new BouncerModule<BasicPacket>(configuration.LogLevel, new IPEndPoint(
+                configuration.HostingIPAddress,
                 configuration.HostingPort));
             bouncerModule.ServerPacketReceived += ServerPacketReceivedCallback;
 
@@ -46,5 +47,4 @@ namespace Disfigure.Bouncer
             }
         }
     }
-
 }
