@@ -195,7 +195,7 @@ namespace Disfigure.Net
 
         private static async Task PingPongLoopAsync(Module<BasicPacket> module, TimeSpan pingInterval, CancellationToken cancellationToken)
         {
-            ConcurrentDictionary<Guid, PendingPing> pendingPings = new ConcurrentDictionary<Guid, PendingPing>();
+            ConcurrentDictionary<Guid, Guid> pendingPings = new ConcurrentDictionary<Guid, Guid>();
             Stack<Guid> abandonedConnections = new Stack<Guid>();
 
             ValueTask PongPacketCallbackImpl(Connection<BasicPacket> connection, BasicPacket basicPacket)
@@ -205,7 +205,7 @@ namespace Disfigure.Net
                     return default;
                 }
 
-                if (!pendingPings.TryGetValue(connection.Identity, out PendingPing? pendingPing))
+                if (!pendingPings.TryGetValue(connection.Identity, out Guid pingIdentity))
                 {
                     Log.Warning($"<{connection.RemoteEndPoint}> Received pong, but no ping was pending.");
                     return default;
@@ -216,8 +216,8 @@ namespace Disfigure.Net
                     return default;
                 }
 
-                Guid pingIdentity = new Guid(basicPacket.Content);
-                if (pendingPing.Identity != pingIdentity)
+                Guid remotePingIdentity = new Guid(basicPacket.Content);
+                if (remotePingIdentity != pingIdentity)
                 {
                     Log.Warning($"<{connection.RemoteEndPoint}> Received pong, but ping identity didn't match.");
                     return default;
@@ -235,11 +235,11 @@ namespace Disfigure.Net
 
                 foreach ((Guid connectionIdentity, Connection<BasicPacket> connection) in module.ReadOnlyConnections)
                 {
-                    PendingPing pendingPing = new PendingPing();
+                    Guid pingIdentity = Guid.NewGuid();
 
-                    if (pendingPings.TryAdd(connectionIdentity, pendingPing))
+                    if (pendingPings.TryAdd(connectionIdentity, pingIdentity))
                     {
-                        await connection.WriteAsync(new BasicPacket(PacketType.Ping, DateTime.UtcNow, pendingPing.Identity.ToByteArray()),
+                        await connection.WriteAsync(new BasicPacket(PacketType.Ping, DateTime.UtcNow, pingIdentity.ToByteArray()),
                             cancellationToken);
                     }
                     else
