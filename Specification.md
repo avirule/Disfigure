@@ -1,4 +1,4 @@
-##Packet Format
+## Packet Format
 
 |           | Length | Initialization Vector | Packet Type | UTC Timestamp |  Content  |
 |----------:|:------:|:---------------------:|:-----------:|:-------------:|:---------:|
