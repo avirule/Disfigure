@@ -28,6 +28,8 @@ namespace Disfigure.Cryptography
 
         public byte[] PublicKey { get; }
 
+        public bool IsEncryptable => _DerivedKey is { };
+
         public EncryptionProvider()
         {
             _EncryptionKeysWait = new ManualResetEventSlim(false);
@@ -39,7 +41,6 @@ namespace Disfigure.Cryptography
             DerivePublicKey();
         }
 
-        public bool IsEncryptable() => _DerivedKey is { };
         public void WaitForRemoteKeys(CancellationToken cancellationToken) => _EncryptionKeysWait.Wait(cancellationToken);
         public void WaitForRemoteKeys(TimeSpan timeout) => _EncryptionKeysWait.Wait(timeout);
 
@@ -69,7 +70,7 @@ namespace Disfigure.Cryptography
 
         public void AssignRemoteKeys(ReadOnlyMemory<byte> remotePublicKey)
         {
-            if (IsEncryptable())
+            if (IsEncryptable)
             {
                 Log.Warning("Protocol requires that key exchanges happen ONLY ONCE.");
             }
@@ -99,17 +100,18 @@ namespace Disfigure.Cryptography
 
         #region Encrypt / Decrypt
 
-        public async ValueTask<(byte[] initializationVector, ReadOnlyMemory<byte> encrypted)> EncryptAsync(ReadOnlyMemory<byte> unencrypted, CancellationToken cancellationToken)
+        public async ValueTask<(ReadOnlyMemory<byte> initializationVector, ReadOnlyMemory<byte> encrypted)>
+            EncryptAsync(ReadOnlyMemory<byte> unencrypted, CancellationToken cancellationToken)
         {
             WaitForRemoteKeys(_EncryptionKeysWaitTimeout);
 
-            if (!IsEncryptable())
+            if (!IsEncryptable)
             {
                 throw new CryptographicException("Key exchange has not been completed.");
             }
             else if (unencrypted.Length == 0)
             {
-                return (Array.Empty<byte>(), unencrypted);
+                return (ReadOnlyMemory<byte>.Empty, unencrypted);
             }
 
             // DO NOT ADD USING STATEMENT FOR AesCryptoServiceProvider
@@ -127,12 +129,12 @@ namespace Disfigure.Cryptography
             return (aes.IV, cipherBytes.ToArray());
         }
 
-        public async ValueTask<Memory<byte>> DecryptAsync(ReadOnlyMemory<byte> initializationVector, ReadOnlyMemory<byte> encrypted,
+        public async ValueTask<ReadOnlyMemory<byte>> DecryptAsync(ReadOnlyMemory<byte> initializationVector, ReadOnlyMemory<byte> encrypted,
             CancellationToken cancellationToken)
         {
             WaitForRemoteKeys(_EncryptionKeysWaitTimeout);
 
-            if (!IsEncryptable())
+            if (!IsEncryptable)
             {
                 throw new CryptographicException("Key exchange has not been completed.");
             }

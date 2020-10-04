@@ -20,7 +20,7 @@ namespace Disfigure.Net
     public delegate ValueTask<(bool, SequencePosition, TPacket)> PacketFactoryAsync<TPacket>(ReadOnlySequence<byte> sequence,
         EncryptionProvider encryptionProvider, CancellationToken cancellationToken) where TPacket : IPacket<TPacket>;
 
-    public delegate ValueTask<byte[]> PacketEncryptorAsync<in TPacket>(TPacket packet, EncryptionProvider encryptionProvider,
+    public delegate ValueTask<ReadOnlyMemory<byte>> PacketEncryptorAsync<in TPacket>(TPacket packet, EncryptionProvider encryptionProvider,
         CancellationToken cancellationToken);
 
     public delegate ValueTask ConnectionEventHandler<TPacket>(Connection<TPacket> connection) where TPacket : IPacket<TPacket>;
@@ -152,7 +152,7 @@ namespace Disfigure.Net
         {
             Log.Verbose(string.Format(FormatHelper.CONNECTION_LOGGING, RemoteEndPoint, $"OUT {packet}"));
 
-            byte[] encrypted = await _PacketEncryptorAsync(packet, _EncryptionProvider, cancellationToken);
+            ReadOnlyMemory<byte> encrypted = await _PacketEncryptorAsync(packet, _EncryptionProvider, cancellationToken);
             await _Writer.WriteAsync(encrypted, cancellationToken);
             await _Writer.FlushAsync(cancellationToken);
         }

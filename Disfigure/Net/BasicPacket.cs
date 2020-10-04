@@ -4,7 +4,6 @@ using System;
 using System.Buffers;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
@@ -85,13 +84,13 @@ namespace Disfigure.Net
 
         #region PacketEncryptorAsync
 
-        public static async ValueTask<byte[]> EncryptorAsync(BasicPacket packet, EncryptionProvider encryptionProvider,
+        public static async ValueTask<ReadOnlyMemory<byte>> EncryptorAsync(BasicPacket packet, EncryptionProvider encryptionProvider,
             CancellationToken cancellationToken)
         {
-            byte[] initializationVector = Array.Empty<byte>();
+            ReadOnlyMemory<byte> initializationVector = ReadOnlyMemory<byte>.Empty;
             ReadOnlyMemory<byte> packetData = packet.Serialize();
 
-            if (encryptionProvider.IsEncryptable())
+            if (encryptionProvider.IsEncryptable)
             {
                 (initializationVector, packetData) = await encryptionProvider.EncryptAsync(packetData, cancellationToken);
             }
@@ -102,10 +101,11 @@ namespace Disfigure.Net
 
             const int header_length = sizeof(int) + EncryptionProvider.INITIALIZATION_VECTOR_SIZE;
 
-            byte[] data = new byte[header_length + packetData.Length];
-            Buffer.BlockCopy(BitConverter.GetBytes(data.Length), 0, data, 0, sizeof(int));
-            Buffer.BlockCopy(initializationVector, 0, data, sizeof(int), initializationVector.Length);
-            Buffer.BlockCopy(packetData, 0, data, header_length, packetData.Length);
+            int length = header_length + packetData.Length;
+            Memory<byte> data = new byte[length];
+            MemoryMarshal.Write(data.Span, ref length);
+            initializationVector.CopyTo(data.Slice(sizeof(int)));
+            packetData.CopyTo(data.Slice(header_length));
 
             return data;
         }
@@ -131,7 +131,7 @@ namespace Disfigure.Net
                 throw new ArgumentException("Decrypted packet contained no data.", nameof(packetData));
             }
 
-            if (encryptionProvider.IsEncryptable())
+            if (encryptionProvider.IsEncryptable)
             {
                 packetData = await encryptionProvider.DecryptAsync(initializationVector, packetData, cancellationToken);
             }
