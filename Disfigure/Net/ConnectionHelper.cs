@@ -1,5 +1,6 @@
 #region
 
+using System;
 using System.Net;
 using System.Net.Sockets;
 using System.Threading;
@@ -12,6 +13,14 @@ namespace Disfigure.Net
 {
     public static class ConnectionHelper
     {
+        public readonly struct RetryParameters
+        {
+            public readonly int Retries;
+            public readonly TimeSpan Delay;
+
+            public RetryParameters(int retries, long delayMilliseconds) => (Retries, Delay) = (retries, TimeSpan.FromMilliseconds(delayMilliseconds));
+        }
+
         /// <summary>
         ///     Default retry parameters.
         /// </summary>
@@ -21,12 +30,12 @@ namespace Disfigure.Net
         public static RetryParameters DefaultRetryParameters = new RetryParameters(5, 500);
 
         /// <summary>
-        ///     Safely connects to a given <see cref="IPEndPoint" />, with optional retry parameters.
+        ///     Safely connects to a given <see cref="IPEndPoint" />.
         /// </summary>
         /// <param name="ipEndPoint"><see cref="IPEndPoint" /> to connect to.</param>
         /// <param name="retryParameters"><see cref="RetryParameters" /> to reference retry parameters from.</param>
         /// <param name="cancellationToken"><see cref="CancellationToken" /> to observe when retrying.</param>
-        /// <returns><see cref="TcpClient" /> representing complete connection.</returns>
+        /// <returns><see cref="TcpClient" /> representing completed connection.</returns>
         public static async ValueTask<TcpClient> ConnectAsync(IPEndPoint ipEndPoint, RetryParameters retryParameters,
             CancellationToken cancellationToken)
         {

@@ -15,12 +15,12 @@ namespace Disfigure.Net
         /// <summary>
         ///     Port of <see cref="EndPoint" />.
         /// </summary>
-        public ushort Port { get; }
+        public readonly ushort Port;
 
         /// <summary>
         ///     <see cref="IPAddress" /> of <see cref="EndPoint" />.
         /// </summary>
-        public IPAddress Address { get; }
+        public readonly IPAddress Address;
 
         public SerializableEndPoint(IPAddress address, ushort port) => (Address, Port) = (address, port);
 
