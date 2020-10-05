@@ -17,13 +17,14 @@ namespace Disfigure.Bouncer.CLI
 {
     internal class Program
     {
-        private static BouncerModule _Module;
+        private static BouncerModule? _Module;
 
         private static void Main(string[] args)
         {
             Log.Logger = new LoggerConfiguration().WriteTo.Console().CreateLogger();
 
-            ServerModuleConfiguration configuration = new ServerModuleConfiguration(Assembly.GetExecutingAssembly().GetName().Name, false);
+            ServerModuleConfiguration configuration = new ServerModuleConfiguration(
+                Assembly.GetExecutingAssembly().GetName()?.Name ?? "InvalidAssemblyName", false);
 
             Log.Logger = new LoggerConfiguration().WriteTo.Console().MinimumLevel.Is(configuration.LogLevel).CreateLogger();
 
