@@ -5,14 +5,13 @@ using System.Net;
 using System.Reflection;
 using System.Threading.Tasks;
 using Disfigure.Diagnostics;
-using Disfigure.Modules;
 using Disfigure.Net;
 using Disfigure.Net.Packets;
 using Serilog;
 
 #endregion
 
-namespace Disfigure.Server
+namespace Disfigure.Server.CLI
 {
     internal class Program
     {
@@ -28,12 +27,12 @@ namespace Disfigure.Server
 
                 DiagnosticsProvider.EnableGroup<PacketDiagnosticGroup>();
 
-                using ServerModule<BasicPacket> module = new ServerModule<BasicPacket>(new IPEndPoint(configuration.HostingIPAddress, configuration.HostingPort));
-                module.Connected += BasicPacket.SendEncryptionKeys;
+                using ServerModule module = new ServerModule(new IPEndPoint(configuration.HostingIPAddress, configuration.HostingPort));
+                module.Connected += Packet.SendEncryptionKeys;
                 module.PacketReceived += PacketReceivedCallback;
 
-                module.AcceptConnections(BasicPacket.EncryptorAsync, BasicPacket.FactoryAsync);
-                BasicPacket.PingPongLoop(module, TimeSpan.FromSeconds(5d), module.CancellationToken);
+                module.AcceptConnections(Packet.EncryptorAsync, Packet.FactoryAsync);
+                Packet.PingPongLoop(module, TimeSpan.FromSeconds(5d), module.CancellationToken);
 
                 while (!module.CancellationToken.IsCancellationRequested)
                 {
@@ -47,7 +46,7 @@ namespace Disfigure.Server
             }
         }
 
-        private static ValueTask PacketReceivedCallback(Connection<BasicPacket> connection, BasicPacket packet)
+        private static ValueTask PacketReceivedCallback(Connection<Packet> connection, Packet packet)
         {
             switch (packet.Type)
             {

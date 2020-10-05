@@ -5,27 +5,26 @@ using System.Collections.Concurrent;
 using System.Net;
 using System.Net.Sockets;
 using System.Threading.Tasks;
-using Disfigure.Modules;
 using Disfigure.Net;
 using Disfigure.Net.Packets;
 
 #endregion
 
-namespace Disfigure.Bouncer
+namespace Disfigure.Server
 {
-    public class BouncerModule<TPacket> : ServerModule<TPacket> where TPacket : IPacket
+    public class BouncerModule : ServerModule
     {
-        private readonly ConcurrentDictionary<Guid, Connection<TPacket>> _ServerConnections;
+        private readonly ConcurrentDictionary<Guid, Connection<Packet>> _ServerConnections;
 
         public BouncerModule(IPEndPoint hostAddress) : base(hostAddress) =>
-            _ServerConnections = new ConcurrentDictionary<Guid, Connection<TPacket>>();
+            _ServerConnections = new ConcurrentDictionary<Guid, Connection<Packet>>();
 
-        public async ValueTask<Connection<TPacket>> EstablishServerConnectionAsync(IPEndPoint ipEndPoint,
-            PacketEncryptorAsync<TPacket> packetEncryptorAsync, PacketFactoryAsync<TPacket> packetFactoryAsync)
+        public async ValueTask<Connection<Packet>> EstablishServerConnectionAsync(IPEndPoint ipEndPoint,
+            PacketEncryptorAsync<Packet> packetEncryptorAsync, PacketFactoryAsync<Packet> packetFactoryAsync)
         {
             TcpClient tcpClient = await ConnectionHelper.ConnectAsync(ipEndPoint, ConnectionHelper.DefaultRetryParameters, CancellationToken)
                 ;
-            Connection<TPacket> connection = new Connection<TPacket>(tcpClient, packetEncryptorAsync, packetFactoryAsync);
+            Connection<Packet> connection = new Connection<Packet>(tcpClient, packetEncryptorAsync, packetFactoryAsync);
             connection.Connected += OnServerConnected;
             connection.Disconnected += OnServerDisconnected;
             connection.PacketReceived += OnServerPacketReceived;
@@ -38,9 +37,9 @@ namespace Disfigure.Bouncer
 
         #region Server PacketReceived Events
 
-        public event PacketEventHandler<TPacket>? ServerPacketReceived;
+        public event PacketEventHandler<Packet>? ServerPacketReceived;
 
-        private async ValueTask OnServerPacketReceived(Connection<TPacket> connection, TPacket packet)
+        private async ValueTask OnServerPacketReceived(Connection<Packet> connection, Packet packet)
         {
             if (ServerPacketReceived is { })
             {
@@ -53,10 +52,10 @@ namespace Disfigure.Bouncer
 
         #region Server Connection Events
 
-        public event ConnectionEventHandler<TPacket>? ServerConnected;
-        public event ConnectionEventHandler<TPacket>? ServerDisconnected;
+        public event ConnectionEventHandler<Packet>? ServerConnected;
+        public event ConnectionEventHandler<Packet>? ServerDisconnected;
 
-        private async ValueTask OnServerConnected(Connection<TPacket> connection)
+        private async ValueTask OnServerConnected(Connection<Packet> connection)
         {
             if (ServerConnected is { })
             {
@@ -64,7 +63,7 @@ namespace Disfigure.Bouncer
             }
         }
 
-        private async ValueTask OnServerDisconnected(Connection<TPacket> connection)
+        private async ValueTask OnServerDisconnected(Connection<Packet> connection)
         {
             if (ServerDisconnected is { })
             {

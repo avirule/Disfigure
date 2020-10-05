@@ -11,9 +11,9 @@ using Serilog;
 
 #endregion
 
-namespace Disfigure.Modules
+namespace Disfigure.Server
 {
-    public class ServerModule<TPacket> : Module<TPacket> where TPacket : IPacket
+    public class ServerModule : Module<Packet>
     {
         private readonly IPEndPoint _HostAddress;
 
@@ -28,11 +28,11 @@ namespace Disfigure.Modules
         /// <remarks>
         ///     This is run on the ThreadPool.
         /// </remarks>
-        public void AcceptConnections(PacketEncryptorAsync<TPacket> packetEncryptorAsync, PacketFactoryAsync<TPacket> packetFactoryAsync) =>
+        public void AcceptConnections(PacketEncryptorAsync<Packet> packetEncryptorAsync, PacketFactoryAsync<Packet> packetFactoryAsync) =>
             Task.Run(() => AcceptConnectionsInternal(packetEncryptorAsync, packetFactoryAsync));
 
-        private async ValueTask AcceptConnectionsInternal(PacketEncryptorAsync<TPacket> packetEncryptorAsync,
-            PacketFactoryAsync<TPacket> packetFactoryAsync)
+        private async ValueTask AcceptConnectionsInternal(PacketEncryptorAsync<Packet> packetEncryptorAsync,
+            PacketFactoryAsync<Packet> packetFactoryAsync)
         {
             try
             {
@@ -46,7 +46,7 @@ namespace Disfigure.Modules
                     TcpClient tcpClient = await listener.AcceptTcpClientAsync();
                     Log.Information(string.Format(FormatHelper.CONNECTION_LOGGING, tcpClient.Client.RemoteEndPoint, "Connection accepted."));
 
-                    Connection<TPacket> connection = new Connection<TPacket>(tcpClient, packetEncryptorAsync, packetFactoryAsync);
+                    Connection<Packet> connection = new Connection<Packet>(tcpClient, packetEncryptorAsync, packetFactoryAsync);
                     RegisterConnection(connection);
 
                     await connection.StartAsync(CancellationToken);

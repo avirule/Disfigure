@@ -9,7 +9,6 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Disfigure.Cryptography;
-using Disfigure.Modules;
 using Serilog;
 
 #endregion
@@ -37,7 +36,7 @@ namespace Disfigure.Net.Packets
         EndIdentity
     }
 
-    public readonly struct BasicPacket : IPacket
+    public readonly struct Packet : IPacket
     {
         private const int _OFFSET_PACKET_TYPE = 0;
         private const int _OFFSET_TIMESTAMP = _OFFSET_PACKET_TYPE + sizeof(PacketType);
@@ -49,7 +48,7 @@ namespace Disfigure.Net.Packets
 
         public ReadOnlySpan<byte> Content => Data.Slice(_HEADER_LENGTH).Span;
 
-        public BasicPacket(ReadOnlyMemory<byte> data)
+        public Packet(ReadOnlyMemory<byte> data)
         {
             ReadOnlySpan<byte> destination = data.Span;
 
@@ -59,7 +58,7 @@ namespace Disfigure.Net.Packets
             Data = data;
         }
 
-        public BasicPacket(PacketType packetType, DateTime utcTimestamp, ReadOnlySpan<byte> content)
+        public Packet(PacketType packetType, DateTime utcTimestamp, ReadOnlySpan<byte> content)
         {
             Type = packetType;
             UtcTimestamp = utcTimestamp;
@@ -92,13 +91,13 @@ namespace Disfigure.Net.Packets
         }
 
 
-        public static async ValueTask SendEncryptionKeys(Connection<BasicPacket> connection) =>
-            await connection.WriteAsync(new BasicPacket(PacketType.EncryptionKeys, DateTime.UtcNow, connection.PublicKey), CancellationToken.None);
+        public static async ValueTask SendEncryptionKeys(Connection<Packet> connection) =>
+            await connection.WriteAsync(new Packet(PacketType.EncryptionKeys, DateTime.UtcNow, connection.PublicKey), CancellationToken.None);
 
 
         #region PacketEncryptorAsync
 
-        public static async ValueTask<ReadOnlyMemory<byte>> EncryptorAsync(BasicPacket packet, EncryptionProvider encryptionProvider,
+        public static async ValueTask<ReadOnlyMemory<byte>> EncryptorAsync(Packet packet, EncryptionProvider encryptionProvider,
             CancellationToken cancellationToken)
         {
             ReadOnlyMemory<byte> initializationVector = ReadOnlyMemory<byte>.Empty;
@@ -129,7 +128,7 @@ namespace Disfigure.Net.Packets
 
         #region PacketFactoryAsync
 
-        public static async ValueTask<(bool, SequencePosition, BasicPacket)> FactoryAsync(ReadOnlySequence<byte> sequence,
+        public static async ValueTask<(bool, SequencePosition, Packet)> FactoryAsync(ReadOnlySequence<byte> sequence,
             EncryptionProvider encryptionProvider, CancellationToken cancellationToken)
         {
             if (!TryGetPacketData(sequence, out SequencePosition consumed, out ReadOnlySequence<byte> data))
@@ -154,7 +153,7 @@ namespace Disfigure.Net.Packets
                 Log.Warning($"Packet data has been received, but the {nameof(EncryptionProvider)} has no keys.");
             }
 
-            return (true, consumed, new BasicPacket(packetData));
+            return (true, consumed, new Packet(packetData));
         }
 
         private static bool TryGetPacketData(ReadOnlySequence<byte> sequence, out SequencePosition consumed, out ReadOnlySequence<byte> data)
@@ -190,15 +189,15 @@ namespace Disfigure.Net.Packets
 
         #region PingPongLoop
 
-        public static void PingPongLoop(Module<BasicPacket> module, TimeSpan pingInterval, CancellationToken cancellationToken) =>
+        public static void PingPongLoop(Module<Packet> module, TimeSpan pingInterval, CancellationToken cancellationToken) =>
             Task.Run(async () => await PingPongLoopAsync(module, pingInterval, cancellationToken), cancellationToken);
 
-        private static async Task PingPongLoopAsync(Module<BasicPacket> module, TimeSpan pingInterval, CancellationToken cancellationToken)
+        private static async Task PingPongLoopAsync(Module<Packet> module, TimeSpan pingInterval, CancellationToken cancellationToken)
         {
             ConcurrentDictionary<Guid, Guid> pendingPings = new ConcurrentDictionary<Guid, Guid>();
             Stack<Guid> abandonedConnections = new Stack<Guid>();
 
-            ValueTask PongPacketCallbackImpl(Connection<BasicPacket> connection, BasicPacket basicPacket)
+            ValueTask PongPacketCallbackImpl(Connection<Packet> connection, Packet basicPacket)
             {
                 if (basicPacket.Type != PacketType.Pong)
                 {
@@ -233,13 +232,13 @@ namespace Disfigure.Net.Packets
             {
                 await Task.Delay(pingInterval, cancellationToken);
 
-                foreach ((Guid connectionIdentity, Connection<BasicPacket> connection) in module.ReadOnlyConnections)
+                foreach ((Guid connectionIdentity, Connection<Packet> connection) in module.ReadOnlyConnections)
                 {
                     Guid pingIdentity = Guid.NewGuid();
 
                     if (pendingPings.TryAdd(connectionIdentity, pingIdentity))
                     {
-                        await connection.WriteAsync(new BasicPacket(PacketType.Ping, DateTime.UtcNow, pingIdentity.ToByteArray()),
+                        await connection.WriteAsync(new Packet(PacketType.Ping, DateTime.UtcNow, pingIdentity.ToByteArray()),
                             cancellationToken);
                     }
                     else

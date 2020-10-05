@@ -11,9 +11,9 @@ using Serilog;
 
 #endregion
 
-namespace Disfigure.Modules
+namespace Disfigure
 {
-    public abstract class Module<TPacket> : IDisposable where TPacket : IPacket
+    public abstract class Module<TPacket> : IDisposable where TPacket : struct, IPacket
     {
         /// <summary>
         ///     <see cref="CancellationTokenSource" /> used to provide <see cref="CancellationToken" /> for async operations.

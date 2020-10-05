@@ -22,8 +22,8 @@ namespace Disfigure.Client
 
             IPEndPoint ipEndPoint = new IPEndPoint(IPAddress.Loopback, 8898);
             TcpClient tcpClient = await ConnectionHelper.ConnectAsync(ipEndPoint, ConnectionHelper.DefaultRetryParameters, CancellationToken.None);
-            Connection<BasicPacket> connection = new Connection<BasicPacket>(tcpClient, BasicPacket.EncryptorAsync, BasicPacket.FactoryAsync);
-            connection.Connected += BasicPacket.SendEncryptionKeys;
+            Connection<Packet> connection = new Connection<Packet>(tcpClient, Packet.EncryptorAsync, Packet.FactoryAsync);
+            connection.Connected += Packet.SendEncryptionKeys;
             connection.PacketReceived += async (origin, packet) =>
             {
                 switch (packet.Type)
@@ -32,7 +32,7 @@ namespace Disfigure.Client
                         connection.AssignRemoteKeys(packet.Content);
                         break;
                     case PacketType.Ping:
-                        await connection.WriteAsync(new BasicPacket(PacketType.Pong, DateTime.UtcNow, packet.Content), CancellationToken.None);
+                        await connection.WriteAsync(new Packet(PacketType.Pong, DateTime.UtcNow, packet.Content), CancellationToken.None);
                         break;
                     default:
                         Log.Information(string.Format(FormatHelper.CONNECTION_LOGGING, connection.RemoteEndPoint, packet.ToString()));
@@ -41,7 +41,7 @@ namespace Disfigure.Client
             };
 
             await connection.StartAsync(CancellationToken.None);
-            await connection.WriteAsync(new BasicPacket(PacketType.Connect, DateTime.UtcNow,
+            await connection.WriteAsync(new Packet(PacketType.Connect, DateTime.UtcNow,
                 new SerializableEndPoint(IPAddress.Loopback, 8898).Serialize()), CancellationToken.None);
 
             while (true)

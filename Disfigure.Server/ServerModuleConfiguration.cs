@@ -14,7 +14,7 @@ using Tomlyn.Syntax;
 
 #endregion
 
-namespace Disfigure.Modules
+namespace Disfigure.Server
 {
     public class ServerModuleConfiguration
     {
