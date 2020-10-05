@@ -8,7 +8,6 @@ using System.Threading.Tasks;
 using Disfigure.Net;
 using Disfigure.Net.Packets;
 using Serilog;
-using Serilog.Events;
 
 #endregion
 
@@ -18,7 +17,7 @@ namespace Disfigure.Modules
     {
         private readonly IPEndPoint _HostAddress;
 
-        public ServerModule(LogEventLevel logEventLevel, IPEndPoint hostAddress) : base(logEventLevel) => _HostAddress = hostAddress;
+        public ServerModule(IPEndPoint hostAddress) => _HostAddress = hostAddress;
 
 
         #region Runtime

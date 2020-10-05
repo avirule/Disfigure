@@ -20,12 +20,15 @@ namespace Disfigure.Server
         {
             try
             {
-                DiagnosticsProvider.EnableGroup<PacketDiagnosticGroup>();
+                Log.Logger = new LoggerConfiguration().WriteTo.Console().CreateLogger();
 
                 ServerModuleConfiguration configuration = new ServerModuleConfiguration(Assembly.GetExecutingAssembly().GetName().Name, false);
 
-                using ServerModule<BasicPacket> module = new ServerModule<BasicPacket>(configuration.LogLevel,
-                    new IPEndPoint(configuration.HostingIPAddress, configuration.HostingPort));
+                Log.Logger = new LoggerConfiguration().WriteTo.Console().MinimumLevel.Is(configuration.LogLevel).CreateLogger();
+
+                DiagnosticsProvider.EnableGroup<PacketDiagnosticGroup>();
+
+                using ServerModule<BasicPacket> module = new ServerModule<BasicPacket>(new IPEndPoint(configuration.HostingIPAddress, configuration.HostingPort));
                 module.Connected += BasicPacket.SendEncryptionKeys;
                 module.PacketReceived += PacketReceivedCallback;
 

@@ -8,7 +8,6 @@ using System.Threading.Tasks;
 using Disfigure.Net;
 using Disfigure.Net.Packets;
 using Serilog;
-using Serilog.Events;
 
 #endregion
 
@@ -36,10 +35,8 @@ namespace Disfigure.Modules
         /// </summary>
         public IReadOnlyDictionary<Guid, Connection<TPacket>> ReadOnlyConnections => Connections;
 
-        protected Module(LogEventLevel minimumLogLevel)
+        protected Module()
         {
-            Log.Logger = new LoggerConfiguration().WriteTo.Console().MinimumLevel.Is(minimumLogLevel).CreateLogger();
-
             CancellationTokenSource = new CancellationTokenSource();
             Connections = new ConcurrentDictionary<Guid, Connection<TPacket>>();
 

@@ -8,7 +8,6 @@ using System.Threading.Tasks;
 using Disfigure.Modules;
 using Disfigure.Net;
 using Disfigure.Net.Packets;
-using Serilog.Events;
 
 #endregion
 
@@ -18,7 +17,7 @@ namespace Disfigure.Bouncer
     {
         private readonly ConcurrentDictionary<Guid, Connection<TPacket>> _ServerConnections;
 
-        public BouncerModule(LogEventLevel logEventLevel, IPEndPoint hostAddress) : base(logEventLevel, hostAddress) =>
+        public BouncerModule(IPEndPoint hostAddress) : base(hostAddress) =>
             _ServerConnections = new ConcurrentDictionary<Guid, Connection<TPacket>>();
 
         public async ValueTask<Connection<TPacket>> EstablishServerConnectionAsync(IPEndPoint ipEndPoint,
