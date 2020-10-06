@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <OutputType>Exe</OutputType>
+        <TargetFramework>netcoreapp3.1</TargetFramework>
+        <LangVersion>9</LangVersion>
+        <Nullable>enable</Nullable>
+    </PropertyGroup>
+
+    <ItemGroup>
+      <ProjectReference Include="..\Disfigure.CLI\Disfigure.CLI.csproj" />
+      <ProjectReference Include="..\Disfigure.Modules\Disfigure.Modules.csproj" />
+      <ProjectReference Include="..\Disfigure\Disfigure.csproj" />
+    </ItemGroup>
+
+</Project>

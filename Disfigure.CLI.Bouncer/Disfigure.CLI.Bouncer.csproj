@@ -8,7 +8,8 @@
     </PropertyGroup>
 
     <ItemGroup>
-      <ProjectReference Include="..\Disfigure.Server\Disfigure.Server.csproj" />
+      <ProjectReference Include="..\Disfigure.CLI\Disfigure.CLI.csproj" />
+      <ProjectReference Include="..\Disfigure.Modules\Disfigure.Modules.csproj" />
       <ProjectReference Include="..\Disfigure\Disfigure.csproj" />
     </ItemGroup>
 

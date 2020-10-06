@@ -2,18 +2,17 @@
 
 using System;
 using System.Net;
-using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 using Disfigure.Diagnostics;
+using Disfigure.Modules;
 using Disfigure.Net;
 using Disfigure.Net.Packets;
-using Disfigure.Server;
 using Serilog;
 
 #endregion
 
-namespace Disfigure.Bouncer.CLI
+namespace Disfigure.CLI.Bouncer
 {
     internal class Program
     {
@@ -21,16 +20,13 @@ namespace Disfigure.Bouncer.CLI
 
         private static void Main(string[] args)
         {
-            Log.Logger = new LoggerConfiguration().WriteTo.Console().CreateLogger();
+            HostModuleOption hostModuleOption = CLIParser.Parse<HostModuleOption>(args);
 
-            ServerModuleConfiguration configuration = new ServerModuleConfiguration(
-                Assembly.GetExecutingAssembly().GetName()?.Name ?? "InvalidAssemblyName", false);
-
-            Log.Logger = new LoggerConfiguration().WriteTo.Console().MinimumLevel.Is(configuration.LogLevel).CreateLogger();
+            Log.Logger = new LoggerConfiguration().WriteTo.Console().MinimumLevel.Is(hostModuleOption.LogLevel).CreateLogger();
 
             DiagnosticsProvider.EnableGroup<PacketDiagnosticGroup>();
 
-            _Module = new BouncerModule(new IPEndPoint(configuration.HostingIPAddress, configuration.HostingPort));
+            _Module = new BouncerModule(new IPEndPoint(hostModuleOption.IPAddress, hostModuleOption.Port));
             _Module.Connected += Packet.SendEncryptionKeys;
             _Module.PacketReceived += PacketReceivedCallback;
             _Module.ServerConnected += Packet.SendEncryptionKeys;

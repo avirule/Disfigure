@@ -2,16 +2,16 @@
 
 using System;
 using System.Net;
-using System.Reflection;
 using System.Threading.Tasks;
 using Disfigure.Diagnostics;
+using Disfigure.Modules;
 using Disfigure.Net;
 using Disfigure.Net.Packets;
 using Serilog;
 
 #endregion
 
-namespace Disfigure.Server.CLI
+namespace Disfigure.CLI.Server
 {
     internal class Program
     {
@@ -19,16 +19,13 @@ namespace Disfigure.Server.CLI
         {
             try
             {
-                Log.Logger = new LoggerConfiguration().WriteTo.Console().CreateLogger();
-
-                ServerModuleConfiguration configuration = new ServerModuleConfiguration(
-                    Assembly.GetExecutingAssembly().GetName()?.Name ?? "InvalidAssemblyName", false);
-
-                Log.Logger = new LoggerConfiguration().WriteTo.Console().MinimumLevel.Is(configuration.LogLevel).CreateLogger();
+                HostModuleOption hostModuleOption = CLIParser.Parse<HostModuleOption>(args);
+                
+                Log.Logger = new LoggerConfiguration().WriteTo.Console().MinimumLevel.Is(hostModuleOption.LogLevel).CreateLogger();
 
                 DiagnosticsProvider.EnableGroup<PacketDiagnosticGroup>();
 
-                using ServerModule module = new ServerModule(new IPEndPoint(configuration.HostingIPAddress, configuration.HostingPort));
+                using ServerModule module = new ServerModule(new IPEndPoint(hostModuleOption.IPAddress, hostModuleOption.Port));
                 module.Connected += Packet.SendEncryptionKeys;
                 module.PacketReceived += PacketReceivedCallback;
 

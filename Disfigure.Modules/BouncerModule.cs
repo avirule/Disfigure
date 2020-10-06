@@ -10,7 +10,7 @@ using Disfigure.Net.Packets;
 
 #endregion
 
-namespace Disfigure.Server
+namespace Disfigure.Modules
 {
     public class BouncerModule : ServerModule
     {

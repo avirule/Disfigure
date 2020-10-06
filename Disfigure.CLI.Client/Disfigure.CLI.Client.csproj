@@ -6,7 +6,6 @@
         <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
         <LangVersion>9</LangVersion>
         <Nullable>enable</Nullable>
-        <RootNamespace>Disfigure.Client</RootNamespace>
     </PropertyGroup>
 
     <ItemGroup>
