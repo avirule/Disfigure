@@ -4,7 +4,7 @@ using System;
 
 #endregion
 
-namespace Disfigure.Net.Packets
+namespace Disfigure.Net
 {
     public interface IPacket
     {

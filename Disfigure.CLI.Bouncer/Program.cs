@@ -7,7 +7,6 @@ using System.Threading.Tasks;
 using Disfigure.Diagnostics;
 using Disfigure.Modules;
 using Disfigure.Net;
-using Disfigure.Net.Packets;
 using Serilog;
 
 #endregion
@@ -50,8 +49,7 @@ namespace Disfigure.CLI.Bouncer
                     break;
                 case PacketType.Connect when _Module is { }:
                     SerializableEndPoint serializableEndPoint = new SerializableEndPoint(packet.Content);
-                    await _Module.EstablishServerConnectionAsync((IPEndPoint)serializableEndPoint, Packet.EncryptorAsync,
-                        Packet.FactoryAsync);
+                    await _Module.EstablishServerConnectionAsync((IPEndPoint)serializableEndPoint, Packet.EncryptorAsync, Packet.FactoryAsync);
                     break;
             }
         }

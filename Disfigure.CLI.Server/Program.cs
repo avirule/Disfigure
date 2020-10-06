@@ -6,7 +6,6 @@ using System.Threading.Tasks;
 using Disfigure.Diagnostics;
 using Disfigure.Modules;
 using Disfigure.Net;
-using Disfigure.Net.Packets;
 using Serilog;
 
 #endregion

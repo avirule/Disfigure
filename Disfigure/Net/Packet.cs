@@ -13,7 +13,7 @@ using Serilog;
 
 #endregion
 
-namespace Disfigure.Net.Packets
+namespace Disfigure.Net
 {
     public enum PacketType : byte
     {

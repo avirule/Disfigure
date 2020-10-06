@@ -25,7 +25,7 @@ namespace Disfigure.Net
         ///     Default retry parameters.
         /// </summary>
         /// <remarks>
-        ///     Retries: 5, RetryDelay: 500
+        ///     Retries: 5, RetryDelay: 500 (ms)
         /// </remarks>
         public static RetryParameters DefaultRetryParameters = new RetryParameters(5, 500);
 
