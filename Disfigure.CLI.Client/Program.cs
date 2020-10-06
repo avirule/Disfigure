@@ -12,15 +12,17 @@ using Serilog.Events;
 
 #endregion
 
-namespace Disfigure.Client
+namespace Disfigure.CLI.Client
 {
     internal class Program
     {
         private static async Task Main(string[] args)
         {
-            Log.Logger = new LoggerConfiguration().WriteTo.Console().MinimumLevel.Is(LogEventLevel.Verbose).CreateLogger();
+            HostModuleOption hostModuleOption = CLIParser.Parse<HostModuleOption>(args);
 
-            IPEndPoint ipEndPoint = new IPEndPoint(IPAddress.Loopback, 8898);
+            Log.Logger = new LoggerConfiguration().WriteTo.Console().MinimumLevel.Is(hostModuleOption.LogLevel).CreateLogger();
+
+            IPEndPoint ipEndPoint = new IPEndPoint(hostModuleOption.IPAddress, hostModuleOption.Port);
             TcpClient tcpClient = await ConnectionHelper.ConnectAsync(ipEndPoint, ConnectionHelper.DefaultRetryParameters, CancellationToken.None);
             Connection<Packet> connection = new Connection<Packet>(tcpClient, Packet.EncryptorAsync, Packet.FactoryAsync);
             connection.Connected += Packet.SendEncryptionKeys;

@@ -9,12 +9,12 @@ namespace Disfigure.CLI
 {
     public class HostModuleOption : LogLevelOption
     {
-        private string _IPAddressUnparsed;
+        private string? _IPAddressUnparsed;
 
-        [Value(0, MetaName = nameof(IPAddressUnparsed), Required = true)]
+        [Value(0, MetaName = nameof(IPAddressUnparsed), Required = true, Default = "127.0.0.1")]
         public string IPAddressUnparsed
         {
-            get => _IPAddressUnparsed;
+            get => _IPAddressUnparsed ?? string.Empty;
             set
             {
                 _IPAddressUnparsed = value;
@@ -22,9 +22,9 @@ namespace Disfigure.CLI
             }
         }
 
-        [Value(1, MetaName = nameof(Port), Required = true)]
+        [Value(1, MetaName = nameof(Port), Required = true, Default = 8998)]
         public ushort Port { get; set; }
 
-        public IPAddress IPAddress { get; private set; }
+        public IPAddress IPAddress { get; private set; } = null!;
     }
 }
