@@ -20,7 +20,7 @@ namespace Disfigure.CLI.Server
             try
             {
                 HostModuleOption hostModuleOption = CLIParser.Parse<HostModuleOption>(args);
-                
+
                 Log.Logger = new LoggerConfiguration().WriteTo.Console().MinimumLevel.Is(hostModuleOption.LogLevel).CreateLogger();
 
                 DiagnosticsProvider.EnableGroup<PacketDiagnosticGroup>();
