@@ -115,16 +115,14 @@ namespace Disfigure.Net
                     (bool success, SequencePosition consumed, TPacket packet) = await _PacketFactoryAsync(sequence, _EncryptionProvider,
                         cancellationToken);
 
-                    if (!success)
+                    if (success)
                     {
-                        continue;
+                        DiagnosticsProvider.CommitData<PacketDiagnosticGroup>(new ConstructionTime(stopwatch.Elapsed));
+
+                        Log.Verbose(string.Format(FormatHelper.CONNECTION_LOGGING, RemoteEndPoint, $"INC {packet}"));
+
+                        await PacketReceivedCallback(packet);
                     }
-
-                    DiagnosticsProvider.CommitData<PacketDiagnosticGroup>(new ConstructionTime(stopwatch.Elapsed));
-
-                    Log.Verbose(string.Format(FormatHelper.CONNECTION_LOGGING, RemoteEndPoint, $"INC {packet}"));
-
-                    await PacketReceivedCallback(packet);
 
                     _Reader.AdvanceTo(consumed, consumed);
                 }

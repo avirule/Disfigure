@@ -4,6 +4,7 @@ using System;
 using System.Buffers;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Net;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
@@ -30,10 +31,8 @@ namespace Disfigure.Net
         Video,
         Administration,
         Operation,
-        BeginIdentity,
         Identity,
         ChannelIdentity,
-        EndIdentity
     }
 
     public readonly struct Packet : IPacket
@@ -41,6 +40,8 @@ namespace Disfigure.Net
         private const int _OFFSET_PACKET_TYPE = 0;
         private const int _OFFSET_TIMESTAMP = _OFFSET_PACKET_TYPE + sizeof(PacketType);
         private const int _HEADER_LENGTH = _OFFSET_TIMESTAMP + sizeof(long);
+
+        private const int _TOTAL_HEADER_LENGTH = IPacket.ENCRYPTION_HEADER_LENGTH + _HEADER_LENGTH;
 
         public readonly ReadOnlyMemory<byte> Data;
         public readonly PacketType Type;
@@ -112,13 +113,12 @@ namespace Disfigure.Net
                 Log.Warning($"Write call has been received, but the {nameof(EncryptionProvider)} has no keys.");
             }
 
-            const int header_length = sizeof(int) + EncryptionProvider.INITIALIZATION_VECTOR_SIZE;
 
-            int length = header_length + packetData.Length;
+            int length = IPacket.ENCRYPTION_HEADER_LENGTH + packetData.Length;
             Memory<byte> data = new byte[length];
             MemoryMarshal.Write(data.Span, ref length);
             initializationVector.CopyTo(data.Slice(sizeof(int)));
-            packetData.CopyTo(data.Slice(header_length));
+            packetData.CopyTo(data.Slice(IPacket.ENCRYPTION_HEADER_LENGTH));
 
             return data;
         }
@@ -133,11 +133,12 @@ namespace Disfigure.Net
         {
             if (!TryGetPacketData(sequence, out SequencePosition consumed, out ReadOnlySequence<byte> data))
             {
-                return (false, default, default);
+                return (false, consumed, default);
             }
 
-            ReadOnlyMemory<byte> initializationVector = data.Slice(0, EncryptionProvider.INITIALIZATION_VECTOR_SIZE).First;
-            ReadOnlyMemory<byte> packetData = data.Slice(EncryptionProvider.INITIALIZATION_VECTOR_SIZE, data.End).First;
+            ReadOnlyMemory<byte> dataMemory = data.First; // cache value
+            ReadOnlyMemory<byte> initializationVector = dataMemory.Slice(0, EncryptionProvider.INITIALIZATION_VECTOR_SIZE);
+            ReadOnlyMemory<byte> packetData = dataMemory.Slice(EncryptionProvider.INITIALIZATION_VECTOR_SIZE);
 
             if (packetData.IsEmpty)
             {
@@ -158,7 +159,7 @@ namespace Disfigure.Net
 
         private static bool TryGetPacketData(ReadOnlySequence<byte> sequence, out SequencePosition consumed, out ReadOnlySequence<byte> data)
         {
-            consumed = default;
+            consumed = sequence.Start;
             data = default;
 
             if (sequence.Length < sizeof(int))
@@ -168,18 +169,27 @@ namespace Disfigure.Net
 
             int length = MemoryMarshal.Read<int>(sequence.FirstSpan);
 
-            // otherwise, check if entire packet has been received
-            if ((length > 0) && (sequence.Length >= length))
+            // check if entire packet has been received
+            if (sequence.Length >= length)
             {
-                consumed = sequence.GetPosition(length);
+                // check to ensure packet length is >= total header length (i.e. an entire packet was sent)
+                if (length >= _TOTAL_HEADER_LENGTH)
+                {
+                    consumed = sequence.GetPosition(length);
+                }
+                else
+                {
+                    Log.Warning("Received packet whose length was less than the minimum total header length.");
+                    return false;
+                }
             }
-            // if none, then wait for more data
+            // if none, then return false and wait for more data
             else
             {
                 return false;
             }
 
-            // begin at sizeof(int) to skip originalLength
+            // begin at sizeof(int) to skip bytes of length value
             data = sequence.Slice(sizeof(int), consumed);
             return true;
         }
@@ -206,10 +216,10 @@ namespace Disfigure.Net
 
                 if (!pendingPings.TryGetValue(connection.Identity, out Guid pingIdentity))
                 {
-                    Log.Warning($"<{connection.RemoteEndPoint}> Received pong, but no ping was pending.");
+                    Log.Warning($"<{connection.RemoteEndPoint}> Received pong, but no ping with that identity was pending.");
                     return default;
                 }
-                else if (basicPacket.Content.Length != 16)
+                else if (basicPacket.Content.Length < 16)
                 {
                     Log.Warning($"<{connection.RemoteEndPoint}> Ping identity was malformed (too few bytes).");
                     return default;
