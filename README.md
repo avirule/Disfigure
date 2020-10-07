@@ -1,11 +1,12 @@
 # Disfigure
+
 Disfigure is a protocol-agnostic platform for creating decentralized instant messaging applications. 
 
 
 ## Project Goals
-### Simplicity of function
-The project should strive to remain focused implementing and refining all features listed herein, and avoid any unnecessary—or otherwise out-of-scope—features.
 
+- Simplicity of function
+    - The project should strive to remain focused implementing and refining all features listed herein, and avoid any unnecessary—or otherwise out-of-scope—features.
 - Hosting Disfigure servers on personal machines
 - Hosting Disfigure client-server on personal machines
     - Client-server acting as a pass-through and personal database.
