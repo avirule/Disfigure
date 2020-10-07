@@ -94,7 +94,7 @@ namespace Disfigure.Cryptography
 
         #region Encrypt / Decrypt
 
-        public async ValueTask<(ReadOnlyMemory<byte> initializationVector, ReadOnlyMemory<byte> encrypted)>
+        public async Task<(ReadOnlyMemory<byte> initializationVector, ReadOnlyMemory<byte> encrypted)>
             EncryptAsync(ReadOnlyMemory<byte> unencrypted, CancellationToken cancellationToken)
         {
             WaitForRemoteKeys(_EncryptionKeysWaitTimeout);
@@ -123,7 +123,7 @@ namespace Disfigure.Cryptography
             return (aes.IV, cipherBytes.ToArray());
         }
 
-        public async ValueTask<ReadOnlyMemory<byte>> DecryptAsync(ReadOnlyMemory<byte> initializationVector, ReadOnlyMemory<byte> encrypted,
+        public async Task<ReadOnlyMemory<byte>> DecryptAsync(ReadOnlyMemory<byte> initializationVector, ReadOnlyMemory<byte> encrypted,
             CancellationToken cancellationToken)
         {
             WaitForRemoteKeys(_EncryptionKeysWaitTimeout);

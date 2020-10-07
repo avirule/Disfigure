@@ -32,7 +32,7 @@ namespace Disfigure.Modules
         public void AcceptConnections(PacketSerializerAsync<Packet> packetSerializerAsync, PacketFactoryAsync<Packet> packetFactoryAsync) =>
             Task.Run(() => AcceptConnectionsInternal(packetSerializerAsync, packetFactoryAsync));
 
-        private async ValueTask AcceptConnectionsInternal(PacketSerializerAsync<Packet> packetSerializerAsync,
+        private async Task AcceptConnectionsInternal(PacketSerializerAsync<Packet> packetSerializerAsync,
             PacketFactoryAsync<Packet> packetFactoryAsync)
         {
             try

@@ -42,7 +42,7 @@ namespace Disfigure.CLI.Bouncer
             }
         }
 
-        private static async ValueTask PacketReceivedCallback(Connection<Packet> connection, Packet packet)
+        private static async Task PacketReceivedCallback(Connection<Packet> connection, Packet packet)
         {
             switch (packet.Type)
             {
@@ -56,7 +56,7 @@ namespace Disfigure.CLI.Bouncer
             }
         }
 
-        private static async ValueTask ServerPacketReceivedCallback(Connection<Packet> connection, Packet packet)
+        private static async Task ServerPacketReceivedCallback(Connection<Packet> connection, Packet packet)
         {
             switch (packet.Type)
             {

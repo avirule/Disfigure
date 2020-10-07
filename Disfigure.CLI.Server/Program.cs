@@ -45,7 +45,7 @@ namespace Disfigure.CLI.Server
             }
         }
 
-        private static ValueTask PacketReceivedCallback(Connection<Packet> connection, Packet packet)
+        private static Task PacketReceivedCallback(Connection<Packet> connection, Packet packet)
         {
             switch (packet.Type)
             {

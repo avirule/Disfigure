@@ -18,15 +18,15 @@ using Serilog;
 
 namespace Disfigure.Net
 {
-    public delegate ValueTask<(bool, SequencePosition, TPacket)> PacketFactoryAsync<TPacket>(ReadOnlySequence<byte> sequence,
+    public delegate Task<(bool, SequencePosition, TPacket)> PacketFactoryAsync<TPacket>(ReadOnlySequence<byte> sequence,
         IEncryptionProvider? encryptionProvider, CancellationToken cancellationToken);
 
-    public delegate ValueTask<ReadOnlyMemory<byte>> PacketSerializerAsync<in TPacket>(TPacket packet, IEncryptionProvider? encryptionProvider,
+    public delegate Task<ReadOnlyMemory<byte>> PacketSerializerAsync<in TPacket>(TPacket packet, IEncryptionProvider? encryptionProvider,
         CancellationToken cancellationToken);
 
-    public delegate ValueTask ConnectionEventHandler<TPacket>(Connection<TPacket> connection) where TPacket : struct;
+    public delegate Task ConnectionEventHandler<TPacket>(Connection<TPacket> connection) where TPacket : struct;
 
-    public delegate ValueTask PacketEventHandler<TPacket>(Connection<TPacket> origin, TPacket packet) where TPacket : struct;
+    public delegate Task PacketEventHandler<TPacket>(Connection<TPacket> origin, TPacket packet) where TPacket : struct;
 
     public class Connection<TPacket> : IDisposable, IEquatable<Connection<TPacket>> where TPacket : struct
     {
@@ -67,7 +67,7 @@ namespace Disfigure.Net
         ///     Invokes <see cref="Connected" /> event and begins read loop.
         /// </summary>
         /// <param name="cancellationToken"><see cref="CancellationToken" /> to observe.</param>
-        public async ValueTask FinalizeAsync(CancellationToken cancellationToken)
+        public async Task FinalizeAsync(CancellationToken cancellationToken)
         {
             await OnConnected();
 
@@ -84,7 +84,7 @@ namespace Disfigure.Net
 
         private void BeginListen(CancellationToken cancellationToken) => Task.Run(() => ReadLoopAsync(cancellationToken), cancellationToken);
 
-        private async ValueTask ReadLoopAsync(CancellationToken cancellationToken)
+        private async Task ReadLoopAsync(CancellationToken cancellationToken)
         {
             try
             {
@@ -141,7 +141,7 @@ namespace Disfigure.Net
 
         #region Writing Data
 
-        public async ValueTask WriteAsync(TPacket packet, CancellationToken cancellationToken)
+        public async Task WriteAsync(TPacket packet, CancellationToken cancellationToken)
         {
             Log.Verbose(string.Format(FormatHelper.CONNECTION_LOGGING, RemoteEndPoint, $"OUT {packet}"));
 
@@ -158,7 +158,7 @@ namespace Disfigure.Net
         public event ConnectionEventHandler<TPacket>? Connected;
         public event ConnectionEventHandler<TPacket>? Disconnected;
 
-        private async ValueTask OnConnected()
+        private async Task OnConnected()
         {
             if (Connected is { })
             {
@@ -166,7 +166,7 @@ namespace Disfigure.Net
             }
         }
 
-        private async ValueTask OnDisconnected()
+        private async Task OnDisconnected()
         {
             if (Disconnected is { })
             {
@@ -181,7 +181,7 @@ namespace Disfigure.Net
 
         public event PacketEventHandler<TPacket>? PacketReceived;
 
-        private async ValueTask PacketReceivedCallback(TPacket packet)
+        private async Task PacketReceivedCallback(TPacket packet)
         {
             if (PacketReceived is { })
             {

@@ -36,7 +36,7 @@ namespace Disfigure.Net
         /// <param name="retryParameters"><see cref="RetryParameters" /> to reference retry parameters from.</param>
         /// <param name="cancellationToken"><see cref="CancellationToken" /> to observe when retrying.</param>
         /// <returns><see cref="TcpClient" /> representing completed connection.</returns>
-        public static async ValueTask<TcpClient> ConnectAsync(IPEndPoint ipEndPoint, RetryParameters retryParameters,
+        public static async Task<TcpClient> ConnectAsync(IPEndPoint ipEndPoint, RetryParameters retryParameters,
             CancellationToken cancellationToken)
         {
             TcpClient tcpClient = new TcpClient();

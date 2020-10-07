@@ -29,14 +29,14 @@ namespace Disfigure.Net.Packets
 
         private const int _TOTAL_HEADER_LENGTH = _ENCRYPTION_HEADER_LENGTH + _HEADER_LENGTH;
 
-        public static async ValueTask SendEncryptionKeys(Connection<Packet> connection) => await connection.WriteAsync(
+        public static async Task SendEncryptionKeys(Connection<Packet> connection) => await connection.WriteAsync(
             new Packet(PacketType.EncryptionKeys, DateTime.UtcNow, connection.EncryptionProviderAs<IEncryptionProvider>().PublicKey),
             CancellationToken.None);
 
 
         #region PacketEncryptorAsync
 
-        public static async ValueTask<ReadOnlyMemory<byte>> SerializerAsync(Packet packet, IEncryptionProvider? encryptionProvider,
+        public static async Task<ReadOnlyMemory<byte>> SerializerAsync(Packet packet, IEncryptionProvider? encryptionProvider,
             CancellationToken cancellationToken)
         {
             ReadOnlyMemory<byte> initializationVector = ReadOnlyMemory<byte>.Empty;
@@ -155,7 +155,7 @@ namespace Disfigure.Net.Packets
             ConcurrentDictionary<Guid, Guid> pendingPings = new ConcurrentDictionary<Guid, Guid>();
             Stack<Guid> abandonedConnections = new Stack<Guid>();
 
-            ValueTask PongPacketCallbackImpl(Connection<Packet> connection, Packet basicPacket)
+            Task PongPacketCallbackImpl(Connection<Packet> connection, Packet basicPacket)
             {
                 if (basicPacket.Type != PacketType.Pong)
                 {

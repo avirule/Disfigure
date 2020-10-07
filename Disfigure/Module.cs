@@ -77,7 +77,7 @@ namespace Disfigure
 
         public event PacketEventHandler<TPacket>? PacketReceived;
 
-        private async ValueTask OnClientPacketReceived(Connection<TPacket> connection, TPacket packet)
+        private async Task OnClientPacketReceived(Connection<TPacket> connection, TPacket packet)
         {
             if (PacketReceived is { })
             {
@@ -94,7 +94,7 @@ namespace Disfigure
         public event ConnectionEventHandler<TPacket>? Disconnected;
 
 
-        protected virtual async ValueTask OnConnected(Connection<TPacket> connection)
+        protected virtual async Task OnConnected(Connection<TPacket> connection)
         {
             if (Connected is { })
             {
@@ -102,7 +102,7 @@ namespace Disfigure
             }
         }
 
-        protected virtual async ValueTask OnDisconnected(Connection<TPacket> connection)
+        protected virtual async Task OnDisconnected(Connection<TPacket> connection)
         {
             if (Disconnected is { })
             {
