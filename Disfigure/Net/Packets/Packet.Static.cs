@@ -30,7 +30,7 @@ namespace Disfigure.Net.Packets
         private const int _TOTAL_HEADER_LENGTH = _ENCRYPTION_HEADER_LENGTH + _HEADER_LENGTH;
 
         public static async ValueTask SendEncryptionKeys(Connection<Packet> connection) => await connection.WriteAsync(
-            new Packet(PacketType.EncryptionKeys, DateTime.UtcNow, connection.EncryptionProviderAs<ECDHEncryptionProvider>().PublicKey),
+            new Packet(PacketType.EncryptionKeys, DateTime.UtcNow, connection.EncryptionProviderAs<IEncryptionProvider>().PublicKey),
             CancellationToken.None);
 
 

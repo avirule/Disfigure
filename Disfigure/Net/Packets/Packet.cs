@@ -8,11 +8,11 @@ using System.Text;
 
 namespace Disfigure.Net.Packets
 {
-    public readonly partial struct Packet : IPacket
+    public readonly partial struct Packet
     {
-        public readonly ReadOnlyMemory<byte> Data;
-        public readonly PacketType Type;
-        public readonly DateTime UtcTimestamp;
+        public ReadOnlyMemory<byte> Data { get; }
+        public PacketType Type { get; }
+        public DateTime UtcTimestamp { get; }
 
         public ReadOnlySpan<byte> Content => Data.Slice(_HEADER_LENGTH).Span;
 

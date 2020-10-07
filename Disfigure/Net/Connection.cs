@@ -24,17 +24,17 @@ namespace Disfigure.Net
     public delegate ValueTask<ReadOnlyMemory<byte>> PacketSerializerAsync<in TPacket>(TPacket packet, IEncryptionProvider? encryptionProvider,
         CancellationToken cancellationToken);
 
-    public delegate ValueTask ConnectionEventHandler<TPacket>(Connection<TPacket> connection) where TPacket : struct, IPacket;
+    public delegate ValueTask ConnectionEventHandler<TPacket>(Connection<TPacket> connection) where TPacket : struct;
 
-    public delegate ValueTask PacketEventHandler<TPacket>(Connection<TPacket> origin, TPacket packet) where TPacket : struct, IPacket;
+    public delegate ValueTask PacketEventHandler<TPacket>(Connection<TPacket> origin, TPacket packet) where TPacket : struct;
 
-    public class Connection<TPacket> : IDisposable, IEquatable<Connection<TPacket>> where TPacket : struct, IPacket
+    public class Connection<TPacket> : IDisposable, IEquatable<Connection<TPacket>> where TPacket : struct
     {
         private readonly TcpClient _Client;
         private readonly NetworkStream _Stream;
         private readonly PipeWriter _Writer;
         private readonly PipeReader _Reader;
-        private IEncryptionProvider? _EncryptionProvider;
+        private readonly IEncryptionProvider? _EncryptionProvider;
         private readonly PacketSerializerAsync<TPacket> _PacketSerializerAsync;
         private readonly PacketFactoryAsync<TPacket> _PacketFactoryAsync;
 

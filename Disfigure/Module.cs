@@ -13,7 +13,7 @@ using Serilog;
 
 namespace Disfigure
 {
-    public abstract class Module<TPacket> : IDisposable where TPacket : struct, IPacket
+    public abstract class Module<TPacket> : IDisposable where TPacket : struct
     {
         /// <summary>
         ///     <see cref="CancellationTokenSource" /> used to provide <see cref="CancellationToken" /> for async operations.
