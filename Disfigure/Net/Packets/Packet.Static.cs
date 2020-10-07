@@ -21,7 +21,7 @@ namespace Disfigure.Net.Packets
         private const int _OFFSET_DATA_LENGTH = 0;
         private const int _OFFSET_ALIGNMENT_CONSTANT = _OFFSET_DATA_LENGTH + sizeof(int);
         private const int _OFFSET_INITIALIZATION_VECTOR = _OFFSET_ALIGNMENT_CONSTANT + sizeof(int);
-        private const int _ENCRYPTION_HEADER_LENGTH = _OFFSET_INITIALIZATION_VECTOR + ECDHEncryptionProvider.INITIALIZATION_VECTOR_SIZE;
+        private const int _ENCRYPTION_HEADER_LENGTH = _OFFSET_INITIALIZATION_VECTOR + IEncryptionProvider.INITIALIZATION_VECTOR_SIZE;
 
         private const int _OFFSET_PACKET_TYPE = 0;
         private const int _OFFSET_TIMESTAMP = _OFFSET_PACKET_TYPE + sizeof(PacketType);
@@ -48,7 +48,7 @@ namespace Disfigure.Net.Packets
             }
             else
             {
-                Log.Warning($"Write call has been received, but the {nameof(ECDHEncryptionProvider)} is in an unusable state.");
+                Log.Warning($"Write call has been received, but the {nameof(IEncryptionProvider)} is in an unusable state.");
             }
 
             return SerializePacket(initializationVector, packetData);
@@ -66,7 +66,9 @@ namespace Disfigure.Net.Packets
             initializationVector.CopyTo(data.Slice(_OFFSET_INITIALIZATION_VECTOR));
             packetData.CopyTo(data.Slice(_ENCRYPTION_HEADER_LENGTH));
 
+#if DEBUG
             ValidateSerialization(dataSpan);
+#endif
 
             return data;
         }
@@ -93,8 +95,8 @@ namespace Disfigure.Net.Packets
             }
             else
             {
-                ReadOnlyMemory<byte> initializationVector = data.Slice(0, ECDHEncryptionProvider.INITIALIZATION_VECTOR_SIZE);
-                ReadOnlyMemory<byte> packetData = data.Slice(ECDHEncryptionProvider.INITIALIZATION_VECTOR_SIZE);
+                ReadOnlyMemory<byte> initializationVector = data.Slice(0, IEncryptionProvider.INITIALIZATION_VECTOR_SIZE);
+                ReadOnlyMemory<byte> packetData = data.Slice(IEncryptionProvider.INITIALIZATION_VECTOR_SIZE);
 
                 if (encryptionProvider?.IsEncryptable ?? false)
                 {
@@ -102,7 +104,7 @@ namespace Disfigure.Net.Packets
                 }
                 else
                 {
-                    Log.Warning($"Packet data has been received, but the {nameof(ECDHEncryptionProvider)} is in an unusable state.");
+                    Log.Warning($"Packet data has been received, but the {nameof(IEncryptionProvider)} is in an unusable state.");
                 }
 
                 return (true, consumed, new Packet(packetData));
@@ -166,13 +168,11 @@ namespace Disfigure.Net.Packets
                 {
                     Log.Warning($"<{connection.RemoteEndPoint}> Received pong, but no ping with that identity was pending.");
                     return Task.CompletedTask;
-                    ;
                 }
                 else if (basicPacket.Content.Length < 16)
                 {
                     Log.Warning($"<{connection.RemoteEndPoint}> Ping identity was malformed (too few bytes).");
                     return Task.CompletedTask;
-                    ;
                 }
 
                 Guid remotePingIdentity = new Guid(basicPacket.Content);
@@ -180,12 +180,10 @@ namespace Disfigure.Net.Packets
                 {
                     Log.Warning($"<{connection.RemoteEndPoint}> Received pong, but ping identity didn't match.");
                     return Task.CompletedTask;
-                    ;
                 }
 
                 pendingPings.TryRemove(connection.Identity, out _);
                 return Task.CompletedTask;
-                ;
             }
 
             module.PacketReceived += PongPacketCallbackImpl;

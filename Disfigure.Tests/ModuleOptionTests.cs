@@ -9,11 +9,20 @@ using Xunit;
 
 namespace Disfigure.Tests
 {
-    public class Base
+    public class ModuleOptionTests
     {
         [Theory]
+        [InlineData("-l", "verbose")]
+        public void VerifyModuleOptionParsing(params string[] args)
+        {
+            ModuleOption moduleOption = CLIParser.Parse<ModuleOption>(args);
+
+            Assert.Equal(LogEventLevel.Verbose, moduleOption.LogLevel);
+        }
+
+        [Theory]
         [InlineData("-l", "verbose", "127.0.0.1", "8998")]
-        public void TestHostModuleOption(params string[] args)
+        public void VerifyHostModuleOptionParsing(params string[] args)
         {
             const string local_host = "127.0.0.1";
             const int port = 8998;

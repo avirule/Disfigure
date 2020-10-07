@@ -55,7 +55,6 @@ namespace Disfigure.CLI.Server
             }
 
             return Task.CompletedTask;
-            ;
         }
     }
 }

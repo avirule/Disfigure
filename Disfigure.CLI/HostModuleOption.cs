@@ -7,7 +7,7 @@ using CommandLine;
 
 namespace Disfigure.CLI
 {
-    public class HostModuleOption : LogLevelOption
+    public class HostModuleOption : ModuleOption
     {
         private string? _IPAddressUnparsed;
 

@@ -15,6 +15,7 @@
 
     <ItemGroup>
       <ProjectReference Include="..\Disfigure.CLI\Disfigure.CLI.csproj" />
+      <ProjectReference Include="..\Disfigure\Disfigure.csproj" />
     </ItemGroup>
 
 </Project>
