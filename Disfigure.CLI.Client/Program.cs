@@ -43,7 +43,7 @@ namespace Disfigure.CLI.Client
                 }
             };
 
-            await connection.StartAsync(CancellationToken.None);
+            await connection.FinalizeAsync(CancellationToken.None);
             connection.EncryptionProviderAs<ECDHEncryptionProvider>().WaitForRemoteKeys(CancellationToken.None);
 
             await connection.WriteAsync(new Packet(PacketType.Connect, DateTime.UtcNow,

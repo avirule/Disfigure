@@ -29,7 +29,7 @@ namespace Disfigure.Modules
             connection.Connected += OnServerConnected;
             connection.Disconnected += OnServerDisconnected;
             connection.PacketReceived += OnServerPacketReceived;
-            await connection.StartAsync(CancellationToken);
+            await connection.FinalizeAsync(CancellationToken);
             _ServerConnections.TryAdd(connection.Identity, connection);
 
             return connection;

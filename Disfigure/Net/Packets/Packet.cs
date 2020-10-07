@@ -9,25 +9,6 @@ using Disfigure.Cryptography;
 
 namespace Disfigure.Net.Packets
 {
-    public enum PacketType : byte
-    {
-        EncryptionKeys,
-        Connect,
-        Disconnect,
-        Connected,
-        Disconnected,
-        Ping,
-        Pong,
-        Text,
-        Sound,
-        Media,
-        Video,
-        Administration,
-        Operation,
-        Identity,
-        ChannelIdentity,
-    }
-
     public readonly partial struct Packet : IPacket
     {
         private const int _OFFSET_DATA_LENGTH = 0;

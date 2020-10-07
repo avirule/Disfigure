@@ -51,7 +51,7 @@ namespace Disfigure.Modules
                         packetFactoryAsync);
                     RegisterConnection(connection);
 
-                    await connection.StartAsync(CancellationToken);
+                    await connection.FinalizeAsync(CancellationToken);
                 }
             }
             catch (SocketException exception) when (exception.ErrorCode == 10048)

@@ -18,9 +18,9 @@ namespace Disfigure.Net.Packets
     {
         private const int _ALIGNMENT_CONSTANT = 205582199;
 
-        public static async ValueTask SendEncryptionKeys(Connection<Packet> connection) =>
-            await connection.WriteAsync(new Packet(PacketType.EncryptionKeys, DateTime.UtcNow, connection.EncryptionProvider?.PublicKey),
-                CancellationToken.None);
+        public static async ValueTask SendEncryptionKeys(Connection<Packet> connection) => await connection.WriteAsync(
+            new Packet(PacketType.EncryptionKeys, DateTime.UtcNow, connection.EncryptionProviderAs<ECDHEncryptionProvider>().PublicKey),
+            CancellationToken.None);
 
 
         #region PacketEncryptorAsync

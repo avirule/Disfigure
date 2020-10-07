@@ -64,10 +64,10 @@ namespace Disfigure.Net
         }
 
         /// <summary>
-        ///     Finalizes <see cref="Connection{TPacket}" />, completing encryption handshake and starting the socket listener.
+        ///     Invokes <see cref="Connected"/> event and begins read loop.
         /// </summary>
         /// <param name="cancellationToken"><see cref="CancellationToken" /> to observe.</param>
-        public async ValueTask StartAsync(CancellationToken cancellationToken)
+        public async ValueTask FinalizeAsync(CancellationToken cancellationToken)
         {
             await OnConnected();
 

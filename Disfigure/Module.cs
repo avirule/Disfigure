@@ -5,7 +5,6 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
-using Disfigure.Cryptography;
 using Disfigure.Net;
 using Disfigure.Net.Packets;
 using Serilog;
