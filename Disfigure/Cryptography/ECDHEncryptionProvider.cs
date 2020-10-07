@@ -11,7 +11,7 @@ using Serilog;
 
 namespace Disfigure.Cryptography
 {
-    public class EncryptionProvider
+    public class ECDHEncryptionProvider : IEncryptionProvider
     {
         public const int PRIVATE_KEY_SIZE = 32;
         public const int PUBLIC_KEY_SIZE = PRIVATE_KEY_SIZE * 2;
@@ -29,7 +29,7 @@ namespace Disfigure.Cryptography
 
         public bool IsEncryptable => _DerivedKey is { };
 
-        public EncryptionProvider()
+        public ECDHEncryptionProvider()
         {
             _EncryptionKeysWait = new ManualResetEventSlim(false);
             _PrivateKey = new byte[PRIVATE_KEY_SIZE];

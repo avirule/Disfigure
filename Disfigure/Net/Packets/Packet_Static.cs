@@ -24,19 +24,19 @@ namespace Disfigure.Net.Packets
 
         #region PacketEncryptorAsync
 
-        public static async ValueTask<ReadOnlyMemory<byte>> EncryptorAsync(Packet packet, EncryptionProvider encryptionProvider,
+        public static async ValueTask<ReadOnlyMemory<byte>> EncryptorAsync(Packet packet, ECDHEncryptionProvider ecdhEncryptionProvider,
             CancellationToken cancellationToken)
         {
             ReadOnlyMemory<byte> initializationVector = ReadOnlyMemory<byte>.Empty;
             ReadOnlyMemory<byte> packetData = packet.Serialize();
 
-            if (encryptionProvider.IsEncryptable)
+            if (ecdhEncryptionProvider.IsEncryptable)
             {
-                (initializationVector, packetData) = await encryptionProvider.EncryptAsync(packetData, cancellationToken);
+                (initializationVector, packetData) = await ecdhEncryptionProvider.EncryptAsync(packetData, cancellationToken);
             }
             else
             {
-                Log.Warning($"Write call has been received, but the {nameof(EncryptionProvider)} has no keys.");
+                Log.Warning($"Write call has been received, but the {nameof(ECDHEncryptionProvider)} has no keys.");
             }
 
             return SerializePacket(initializationVector, packetData);
@@ -73,7 +73,7 @@ namespace Disfigure.Net.Packets
         #region PacketFactoryAsync
 
         public static async ValueTask<(bool, SequencePosition, Packet)> FactoryAsync(ReadOnlySequence<byte> sequence,
-            EncryptionProvider encryptionProvider, CancellationToken cancellationToken)
+            ECDHEncryptionProvider ecdhEncryptionProvider, CancellationToken cancellationToken)
         {
             if (!TryGetData(sequence, out SequencePosition consumed, out ReadOnlyMemory<byte> data))
             {
@@ -81,16 +81,16 @@ namespace Disfigure.Net.Packets
             }
             else
             {
-                ReadOnlyMemory<byte> initializationVector = data.Slice(0, EncryptionProvider.INITIALIZATION_VECTOR_SIZE);
-                ReadOnlyMemory<byte> packetData = data.Slice(EncryptionProvider.INITIALIZATION_VECTOR_SIZE);
+                ReadOnlyMemory<byte> initializationVector = data.Slice(0, ECDHEncryptionProvider.INITIALIZATION_VECTOR_SIZE);
+                ReadOnlyMemory<byte> packetData = data.Slice(ECDHEncryptionProvider.INITIALIZATION_VECTOR_SIZE);
 
-                if (encryptionProvider.IsEncryptable)
+                if (ecdhEncryptionProvider.IsEncryptable)
                 {
-                    packetData = await encryptionProvider.DecryptAsync(initializationVector, packetData, cancellationToken);
+                    packetData = await ecdhEncryptionProvider.DecryptAsync(initializationVector, packetData, cancellationToken);
                 }
                 else
                 {
-                    Log.Warning($"Packet data has been received, but the {nameof(EncryptionProvider)} has no keys.");
+                    Log.Warning($"Packet data has been received, but the {nameof(ECDHEncryptionProvider)} has no keys.");
                 }
 
                 return (true, consumed, new Packet(packetData));
