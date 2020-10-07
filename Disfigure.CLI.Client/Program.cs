@@ -32,7 +32,7 @@ namespace Disfigure.CLI.Client
                 switch (packet.Type)
                 {
                     case PacketType.EncryptionKeys:
-                        ((ECDHEncryptionProvider)connection.EncryptionProvider).AssignRemoteKeys(packet.Content);
+                        connection.EncryptionProviderAs<ECDHEncryptionProvider>().AssignRemoteKeys(packet.Content);
                         break;
                     case PacketType.Ping:
                         await connection.WriteAsync(new Packet(PacketType.Pong, DateTime.UtcNow, packet.Content), CancellationToken.None);
@@ -44,7 +44,7 @@ namespace Disfigure.CLI.Client
             };
 
             await connection.StartAsync(CancellationToken.None);
-            ((ECDHEncryptionProvider)connection.EncryptionProvider).WaitForRemoteKeys(CancellationToken.None);
+            connection.EncryptionProviderAs<ECDHEncryptionProvider>().WaitForRemoteKeys(CancellationToken.None);
 
             await connection.WriteAsync(new Packet(PacketType.Connect, DateTime.UtcNow,
                 new SerializableEndPoint(IPAddress.Loopback, 8898).Serialize()), CancellationToken.None);

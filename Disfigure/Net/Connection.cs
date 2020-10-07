@@ -19,9 +19,9 @@ using Serilog;
 namespace Disfigure.Net
 {
     public delegate ValueTask<(bool, SequencePosition, TPacket)> PacketFactoryAsync<TPacket>(ReadOnlySequence<byte> sequence,
-        IEncryptionProvider encryptionProvider, CancellationToken cancellationToken);
+        IEncryptionProvider? encryptionProvider, CancellationToken cancellationToken);
 
-    public delegate ValueTask<ReadOnlyMemory<byte>> PacketSerializerAsync<in TPacket>(TPacket packet, IEncryptionProvider encryptionProvider,
+    public delegate ValueTask<ReadOnlyMemory<byte>> PacketSerializerAsync<in TPacket>(TPacket packet, IEncryptionProvider? encryptionProvider,
         CancellationToken cancellationToken);
 
     public delegate ValueTask ConnectionEventHandler<TPacket>(Connection<TPacket> connection) where TPacket : struct, IPacket;
@@ -34,6 +34,7 @@ namespace Disfigure.Net
         private readonly NetworkStream _Stream;
         private readonly PipeWriter _Writer;
         private readonly PipeReader _Reader;
+        private IEncryptionProvider? _EncryptionProvider;
         private readonly PacketSerializerAsync<TPacket> _PacketSerializerAsync;
         private readonly PacketFactoryAsync<TPacket> _PacketFactoryAsync;
 
@@ -42,26 +43,24 @@ namespace Disfigure.Net
         /// </summary>
         public Guid Identity { get; }
 
-        public IEncryptionProvider EncryptionProvider { get; }
-
 
         /// <summary>
         ///     <see cref="EndPoint" /> the internal <see cref="TcpClient" /> is connected to.
         /// </summary>
         public EndPoint RemoteEndPoint => _Client.Client.RemoteEndPoint;
 
-        public Connection(TcpClient client, IEncryptionProvider encryptionProvider, PacketSerializerAsync<TPacket> packetSerializerAsync,
+        public Connection(TcpClient client, IEncryptionProvider? encryptionProvider, PacketSerializerAsync<TPacket> packetSerializerAsync,
             PacketFactoryAsync<TPacket> packetFactoryAsync)
         {
             _Client = client;
             _Stream = _Client.GetStream();
             _Writer = PipeWriter.Create(_Stream);
             _Reader = PipeReader.Create(_Stream);
+            _EncryptionProvider = encryptionProvider;
             _PacketSerializerAsync = packetSerializerAsync;
             _PacketFactoryAsync = packetFactoryAsync;
 
             Identity = Guid.NewGuid();
-            EncryptionProvider = encryptionProvider;
         }
 
         /// <summary>
@@ -76,11 +75,9 @@ namespace Disfigure.Net
         }
 
 
-        #region EncryptionProvider Exposition
-
-        public byte[] PublicKey => EncryptionProvider.PublicKey;
-
-        #endregion
+        public TEncryptionProvider EncryptionProviderAs<TEncryptionProvider>() where TEncryptionProvider : class, IEncryptionProvider
+            => _EncryptionProvider as TEncryptionProvider
+               ?? throw new InvalidCastException($"Cannot cast {typeof(IEncryptionProvider)} to {typeof(TEncryptionProvider)}");
 
 
         #region Reading Data
@@ -109,7 +106,7 @@ namespace Disfigure.Net
 
                     stopwatch.Restart();
 
-                    (bool success, SequencePosition consumed, TPacket packet) = await _PacketFactoryAsync(sequence, EncryptionProvider,
+                    (bool success, SequencePosition consumed, TPacket packet) = await _PacketFactoryAsync(sequence, _EncryptionProvider,
                         cancellationToken);
 
                     if (success)
@@ -147,7 +144,7 @@ namespace Disfigure.Net
         {
             Log.Verbose(string.Format(FormatHelper.CONNECTION_LOGGING, RemoteEndPoint, $"OUT {packet}"));
 
-            ReadOnlyMemory<byte> encrypted = await _PacketSerializerAsync(packet, EncryptionProvider, cancellationToken);
+            ReadOnlyMemory<byte> encrypted = await _PacketSerializerAsync(packet, _EncryptionProvider, cancellationToken);
             await _Writer.WriteAsync(encrypted, cancellationToken);
             await _Writer.FlushAsync(cancellationToken);
         }

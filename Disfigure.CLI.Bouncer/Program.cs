@@ -47,7 +47,7 @@ namespace Disfigure.CLI.Bouncer
             switch (packet.Type)
             {
                 case PacketType.EncryptionKeys:
-                    ((ECDHEncryptionProvider)connection.EncryptionProvider).AssignRemoteKeys(packet.Content);
+                    connection.EncryptionProviderAs<ECDHEncryptionProvider>().AssignRemoteKeys(packet.Content);
                     break;
                 case PacketType.Connect when _Module is { }:
                     SerializableEndPoint serializableEndPoint = new SerializableEndPoint(packet.Content);
@@ -61,7 +61,7 @@ namespace Disfigure.CLI.Bouncer
             switch (packet.Type)
             {
                 case PacketType.EncryptionKeys:
-                    ((ECDHEncryptionProvider)connection.EncryptionProvider).AssignRemoteKeys(packet.Content);
+                    connection.EncryptionProviderAs<ECDHEncryptionProvider>().AssignRemoteKeys(packet.Content);
                     break;
                 case PacketType.Ping:
                     await connection.WriteAsync(new Packet(PacketType.Pong, DateTime.UtcNow, packet.Content), CancellationToken.None);

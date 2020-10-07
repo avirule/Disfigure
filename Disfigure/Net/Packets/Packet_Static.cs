@@ -19,24 +19,25 @@ namespace Disfigure.Net.Packets
         private const int _ALIGNMENT_CONSTANT = 205582199;
 
         public static async ValueTask SendEncryptionKeys(Connection<Packet> connection) =>
-            await connection.WriteAsync(new Packet(PacketType.EncryptionKeys, DateTime.UtcNow, connection.PublicKey), CancellationToken.None);
+            await connection.WriteAsync(new Packet(PacketType.EncryptionKeys, DateTime.UtcNow, connection.EncryptionProvider?.PublicKey),
+                CancellationToken.None);
 
 
         #region PacketEncryptorAsync
 
-        public static async ValueTask<ReadOnlyMemory<byte>> SerializerAsync(Packet packet, IEncryptionProvider encryptionProvider,
+        public static async ValueTask<ReadOnlyMemory<byte>> SerializerAsync(Packet packet, IEncryptionProvider? encryptionProvider,
             CancellationToken cancellationToken)
         {
             ReadOnlyMemory<byte> initializationVector = ReadOnlyMemory<byte>.Empty;
             ReadOnlyMemory<byte> packetData = packet.Serialize();
 
-            if (encryptionProvider.IsEncryptable)
+            if (encryptionProvider?.IsEncryptable ?? false)
             {
                 (initializationVector, packetData) = await encryptionProvider.EncryptAsync(packetData, cancellationToken);
             }
             else
             {
-                Log.Warning($"Write call has been received, but the {nameof(ECDHEncryptionProvider)} has no keys.");
+                Log.Warning($"Write call has been received, but the {nameof(ECDHEncryptionProvider)} is in an unusable state.");
             }
 
             return SerializePacket(initializationVector, packetData);
@@ -73,7 +74,7 @@ namespace Disfigure.Net.Packets
         #region PacketFactoryAsync
 
         public static async ValueTask<(bool, SequencePosition, Packet)> FactoryAsync(ReadOnlySequence<byte> sequence,
-            IEncryptionProvider encryptionProvider, CancellationToken cancellationToken)
+            IEncryptionProvider? encryptionProvider, CancellationToken cancellationToken)
         {
             if (!TryGetData(sequence, out SequencePosition consumed, out ReadOnlyMemory<byte> data))
             {
@@ -84,13 +85,13 @@ namespace Disfigure.Net.Packets
                 ReadOnlyMemory<byte> initializationVector = data.Slice(0, ECDHEncryptionProvider.INITIALIZATION_VECTOR_SIZE);
                 ReadOnlyMemory<byte> packetData = data.Slice(ECDHEncryptionProvider.INITIALIZATION_VECTOR_SIZE);
 
-                if (encryptionProvider.IsEncryptable)
+                if (encryptionProvider?.IsEncryptable ?? false)
                 {
                     packetData = await encryptionProvider.DecryptAsync(initializationVector, packetData, cancellationToken);
                 }
                 else
                 {
-                    Log.Warning($"Packet data has been received, but the {nameof(ECDHEncryptionProvider)} has no keys.");
+                    Log.Warning($"Packet data has been received, but the {nameof(ECDHEncryptionProvider)} is in an unusable state.");
                 }
 
                 return (true, consumed, new Packet(packetData));

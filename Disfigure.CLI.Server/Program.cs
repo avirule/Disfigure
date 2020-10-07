@@ -50,7 +50,7 @@ namespace Disfigure.CLI.Server
             switch (packet.Type)
             {
                 case PacketType.EncryptionKeys:
-                    ((ECDHEncryptionProvider)connection.EncryptionProvider).AssignRemoteKeys(packet.Content);
+                    connection.EncryptionProviderAs<ECDHEncryptionProvider>().AssignRemoteKeys(packet.Content);
                     break;
             }
 
