@@ -7,6 +7,7 @@ namespace Disfigure.Cryptography
     public interface IEncryptionProvider
     {
         byte[] PublicKey { get; }
+        public bool IsEncryptable { get; }
 
         ValueTask<(ReadOnlyMemory<byte> initializationVector, ReadOnlyMemory<byte> encrypted)>
             EncryptAsync(ReadOnlyMemory<byte> unencrypted, CancellationToken cancellationToken);

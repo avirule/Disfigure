@@ -4,6 +4,7 @@ using System;
 using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
+using Disfigure.Cryptography;
 using Disfigure.Diagnostics;
 using Disfigure.Modules;
 using Disfigure.Net;
@@ -41,12 +42,12 @@ namespace Disfigure.CLI.Bouncer
             }
         }
 
-        private static async ValueTask PacketReceivedCallback(Connection<Packet> connection, Packet packet)
+        private static async ValueTask PacketReceivedCallback(Connection<ECDHEncryptionProvider,Packet> connection, Packet packet)
         {
             switch (packet.Type)
             {
                 case PacketType.EncryptionKeys:
-                    connection.AssignRemoteKeys(packet.Content);
+                    ((ECDHEncryptionProvider)connection.EncryptionProvider).AssignRemoteKeys(packet.Content);
                     break;
                 case PacketType.Connect when _Module is { }:
                     SerializableEndPoint serializableEndPoint = new SerializableEndPoint(packet.Content);
@@ -55,12 +56,12 @@ namespace Disfigure.CLI.Bouncer
             }
         }
 
-        private static async ValueTask ServerPacketReceivedCallback(Connection<Packet> connection, Packet packet)
+        private static async ValueTask ServerPacketReceivedCallback(Connection<ECDHEncryptionProvider,Packet> connection, Packet packet)
         {
             switch (packet.Type)
             {
                 case PacketType.EncryptionKeys:
-                    connection.AssignRemoteKeys(packet.Content);
+                    ((ECDHEncryptionProvider)connection.EncryptionProvider).AssignRemoteKeys(packet.Content);
                     break;
                 case PacketType.Ping:
                     await connection.WriteAsync(new Packet(PacketType.Pong, DateTime.UtcNow, packet.Content), CancellationToken.None);

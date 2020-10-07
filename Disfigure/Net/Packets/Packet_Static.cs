@@ -18,21 +18,21 @@ namespace Disfigure.Net.Packets
     {
         private const int _ALIGNMENT_CONSTANT = 205582199;
 
-        public static async ValueTask SendEncryptionKeys(Connection<Packet> connection) =>
+        public static async ValueTask SendEncryptionKeys(Connection<ECDHEncryptionProvider, Packet> connection) =>
             await connection.WriteAsync(new Packet(PacketType.EncryptionKeys, DateTime.UtcNow, connection.PublicKey), CancellationToken.None);
 
 
         #region PacketEncryptorAsync
 
-        public static async ValueTask<ReadOnlyMemory<byte>> EncryptorAsync(Packet packet, ECDHEncryptionProvider ecdhEncryptionProvider,
+        public static async ValueTask<ReadOnlyMemory<byte>> EncryptorAsync(Packet packet, IEncryptionProvider encryptionProvider,
             CancellationToken cancellationToken)
         {
             ReadOnlyMemory<byte> initializationVector = ReadOnlyMemory<byte>.Empty;
             ReadOnlyMemory<byte> packetData = packet.Serialize();
 
-            if (ecdhEncryptionProvider.IsEncryptable)
+            if (encryptionProvider.IsEncryptable)
             {
-                (initializationVector, packetData) = await ecdhEncryptionProvider.EncryptAsync(packetData, cancellationToken);
+                (initializationVector, packetData) = await encryptionProvider.EncryptAsync(packetData, cancellationToken);
             }
             else
             {
@@ -73,7 +73,7 @@ namespace Disfigure.Net.Packets
         #region PacketFactoryAsync
 
         public static async ValueTask<(bool, SequencePosition, Packet)> FactoryAsync(ReadOnlySequence<byte> sequence,
-            ECDHEncryptionProvider ecdhEncryptionProvider, CancellationToken cancellationToken)
+            IEncryptionProvider encryptionProvider, CancellationToken cancellationToken)
         {
             if (!TryGetData(sequence, out SequencePosition consumed, out ReadOnlyMemory<byte> data))
             {
@@ -84,9 +84,9 @@ namespace Disfigure.Net.Packets
                 ReadOnlyMemory<byte> initializationVector = data.Slice(0, ECDHEncryptionProvider.INITIALIZATION_VECTOR_SIZE);
                 ReadOnlyMemory<byte> packetData = data.Slice(ECDHEncryptionProvider.INITIALIZATION_VECTOR_SIZE);
 
-                if (ecdhEncryptionProvider.IsEncryptable)
+                if (encryptionProvider.IsEncryptable)
                 {
-                    packetData = await ecdhEncryptionProvider.DecryptAsync(initializationVector, packetData, cancellationToken);
+                    packetData = await encryptionProvider.DecryptAsync(initializationVector, packetData, cancellationToken);
                 }
                 else
                 {
@@ -140,15 +140,16 @@ namespace Disfigure.Net.Packets
 
         #region PingPongLoop
 
-        public static void PingPongLoop(Module<Packet> module, TimeSpan pingInterval, CancellationToken cancellationToken) =>
+        public static void PingPongLoop(Module<ECDHEncryptionProvider, Packet> module, TimeSpan pingInterval, CancellationToken cancellationToken) =>
             Task.Run(async () => await PingPongLoopAsync(module, pingInterval, cancellationToken), cancellationToken);
 
-        private static async Task PingPongLoopAsync(Module<Packet> module, TimeSpan pingInterval, CancellationToken cancellationToken)
+        private static async Task PingPongLoopAsync(Module<ECDHEncryptionProvider, Packet> module, TimeSpan pingInterval,
+            CancellationToken cancellationToken)
         {
             ConcurrentDictionary<Guid, Guid> pendingPings = new ConcurrentDictionary<Guid, Guid>();
             Stack<Guid> abandonedConnections = new Stack<Guid>();
 
-            ValueTask PongPacketCallbackImpl(Connection<Packet> connection, Packet basicPacket)
+            ValueTask PongPacketCallbackImpl(Connection<ECDHEncryptionProvider, Packet> connection, Packet basicPacket)
             {
                 if (basicPacket.Type != PacketType.Pong)
                 {
@@ -183,7 +184,7 @@ namespace Disfigure.Net.Packets
             {
                 await Task.Delay(pingInterval, cancellationToken);
 
-                foreach ((Guid connectionIdentity, Connection<Packet> connection) in module.ReadOnlyConnections)
+                foreach ((Guid connectionIdentity, Connection<ECDHEncryptionProvider, Packet> connection) in module.ReadOnlyConnections)
                 {
                     Guid pingIdentity = Guid.NewGuid();
 

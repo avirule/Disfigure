@@ -19,29 +19,28 @@ using Serilog;
 namespace Disfigure.Net
 {
     public delegate ValueTask<(bool, SequencePosition, TPacket)> PacketFactoryAsync<TPacket>(ReadOnlySequence<byte> sequence,
-        ECDHEncryptionProvider ecdhEncryptionProvider, CancellationToken cancellationToken);
+        IEncryptionProvider encryptionProvider, CancellationToken cancellationToken);
 
-    public delegate ValueTask<ReadOnlyMemory<byte>> PacketEncryptorAsync<in TPacket>(TPacket packet, ECDHEncryptionProvider ecdhEncryptionProvider,
+    public delegate ValueTask<ReadOnlyMemory<byte>> PacketSerializerAsync<in TPacket>(TPacket packet, IEncryptionProvider encryptionProvider,
         CancellationToken cancellationToken);
 
     public delegate ValueTask ConnectionEventHandler<TEncryptionProvider, TPacket>(Connection<TEncryptionProvider, TPacket> connection)
-        where TEncryptionProvider : IEncryptionProvider, new()
+        where TEncryptionProvider : class, IEncryptionProvider, new()
         where TPacket : struct, IPacket;
 
     public delegate ValueTask PacketEventHandler<TEncryptionProvider, TPacket>(Connection<TEncryptionProvider, TPacket> origin, TPacket packet)
-        where TEncryptionProvider : IEncryptionProvider, new()
+        where TEncryptionProvider : class, IEncryptionProvider, new()
         where TPacket : struct, IPacket;
 
     public class Connection<TEncryptionProvider, TPacket> : IDisposable, IEquatable<Connection<TEncryptionProvider, TPacket>>
-        where TEncryptionProvider : IEncryptionProvider, new()
+        where TEncryptionProvider : class, IEncryptionProvider, new()
         where TPacket : struct, IPacket
     {
         private readonly TcpClient _Client;
         private readonly NetworkStream _Stream;
         private readonly PipeWriter _Writer;
         private readonly PipeReader _Reader;
-        private readonly IEncryptionProvider _ECDHEncryptionProvider;
-        private readonly PacketEncryptorAsync<TPacket> _PacketEncryptorAsync;
+        private readonly PacketSerializerAsync<TPacket> _PacketSerializerAsync;
         private readonly PacketFactoryAsync<TPacket> _PacketFactoryAsync;
 
         /// <summary>
@@ -49,22 +48,25 @@ namespace Disfigure.Net
         /// </summary>
         public Guid Identity { get; }
 
+        public IEncryptionProvider EncryptionProvider { get; }
+
+
         /// <summary>
         ///     <see cref="EndPoint" /> the internal <see cref="TcpClient" /> is connected to.
         /// </summary>
         public EndPoint RemoteEndPoint => _Client.Client.RemoteEndPoint;
 
-        public Connection(TcpClient client, PacketEncryptorAsync<TPacket> packetEncryptorAsync, PacketFactoryAsync<TPacket> packetFactoryAsync)
+        public Connection(TcpClient client, PacketSerializerAsync<TPacket> packetSerializerAsync, PacketFactoryAsync<TPacket> packetFactoryAsync)
         {
             _Client = client;
             _Stream = _Client.GetStream();
             _Writer = PipeWriter.Create(_Stream);
             _Reader = PipeReader.Create(_Stream);
-            _ECDHEncryptionProvider = new ECDHEncryptionProvider();
-            _PacketEncryptorAsync = packetEncryptorAsync;
+            _PacketSerializerAsync = packetSerializerAsync;
             _PacketFactoryAsync = packetFactoryAsync;
 
             Identity = Guid.NewGuid();
+            EncryptionProvider = new TEncryptionProvider();
         }
 
         /// <summary>
@@ -86,9 +88,7 @@ namespace Disfigure.Net
 
         #region EncryptionProvider Exposition
 
-        public byte[] PublicKey => _ECDHEncryptionProvider.PublicKey;
-
-        public void AssignRemoteKeys(ReadOnlySpan<byte> remotePublicKey) => _ECDHEncryptionProvider.AssignRemoteKeys(remotePublicKey);
+        public byte[] PublicKey => EncryptionProvider.PublicKey;
 
         #endregion
 
@@ -119,7 +119,7 @@ namespace Disfigure.Net
 
                     stopwatch.Restart();
 
-                    (bool success, SequencePosition consumed, TPacket packet) = await _PacketFactoryAsync(sequence, _ECDHEncryptionProvider,
+                    (bool success, SequencePosition consumed, TPacket packet) = await _PacketFactoryAsync(sequence, EncryptionProvider,
                         cancellationToken);
 
                     if (success)
@@ -157,7 +157,7 @@ namespace Disfigure.Net
         {
             Log.Verbose(string.Format(FormatHelper.CONNECTION_LOGGING, RemoteEndPoint, $"OUT {packet}"));
 
-            ReadOnlyMemory<byte> encrypted = await _PacketEncryptorAsync(packet, _ECDHEncryptionProvider, cancellationToken);
+            ReadOnlyMemory<byte> encrypted = await _PacketSerializerAsync(packet, EncryptionProvider, cancellationToken);
             await _Writer.WriteAsync(encrypted, cancellationToken);
             await _Writer.FlushAsync(cancellationToken);
         }
