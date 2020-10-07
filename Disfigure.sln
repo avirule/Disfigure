@@ -26,6 +26,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Disfigure.CLI.Bouncer", "Di
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Disfigure.CLI", "Disfigure.CLI\Disfigure.CLI.csproj", "{CD8C288B-E3F3-413C-8B4A-16C98C1092A8}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Disfigure.Tests", "Disfigure.Tests\Disfigure.Tests.csproj", "{3ED3C7CE-A41B-4DB2-B69B-B1F343A38ED2}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -56,6 +58,10 @@ Global
 		{CD8C288B-E3F3-413C-8B4A-16C98C1092A8}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{CD8C288B-E3F3-413C-8B4A-16C98C1092A8}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{CD8C288B-E3F3-413C-8B4A-16C98C1092A8}.Release|Any CPU.Build.0 = Release|Any CPU
+		{3ED3C7CE-A41B-4DB2-B69B-B1F343A38ED2}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{3ED3C7CE-A41B-4DB2-B69B-B1F343A38ED2}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{3ED3C7CE-A41B-4DB2-B69B-B1F343A38ED2}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{3ED3C7CE-A41B-4DB2-B69B-B1F343A38ED2}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

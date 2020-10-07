@@ -123,7 +123,7 @@ namespace Disfigure.Net
             }
             catch (IOException exception) when (exception.InnerException is SocketException)
             {
-                Log.Error(string.Format(FormatHelper.CONNECTION_LOGGING, RemoteEndPoint, "Connection forcibly closed."));
+                Log.Error(string.Format(FormatHelper.CONNECTION_LOGGING, RemoteEndPoint, "Connection disconnected."));
                 Log.Debug(exception.Message);
             }
             catch (PacketMisalignedException)
