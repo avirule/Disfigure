@@ -36,7 +36,7 @@ namespace Disfigure.Net.Packets
 
         #region PacketEncryptorAsync
 
-        public static async Task<ReadOnlyMemory<byte>> SerializerAsync(Packet packet, IEncryptionProvider? encryptionProvider,
+        public static async ValueTask<ReadOnlyMemory<byte>> SerializerAsync(Packet packet, IEncryptionProvider? encryptionProvider,
             CancellationToken cancellationToken)
         {
             ReadOnlyMemory<byte> initializationVector = ReadOnlyMemory<byte>.Empty;

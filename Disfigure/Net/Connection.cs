@@ -18,10 +18,10 @@ using Serilog;
 
 namespace Disfigure.Net
 {
-    public delegate Task<(bool, SequencePosition, TPacket)> PacketFactoryAsync<TPacket>(ReadOnlySequence<byte> sequence,
+    public delegate ValueTask<(bool, SequencePosition, TPacket)> PacketFactoryAsync<TPacket>(ReadOnlySequence<byte> sequence,
         IEncryptionProvider? encryptionProvider, CancellationToken cancellationToken);
 
-    public delegate Task<ReadOnlyMemory<byte>> PacketSerializerAsync<in TPacket>(TPacket packet, IEncryptionProvider? encryptionProvider,
+    public delegate ValueTask<ReadOnlyMemory<byte>> PacketSerializerAsync<in TPacket>(TPacket packet, IEncryptionProvider? encryptionProvider,
         CancellationToken cancellationToken);
 
     public delegate Task ConnectionEventHandler<TPacket>(Connection<TPacket> connection) where TPacket : struct;
