@@ -14,14 +14,14 @@ namespace Disfigure.Net.Packets
         public PacketType Type { get; }
         public DateTime UtcTimestamp { get; }
 
-        public ReadOnlySpan<byte> Content => Data.Slice(_HEADER_LENGTH).Span;
+        public ReadOnlySpan<byte> Content => Data.Slice(HEADER_LENGTH).Span;
 
         public Packet(ReadOnlyMemory<byte> data)
         {
             ReadOnlySpan<byte> destination = data.Span;
 
-            Type = MemoryMarshal.Read<PacketType>(destination.Slice(_OFFSET_PACKET_TYPE));
-            UtcTimestamp = MemoryMarshal.Read<DateTime>(destination.Slice(_OFFSET_TIMESTAMP));
+            Type = MemoryMarshal.Read<PacketType>(destination.Slice(OFFSET_PACKET_TYPE));
+            UtcTimestamp = MemoryMarshal.Read<DateTime>(destination.Slice(OFFSET_TIMESTAMP));
 
             Data = data;
         }
@@ -31,12 +31,12 @@ namespace Disfigure.Net.Packets
             Type = packetType;
             UtcTimestamp = utcTimestamp;
 
-            Memory<byte> data = new byte[_HEADER_LENGTH + content.Length];
+            Memory<byte> data = new byte[HEADER_LENGTH + content.Length];
             Span<byte> destination = data.Span;
 
-            MemoryMarshal.Write(destination.Slice(_OFFSET_PACKET_TYPE), ref packetType);
-            MemoryMarshal.Write(destination.Slice(_OFFSET_TIMESTAMP), ref utcTimestamp);
-            content.CopyTo(destination.Slice(_HEADER_LENGTH));
+            MemoryMarshal.Write(destination.Slice(OFFSET_PACKET_TYPE), ref packetType);
+            MemoryMarshal.Write(destination.Slice(OFFSET_TIMESTAMP), ref utcTimestamp);
+            content.CopyTo(destination.Slice(HEADER_LENGTH));
 
             Data = data;
         }
