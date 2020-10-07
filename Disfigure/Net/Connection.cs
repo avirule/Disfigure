@@ -64,7 +64,7 @@ namespace Disfigure.Net
         }
 
         /// <summary>
-        ///     Invokes <see cref="Connected"/> event and begins read loop.
+        ///     Invokes <see cref="Connected" /> event and begins read loop.
         /// </summary>
         /// <param name="cancellationToken"><see cref="CancellationToken" /> to observe.</param>
         public async ValueTask FinalizeAsync(CancellationToken cancellationToken)
@@ -99,7 +99,7 @@ namespace Disfigure.Net
 
                     if (sequence.IsEmpty)
                     {
-                        Log.Warning(string.Format(FormatHelper.CONNECTION_LOGGING, RemoteEndPoint,
+                        Log.Error(string.Format(FormatHelper.CONNECTION_LOGGING, RemoteEndPoint,
                             "Received no data from reader. This is likely a connection error, so the loop will halt."));
                         break;
                     }
@@ -123,11 +123,12 @@ namespace Disfigure.Net
             }
             catch (IOException exception) when (exception.InnerException is SocketException)
             {
-                Log.Warning(string.Format(FormatHelper.CONNECTION_LOGGING, RemoteEndPoint, "Connection forcibly closed."));
+                Log.Error(string.Format(FormatHelper.CONNECTION_LOGGING, RemoteEndPoint, "Connection forcibly closed."));
+                Log.Debug(exception.Message);
             }
-            catch (Exception exception)
+            catch (PacketMisalignedException)
             {
-                Log.Error(exception.ToString());
+                Log.Error(string.Format(FormatHelper.CONNECTION_LOGGING, RemoteEndPoint, "Packet reader has received a misaligned packet."));
             }
             finally
             {

@@ -47,7 +47,7 @@ namespace Disfigure.CLI.Client
             connection.EncryptionProviderAs<ECDHEncryptionProvider>().WaitForRemoteKeys(CancellationToken.None);
 
             await connection.WriteAsync(new Packet(PacketType.Connect, DateTime.UtcNow,
-                new SerializableEndPoint(IPAddress.Loopback, 8898).Serialize()), CancellationToken.None);
+                new SerializableEndPoint(IPAddress.Loopback, 8998).Serialize()), CancellationToken.None);
 
             while (true)
             {

@@ -18,6 +18,17 @@ namespace Disfigure.Net.Packets
     {
         private const int _ALIGNMENT_CONSTANT = 205582199;
 
+        private const int _OFFSET_DATA_LENGTH = 0;
+        private const int _OFFSET_ALIGNMENT_CONSTANT = _OFFSET_DATA_LENGTH + sizeof(int);
+        private const int _OFFSET_INITIALIZATION_VECTOR = _OFFSET_ALIGNMENT_CONSTANT + sizeof(int);
+        private const int _ENCRYPTION_HEADER_LENGTH = _OFFSET_INITIALIZATION_VECTOR + ECDHEncryptionProvider.INITIALIZATION_VECTOR_SIZE;
+
+        private const int _OFFSET_PACKET_TYPE = 0;
+        private const int _OFFSET_TIMESTAMP = _OFFSET_PACKET_TYPE + sizeof(PacketType);
+        private const int _HEADER_LENGTH = _OFFSET_TIMESTAMP + sizeof(long);
+
+        private const int _TOTAL_HEADER_LENGTH = _ENCRYPTION_HEADER_LENGTH + _HEADER_LENGTH;
+
         public static async ValueTask SendEncryptionKeys(Connection<Packet> connection) => await connection.WriteAsync(
             new Packet(PacketType.EncryptionKeys, DateTime.UtcNow, connection.EncryptionProviderAs<ECDHEncryptionProvider>().PublicKey),
             CancellationToken.None);
@@ -114,18 +125,13 @@ namespace Disfigure.Net.Packets
             else if (length < _TOTAL_HEADER_LENGTH)
             {
                 // if not, print warning and throw away data
-                Log.Warning("Received packet with invalid header format.");
+                Log.Warning("Received packet with invalid header format (too short).");
                 consumed = sequence.GetPosition(length);
                 return false;
             }
             // ensure alignment constant is valid
             else if (MemoryMarshal.Read<int>(span.Slice(sizeof(int))) != _ALIGNMENT_CONSTANT)
             {
-#if DEBUG
-                Log.Debug(
-                    $"{string.Join(' ', BitConverter.GetBytes(_ALIGNMENT_CONSTANT))} | {string.Join(' ', span.Slice(sizeof(int), sizeof(int)).ToArray())}");
-#endif
-
                 throw new PacketMisalignedException();
             }
             else
