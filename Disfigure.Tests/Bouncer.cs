@@ -1,7 +1,4 @@
 namespace Disfigure.Tests
 {
-    public class Bouncer
-    {
-        
-    }
+    public class Bouncer { }
 }

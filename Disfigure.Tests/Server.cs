@@ -1,7 +1,4 @@
 namespace Disfigure.Tests
 {
-    public class Server
-    {
-        
-    }
+    public class Server { }
 }
