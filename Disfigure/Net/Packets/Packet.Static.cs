@@ -159,29 +159,33 @@ namespace Disfigure.Net.Packets
             {
                 if (basicPacket.Type != PacketType.Pong)
                 {
-                    return default;
+                    return Task.CompletedTask;
                 }
 
                 if (!pendingPings.TryGetValue(connection.Identity, out Guid pingIdentity))
                 {
                     Log.Warning($"<{connection.RemoteEndPoint}> Received pong, but no ping with that identity was pending.");
-                    return default;
+                    return Task.CompletedTask;
+                    ;
                 }
                 else if (basicPacket.Content.Length < 16)
                 {
                     Log.Warning($"<{connection.RemoteEndPoint}> Ping identity was malformed (too few bytes).");
-                    return default;
+                    return Task.CompletedTask;
+                    ;
                 }
 
                 Guid remotePingIdentity = new Guid(basicPacket.Content);
                 if (remotePingIdentity != pingIdentity)
                 {
                     Log.Warning($"<{connection.RemoteEndPoint}> Received pong, but ping identity didn't match.");
-                    return default;
+                    return Task.CompletedTask;
+                    ;
                 }
 
                 pendingPings.TryRemove(connection.Identity, out _);
-                return default;
+                return Task.CompletedTask;
+                ;
             }
 
             module.PacketReceived += PongPacketCallbackImpl;

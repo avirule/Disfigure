@@ -54,7 +54,8 @@ namespace Disfigure.CLI.Server
                     break;
             }
 
-            return default;
+            return Task.CompletedTask;
+            ;
         }
     }
 }

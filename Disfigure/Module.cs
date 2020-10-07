@@ -42,12 +42,12 @@ namespace Disfigure
             Connected += connection =>
             {
                 Connections.TryAdd(connection.Identity, connection);
-                return default;
+                return Task.CompletedTask;
             };
             Disconnected += connection =>
             {
                 Connections.TryRemove(connection.Identity, out _);
-                return default;
+                return Task.CompletedTask;
             };
         }
 
