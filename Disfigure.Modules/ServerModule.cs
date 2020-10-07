@@ -6,6 +6,7 @@ using System.Net;
 using System.Net.Sockets;
 using System.Threading.Tasks;
 using Disfigure.Net;
+using Disfigure.Net.Packets;
 using Serilog;
 
 #endregion

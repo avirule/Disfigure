@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using Disfigure.Net;
+using Disfigure.Net.Packets;
 using Serilog;
 
 #endregion

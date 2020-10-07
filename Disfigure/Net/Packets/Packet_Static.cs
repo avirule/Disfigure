@@ -5,7 +5,6 @@ using System.Buffers;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Disfigure.Cryptography;
@@ -13,83 +12,11 @@ using Serilog;
 
 #endregion
 
-namespace Disfigure.Net
+namespace Disfigure.Net.Packets
 {
-    public enum PacketType : byte
+    public readonly partial struct Packet
     {
-        EncryptionKeys,
-        Connect,
-        Disconnect,
-        Connected,
-        Disconnected,
-        Ping,
-        Pong,
-        Text,
-        Sound,
-        Media,
-        Video,
-        Administration,
-        Operation,
-        Identity,
-        ChannelIdentity,
-    }
-
-    public readonly struct Packet : IPacket
-    {
-        private const int _OFFSET_PACKET_TYPE = 0;
-        private const int _OFFSET_TIMESTAMP = _OFFSET_PACKET_TYPE + sizeof(PacketType);
-        private const int _HEADER_LENGTH = _OFFSET_TIMESTAMP + sizeof(long);
-
-        private const int _TOTAL_HEADER_LENGTH = IPacket.ENCRYPTION_HEADER_LENGTH + _HEADER_LENGTH;
-
-        public readonly ReadOnlyMemory<byte> Data;
-        public readonly PacketType Type;
-        public readonly DateTime UtcTimestamp;
-
-        public ReadOnlySpan<byte> Content => Data.Slice(_HEADER_LENGTH).Span;
-
-        public Packet(ReadOnlyMemory<byte> data)
-        {
-            ReadOnlySpan<byte> destination = data.Span;
-
-            Type = MemoryMarshal.Read<PacketType>(destination.Slice(_OFFSET_PACKET_TYPE));
-            UtcTimestamp = MemoryMarshal.Read<DateTime>(destination.Slice(_OFFSET_TIMESTAMP));
-
-            Data = data;
-        }
-
-        public Packet(PacketType packetType, DateTime utcTimestamp, ReadOnlySpan<byte> content)
-        {
-            Type = packetType;
-            UtcTimestamp = utcTimestamp;
-
-            Memory<byte> data = new byte[_HEADER_LENGTH + content.Length];
-            Span<byte> destination = data.Span;
-
-            MemoryMarshal.Write(destination.Slice(_OFFSET_PACKET_TYPE), ref packetType);
-            MemoryMarshal.Write(destination.Slice(_OFFSET_TIMESTAMP), ref utcTimestamp);
-            content.CopyTo(destination.Slice(_HEADER_LENGTH));
-
-            Data = data;
-        }
-
-        public ReadOnlyMemory<byte> Serialize() => Data;
-
-        public override string ToString()
-        {
-            return new StringBuilder()
-                .Append(Type.ToString())
-                .Append(' ')
-                .Append(UtcTimestamp.ToString("O"))
-                .Append(' ')
-                .Append(Type switch
-                {
-                    PacketType.Text => Encoding.Unicode.GetString(Content),
-                    _ => MemoryMarshal.Cast<byte, char>(Content)
-                })
-                .ToString();
-        }
-
+        private const int _ALIGNMENT_CONSTANT = 205582199;
 
         public static async ValueTask SendEncryptionKeys(Connection<Packet> connection) =>
             await connection.WriteAsync(new Packet(PacketType.EncryptionKeys, DateTime.UtcNow, connection.PublicKey), CancellationToken.None);
@@ -112,14 +39,32 @@ namespace Disfigure.Net
                 Log.Warning($"Write call has been received, but the {nameof(EncryptionProvider)} has no keys.");
             }
 
+            return SerializePacket(initializationVector, packetData);
+        }
 
-            int length = IPacket.ENCRYPTION_HEADER_LENGTH + packetData.Length;
+        private static ReadOnlyMemory<byte> SerializePacket(ReadOnlyMemory<byte> initializationVector, ReadOnlyMemory<byte> packetData)
+        {
+            int alignmentConstant = _ALIGNMENT_CONSTANT;
+            int length = _ENCRYPTION_HEADER_LENGTH + packetData.Length;
             Memory<byte> data = new byte[length];
-            MemoryMarshal.Write(data.Span, ref length);
-            initializationVector.CopyTo(data.Slice(sizeof(int)));
-            packetData.CopyTo(data.Slice(IPacket.ENCRYPTION_HEADER_LENGTH));
+            Span<byte> dataSpan = data.Span;
+
+            MemoryMarshal.Write(dataSpan.Slice(_OFFSET_DATA_LENGTH), ref length);
+            MemoryMarshal.Write(dataSpan.Slice(_OFFSET_ALIGNMENT_CONSTANT), ref alignmentConstant);
+            initializationVector.CopyTo(data.Slice(_OFFSET_INITIALIZATION_VECTOR));
+            packetData.CopyTo(data.Slice(_ENCRYPTION_HEADER_LENGTH));
+
+            ValidateSerialization(dataSpan);
 
             return data;
+        }
+
+        private static void ValidateSerialization(ReadOnlySpan<byte> dataSpan)
+        {
+            bool goodLength = dataSpan.Length >= _TOTAL_HEADER_LENGTH;
+            bool aligned = MemoryMarshal.Read<int>(dataSpan.Slice(sizeof(int))) == _ALIGNMENT_CONSTANT;
+
+            Log.Debug($"OUT CALL | {dataSpan.Length} BYTES | LENGTH {(goodLength ? "GOOD" : "BAD")} | ALIGNMENT {(aligned ? "GOOD" : "BAD")}");
         }
 
         #endregion
@@ -130,67 +75,64 @@ namespace Disfigure.Net
         public static async ValueTask<(bool, SequencePosition, Packet)> FactoryAsync(ReadOnlySequence<byte> sequence,
             EncryptionProvider encryptionProvider, CancellationToken cancellationToken)
         {
-            if (!TryGetPacketData(sequence, out SequencePosition consumed, out ReadOnlySequence<byte> data))
+            if (!TryGetData(sequence, out SequencePosition consumed, out ReadOnlyMemory<byte> data))
             {
                 return (false, consumed, default);
             }
-
-            ReadOnlyMemory<byte> dataMemory = data.First; // cache value
-            ReadOnlyMemory<byte> initializationVector = dataMemory.Slice(0, EncryptionProvider.INITIALIZATION_VECTOR_SIZE);
-            ReadOnlyMemory<byte> packetData = dataMemory.Slice(EncryptionProvider.INITIALIZATION_VECTOR_SIZE);
-
-            if (packetData.IsEmpty)
-            {
-                throw new ArgumentException("Decrypted packet contained no data.", nameof(packetData));
-            }
-
-            if (encryptionProvider.IsEncryptable)
-            {
-                packetData = await encryptionProvider.DecryptAsync(initializationVector, packetData, cancellationToken);
-            }
             else
             {
-                Log.Warning($"Packet data has been received, but the {nameof(EncryptionProvider)} has no keys.");
-            }
+                ReadOnlyMemory<byte> initializationVector = data.Slice(0, EncryptionProvider.INITIALIZATION_VECTOR_SIZE);
+                ReadOnlyMemory<byte> packetData = data.Slice(EncryptionProvider.INITIALIZATION_VECTOR_SIZE);
 
-            return (true, consumed, new Packet(packetData));
-        }
-
-        private static bool TryGetPacketData(ReadOnlySequence<byte> sequence, out SequencePosition consumed, out ReadOnlySequence<byte> data)
-        {
-            consumed = sequence.Start;
-            data = default;
-
-            if (sequence.Length < sizeof(int))
-            {
-                return false;
-            }
-
-            int length = MemoryMarshal.Read<int>(sequence.FirstSpan);
-
-            // check if entire packet has been received
-            if (sequence.Length >= length)
-            {
-                // check to ensure packet length is >= total header length (i.e. an entire packet was sent)
-                if (length >= _TOTAL_HEADER_LENGTH)
+                if (encryptionProvider.IsEncryptable)
                 {
-                    consumed = sequence.GetPosition(length);
+                    packetData = await encryptionProvider.DecryptAsync(initializationVector, packetData, cancellationToken);
                 }
                 else
                 {
-                    Log.Warning("Received packet whose length was less than the minimum total header length.");
-                    return false;
+                    Log.Warning($"Packet data has been received, but the {nameof(EncryptionProvider)} has no keys.");
                 }
+
+                return (true, consumed, new Packet(packetData));
             }
-            // if none, then return false and wait for more data
-            else
+        }
+
+        private static bool TryGetData(ReadOnlySequence<byte> sequence, out SequencePosition consumed, out ReadOnlyMemory<byte> data)
+        {
+            ReadOnlySpan<byte> span = sequence.FirstSpan;
+            consumed = sequence.Start;
+            data = ReadOnlyMemory<byte>.Empty;
+            int length;
+
+            // wait until 4 bytes and sequence is long enough to construct packet
+            if ((sequence.Length < sizeof(int)) || (sequence.Length < (length = MemoryMarshal.Read<int>(span))))
             {
                 return false;
             }
+            // ensure length covers entire valid header
+            else if (length < _TOTAL_HEADER_LENGTH)
+            {
+                // if not, print warning and throw away data
+                Log.Warning("Received packet with invalid header format.");
+                consumed = sequence.GetPosition(length);
+                return false;
+            }
+            // ensure alignment constant is valid
+            else if (MemoryMarshal.Read<int>(span.Slice(sizeof(int))) != _ALIGNMENT_CONSTANT)
+            {
+#if DEBUG
+                Log.Debug(
+                    $"{string.Join(' ', BitConverter.GetBytes(_ALIGNMENT_CONSTANT))} | {string.Join(' ', span.Slice(sizeof(int), sizeof(int)).ToArray())}");
+#endif
 
-            // begin at sizeof(int) to skip bytes of length value
-            data = sequence.Slice(sizeof(int), consumed);
-            return true;
+                throw new PacketMisalignedException();
+            }
+            else
+            {
+                consumed = sequence.GetPosition(length);
+                data = sequence.Slice(sizeof(int) + sizeof(int)).First;
+                return true;
+            }
         }
 
         #endregion
