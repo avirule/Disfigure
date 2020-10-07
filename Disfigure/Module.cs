@@ -14,9 +14,7 @@ using Serilog;
 
 namespace Disfigure
 {
-    public abstract class Module<TEncryptionProvider, TPacket> : IDisposable
-        where TEncryptionProvider : class, IEncryptionProvider, new()
-        where TPacket : struct, IPacket
+    public abstract class Module<TPacket> : IDisposable where TPacket : struct, IPacket
     {
         /// <summary>
         ///     <see cref="CancellationTokenSource" /> used to provide <see cref="CancellationToken" /> for async operations.
@@ -26,7 +24,7 @@ namespace Disfigure
         /// <summary>
         ///     Thread-safe dictionary of current connections.
         /// </summary>
-        protected readonly ConcurrentDictionary<Guid, Connection<TEncryptionProvider, TPacket>> Connections;
+        protected readonly ConcurrentDictionary<Guid, Connection<TPacket>> Connections;
 
         /// <summary>
         ///     <see cref="CancellationToken" /> used for async operations.
@@ -36,12 +34,12 @@ namespace Disfigure
         /// <summary>
         ///     Read-only representation of internal connections dictionary.
         /// </summary>
-        public IReadOnlyDictionary<Guid, Connection<TEncryptionProvider, TPacket>> ReadOnlyConnections => Connections;
+        public IReadOnlyDictionary<Guid, Connection<TPacket>> ReadOnlyConnections => Connections;
 
         protected Module()
         {
             CancellationTokenSource = new CancellationTokenSource();
-            Connections = new ConcurrentDictionary<Guid, Connection<TEncryptionProvider, TPacket>>();
+            Connections = new ConcurrentDictionary<Guid, Connection<TPacket>>();
 
             Connected += connection =>
             {
@@ -55,7 +53,7 @@ namespace Disfigure
             };
         }
 
-        protected void RegisterConnection(Connection<TEncryptionProvider, TPacket> connection)
+        protected void RegisterConnection(Connection<TPacket> connection)
         {
             connection.Connected += OnConnected;
             connection.Disconnected += OnDisconnected;
@@ -67,7 +65,7 @@ namespace Disfigure
         /// </summary>
         public void ForceDisconnect(Guid connectionIdentity)
         {
-            if (!Connections.TryRemove(connectionIdentity, out Connection<TEncryptionProvider, TPacket>? connection))
+            if (!Connections.TryRemove(connectionIdentity, out Connection<TPacket>? connection))
             {
                 return;
             }
@@ -79,9 +77,9 @@ namespace Disfigure
 
         #region Packet Events
 
-        public event PacketEventHandler<TEncryptionProvider, TPacket>? PacketReceived;
+        public event PacketEventHandler<TPacket>? PacketReceived;
 
-        private async ValueTask OnClientPacketReceived(Connection<TEncryptionProvider, TPacket> connection, TPacket packet)
+        private async ValueTask OnClientPacketReceived(Connection<TPacket> connection, TPacket packet)
         {
             if (PacketReceived is { })
             {
@@ -94,11 +92,11 @@ namespace Disfigure
 
         #region Connection Events
 
-        public event ConnectionEventHandler<TEncryptionProvider, TPacket>? Connected;
-        public event ConnectionEventHandler<TEncryptionProvider, TPacket>? Disconnected;
+        public event ConnectionEventHandler<TPacket>? Connected;
+        public event ConnectionEventHandler<TPacket>? Disconnected;
 
 
-        protected virtual async ValueTask OnConnected(Connection<TEncryptionProvider, TPacket> connection)
+        protected virtual async ValueTask OnConnected(Connection<TPacket> connection)
         {
             if (Connected is { })
             {
@@ -106,7 +104,7 @@ namespace Disfigure
             }
         }
 
-        protected virtual async ValueTask OnDisconnected(Connection<TEncryptionProvider, TPacket> connection)
+        protected virtual async ValueTask OnDisconnected(Connection<TPacket> connection)
         {
             if (Disconnected is { })
             {
@@ -130,7 +128,7 @@ namespace Disfigure
 
             CancellationTokenSource.Cancel();
 
-            foreach ((Guid _, Connection<TEncryptionProvider, TPacket> connection) in Connections)
+            foreach ((Guid _, Connection<TPacket> connection) in Connections)
             {
                 connection?.Dispose();
             }

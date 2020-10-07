@@ -24,17 +24,11 @@ namespace Disfigure.Net
     public delegate ValueTask<ReadOnlyMemory<byte>> PacketSerializerAsync<in TPacket>(TPacket packet, IEncryptionProvider encryptionProvider,
         CancellationToken cancellationToken);
 
-    public delegate ValueTask ConnectionEventHandler<TEncryptionProvider, TPacket>(Connection<TEncryptionProvider, TPacket> connection)
-        where TEncryptionProvider : class, IEncryptionProvider, new()
-        where TPacket : struct, IPacket;
+    public delegate ValueTask ConnectionEventHandler<TPacket>(Connection<TPacket> connection) where TPacket : struct, IPacket;
 
-    public delegate ValueTask PacketEventHandler<TEncryptionProvider, TPacket>(Connection<TEncryptionProvider, TPacket> origin, TPacket packet)
-        where TEncryptionProvider : class, IEncryptionProvider, new()
-        where TPacket : struct, IPacket;
+    public delegate ValueTask PacketEventHandler<TPacket>(Connection<TPacket> origin, TPacket packet) where TPacket : struct, IPacket;
 
-    public class Connection<TEncryptionProvider, TPacket> : IDisposable, IEquatable<Connection<TEncryptionProvider, TPacket>>
-        where TEncryptionProvider : class, IEncryptionProvider, new()
-        where TPacket : struct, IPacket
+    public class Connection<TPacket> : IDisposable, IEquatable<Connection<TPacket>> where TPacket : struct, IPacket
     {
         private readonly TcpClient _Client;
         private readonly NetworkStream _Stream;
@@ -56,7 +50,8 @@ namespace Disfigure.Net
         /// </summary>
         public EndPoint RemoteEndPoint => _Client.Client.RemoteEndPoint;
 
-        public Connection(TcpClient client, PacketSerializerAsync<TPacket> packetSerializerAsync, PacketFactoryAsync<TPacket> packetFactoryAsync)
+        public Connection(TcpClient client, IEncryptionProvider encryptionProvider, PacketSerializerAsync<TPacket> packetSerializerAsync,
+            PacketFactoryAsync<TPacket> packetFactoryAsync)
         {
             _Client = client;
             _Stream = _Client.GetStream();
@@ -66,7 +61,7 @@ namespace Disfigure.Net
             _PacketFactoryAsync = packetFactoryAsync;
 
             Identity = Guid.NewGuid();
-            EncryptionProvider = new TEncryptionProvider();
+            EncryptionProvider = encryptionProvider;
         }
 
         /// <summary>
@@ -78,11 +73,6 @@ namespace Disfigure.Net
             await OnConnected();
 
             BeginListen(cancellationToken);
-
-            Log.Information(string.Format(FormatHelper.CONNECTION_LOGGING, RemoteEndPoint, "Waiting for encryption keys packet."));
-            _ECDHEncryptionProvider.WaitForRemoteKeys(cancellationToken);
-
-            Log.Information(string.Format(FormatHelper.CONNECTION_LOGGING, RemoteEndPoint, "Encryption keys received; connection finalized."));
         }
 
 
@@ -167,8 +157,8 @@ namespace Disfigure.Net
 
         #region Connection Events
 
-        public event ConnectionEventHandler<TEncryptionProvider, TPacket>? Connected;
-        public event ConnectionEventHandler<TEncryptionProvider, TPacket>? Disconnected;
+        public event ConnectionEventHandler<TPacket>? Connected;
+        public event ConnectionEventHandler<TPacket>? Disconnected;
 
         private async ValueTask OnConnected()
         {
@@ -191,7 +181,7 @@ namespace Disfigure.Net
 
         #region Packet Events
 
-        public event PacketEventHandler<TEncryptionProvider, TPacket>? PacketReceived;
+        public event PacketEventHandler<TPacket>? PacketReceived;
 
         private async ValueTask PacketReceivedCallback(TPacket packet)
         {
@@ -237,7 +227,7 @@ namespace Disfigure.Net
 
         #region IEquatable<Connection>
 
-        public bool Equals(Connection<TEncryptionProvider, TPacket>? other)
+        public bool Equals(Connection<TPacket>? other)
         {
             if (ReferenceEquals(null, other))
             {
@@ -269,15 +259,15 @@ namespace Disfigure.Net
                 return false;
             }
 
-            return Equals((Connection<TEncryptionProvider, TPacket>)obj);
+            return Equals((Connection<TPacket>)obj);
         }
 
         public override int GetHashCode() => Identity.GetHashCode();
 
-        public static bool operator ==(Connection<TEncryptionProvider, TPacket>? left, Connection<TEncryptionProvider, TPacket>? right) =>
+        public static bool operator ==(Connection<TPacket>? left, Connection<TPacket>? right) =>
             Equals(left, right);
 
-        public static bool operator !=(Connection<TEncryptionProvider, TPacket>? left, Connection<TEncryptionProvider, TPacket>? right) =>
+        public static bool operator !=(Connection<TPacket>? left, Connection<TPacket>? right) =>
             !Equals(left, right);
 
         #endregion

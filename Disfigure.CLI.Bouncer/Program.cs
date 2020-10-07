@@ -33,7 +33,7 @@ namespace Disfigure.CLI.Bouncer
             _Module.ServerConnected += Packet.SendEncryptionKeys;
             _Module.ServerPacketReceived += ServerPacketReceivedCallback;
 
-            _Module.AcceptConnections(Packet.EncryptorAsync, Packet.FactoryAsync);
+            _Module.AcceptConnections(Packet.SerializerAsync, Packet.FactoryAsync);
             Packet.PingPongLoop(_Module, TimeSpan.FromSeconds(5d), _Module.CancellationToken);
 
             while (!_Module.CancellationToken.IsCancellationRequested)
@@ -42,7 +42,7 @@ namespace Disfigure.CLI.Bouncer
             }
         }
 
-        private static async ValueTask PacketReceivedCallback(Connection<ECDHEncryptionProvider,Packet> connection, Packet packet)
+        private static async ValueTask PacketReceivedCallback(Connection<Packet> connection, Packet packet)
         {
             switch (packet.Type)
             {
@@ -51,12 +51,12 @@ namespace Disfigure.CLI.Bouncer
                     break;
                 case PacketType.Connect when _Module is { }:
                     SerializableEndPoint serializableEndPoint = new SerializableEndPoint(packet.Content);
-                    await _Module.EstablishServerConnectionAsync((IPEndPoint)serializableEndPoint, Packet.EncryptorAsync, Packet.FactoryAsync);
+                    await _Module.EstablishServerConnectionAsync((IPEndPoint)serializableEndPoint, Packet.SerializerAsync, Packet.FactoryAsync);
                     break;
             }
         }
 
-        private static async ValueTask ServerPacketReceivedCallback(Connection<ECDHEncryptionProvider,Packet> connection, Packet packet)
+        private static async ValueTask ServerPacketReceivedCallback(Connection<Packet> connection, Packet packet)
         {
             switch (packet.Type)
             {

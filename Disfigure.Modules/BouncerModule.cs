@@ -15,16 +15,16 @@ namespace Disfigure.Modules
 {
     public class BouncerModule : ServerModule
     {
-        private readonly ConcurrentDictionary<Guid, Connection<ECDHEncryptionProvider, Packet>> _ServerConnections;
+        private readonly ConcurrentDictionary<Guid, Connection<Packet>> _ServerConnections;
 
         public BouncerModule(IPEndPoint hostAddress) : base(hostAddress) =>
-            _ServerConnections = new ConcurrentDictionary<Guid, Connection<ECDHEncryptionProvider, Packet>>();
+            _ServerConnections = new ConcurrentDictionary<Guid, Connection<Packet>>();
 
-        public async ValueTask<Connection<ECDHEncryptionProvider, Packet>> EstablishServerConnectionAsync(IPEndPoint ipEndPoint,
+        public async ValueTask<Connection<Packet>> EstablishServerConnectionAsync(IPEndPoint ipEndPoint,
             PacketSerializerAsync<Packet> packetSerializerAsync, PacketFactoryAsync<Packet> packetFactoryAsync)
         {
             TcpClient tcpClient = await ConnectionHelper.ConnectAsync(ipEndPoint, ConnectionHelper.DefaultRetryParameters, CancellationToken);
-            Connection<ECDHEncryptionProvider, Packet> connection = new Connection<ECDHEncryptionProvider, Packet>(tcpClient, packetSerializerAsync,
+            Connection<Packet> connection = new Connection<Packet>(tcpClient, new ECDHEncryptionProvider(), packetSerializerAsync,
                 packetFactoryAsync);
             connection.Connected += OnServerConnected;
             connection.Disconnected += OnServerDisconnected;
@@ -38,9 +38,9 @@ namespace Disfigure.Modules
 
         #region Server PacketReceived Events
 
-        public event PacketEventHandler<ECDHEncryptionProvider, Packet>? ServerPacketReceived;
+        public event PacketEventHandler<Packet>? ServerPacketReceived;
 
-        private async ValueTask OnServerPacketReceived(Connection<ECDHEncryptionProvider, Packet> connection, Packet packet)
+        private async ValueTask OnServerPacketReceived(Connection<Packet> connection, Packet packet)
         {
             if (ServerPacketReceived is { })
             {
@@ -53,10 +53,10 @@ namespace Disfigure.Modules
 
         #region Server Connection Events
 
-        public event ConnectionEventHandler<ECDHEncryptionProvider, Packet>? ServerConnected;
-        public event ConnectionEventHandler<ECDHEncryptionProvider, Packet>? ServerDisconnected;
+        public event ConnectionEventHandler<Packet>? ServerConnected;
+        public event ConnectionEventHandler<Packet>? ServerDisconnected;
 
-        private async ValueTask OnServerConnected(Connection<ECDHEncryptionProvider, Packet> connection)
+        private async ValueTask OnServerConnected(Connection<Packet> connection)
         {
             if (ServerConnected is { })
             {
@@ -64,7 +64,7 @@ namespace Disfigure.Modules
             }
         }
 
-        private async ValueTask OnServerDisconnected(Connection<ECDHEncryptionProvider, Packet> connection)
+        private async ValueTask OnServerDisconnected(Connection<Packet> connection)
         {
             if (ServerDisconnected is { })
             {

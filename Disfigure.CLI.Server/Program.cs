@@ -3,6 +3,7 @@
 using System;
 using System.Net;
 using System.Threading.Tasks;
+using Disfigure.Cryptography;
 using Disfigure.Diagnostics;
 using Disfigure.Modules;
 using Disfigure.Net;
@@ -29,7 +30,7 @@ namespace Disfigure.CLI.Server
                 module.Connected += Packet.SendEncryptionKeys;
                 module.PacketReceived += PacketReceivedCallback;
 
-                module.AcceptConnections(Packet.EncryptorAsync, Packet.FactoryAsync);
+                module.AcceptConnections(Packet.SerializerAsync, Packet.FactoryAsync);
                 Packet.PingPongLoop(module, TimeSpan.FromSeconds(5d), module.CancellationToken);
 
                 while (!module.CancellationToken.IsCancellationRequested)
@@ -49,7 +50,7 @@ namespace Disfigure.CLI.Server
             switch (packet.Type)
             {
                 case PacketType.EncryptionKeys:
-                    connection.AssignRemoteKeys(packet.Content);
+                    ((ECDHEncryptionProvider)connection.EncryptionProvider).AssignRemoteKeys(packet.Content);
                     break;
             }
 

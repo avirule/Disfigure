@@ -14,7 +14,7 @@ using Serilog;
 
 namespace Disfigure.Modules
 {
-    public class ServerModule : Module<ECDHEncryptionProvider, Packet>
+    public class ServerModule : Module<Packet>
     {
         private readonly IPEndPoint _HostAddress;
 
@@ -47,8 +47,8 @@ namespace Disfigure.Modules
                     TcpClient tcpClient = await listener.AcceptTcpClientAsync();
                     Log.Information(string.Format(FormatHelper.CONNECTION_LOGGING, tcpClient.Client.RemoteEndPoint, "Connection accepted."));
 
-                    Connection<ECDHEncryptionProvider,Packet> connection = new Connection<ECDHEncryptionProvider, Packet>(tcpClient,
-                        packetSerializerAsync, packetFactoryAsync);
+                    Connection<Packet> connection = new Connection<Packet>(tcpClient, new ECDHEncryptionProvider(), packetSerializerAsync,
+                        packetFactoryAsync);
                     RegisterConnection(connection);
 
                     await connection.StartAsync(CancellationToken);

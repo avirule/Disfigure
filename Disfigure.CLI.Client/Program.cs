@@ -5,6 +5,7 @@ using System.Net;
 using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
+using Disfigure.Cryptography;
 using Disfigure.Net;
 using Disfigure.Net.Packets;
 using Serilog;
@@ -23,14 +24,15 @@ namespace Disfigure.CLI.Client
 
             IPEndPoint ipEndPoint = new IPEndPoint(hostModuleOption.IPAddress, hostModuleOption.Port);
             TcpClient tcpClient = await ConnectionHelper.ConnectAsync(ipEndPoint, ConnectionHelper.DefaultRetryParameters, CancellationToken.None);
-            Connection<Packet> connection = new Connection<Packet>(tcpClient, Packet.EncryptorAsync, Packet.FactoryAsync);
+            Connection<Packet> connection = new Connection<Packet>(tcpClient, new ECDHEncryptionProvider(), Packet.SerializerAsync,
+                Packet.FactoryAsync);
             connection.Connected += Packet.SendEncryptionKeys;
             connection.PacketReceived += async (origin, packet) =>
             {
                 switch (packet.Type)
                 {
                     case PacketType.EncryptionKeys:
-                        connection.AssignRemoteKeys(packet.Content);
+                        ((ECDHEncryptionProvider)connection.EncryptionProvider).AssignRemoteKeys(packet.Content);
                         break;
                     case PacketType.Ping:
                         await connection.WriteAsync(new Packet(PacketType.Pong, DateTime.UtcNow, packet.Content), CancellationToken.None);
@@ -42,6 +44,8 @@ namespace Disfigure.CLI.Client
             };
 
             await connection.StartAsync(CancellationToken.None);
+            ((ECDHEncryptionProvider)connection.EncryptionProvider).WaitForRemoteKeys(CancellationToken.None);
+
             await connection.WriteAsync(new Packet(PacketType.Connect, DateTime.UtcNow,
                 new SerializableEndPoint(IPAddress.Loopback, 8898).Serialize()), CancellationToken.None);
 
