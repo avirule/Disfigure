@@ -10,12 +10,12 @@ using Serilog;
 
 namespace Disfigure.Collections
 {
-    public class ChannelBag<T>
+    public class ConcurrentChannel<T>
     {
         private readonly ChannelReader<T> _Reader;
         private readonly ChannelWriter<T> _Writer;
 
-        public ChannelBag(bool singleReader, bool singleWriter)
+        public ConcurrentChannel(bool singleReader, bool singleWriter)
         {
             Channel<T> channel = Channel.CreateUnbounded<T>(new UnboundedChannelOptions
             {

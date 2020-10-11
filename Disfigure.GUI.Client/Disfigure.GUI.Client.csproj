@@ -26,4 +26,9 @@
       <ProjectReference Include="..\Disfigure.Modules\Disfigure.Modules.csproj" />
       <ProjectReference Include="..\Disfigure\Disfigure.csproj" />
     </ItemGroup>
+    <ItemGroup>
+      <Compile Update="App.axaml.cs">
+        <DependentUpon>%(Filename)</DependentUpon>
+      </Compile>
+    </ItemGroup>
 </Project>

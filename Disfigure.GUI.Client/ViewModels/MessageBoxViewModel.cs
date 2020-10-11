@@ -17,41 +17,32 @@ namespace Disfigure.GUI.Client.ViewModels
 {
     public class MessageBoxViewModel : ViewModelBase
     {
-        private readonly ClientModule _ClientModule;
+        private string _Content;
 
-        private string _MessageBoxContent;
-
-        public string MessageBoxContent
+        public string Content
         {
-            get => _MessageBoxContent;
-            set => this.RaiseAndSetIfChanged(ref _MessageBoxContent, value);
+            get => _Content;
+            set => this.RaiseAndSetIfChanged(ref _Content, value);
         }
 
-        public ReactiveCommand<Unit, Unit> SendMessageBoxContent { get; }
+        public ReactiveCommand<Unit, Unit> FlushContent { get; }
 
-        public MessageBoxViewModel(ClientModule clientModule)
+        public event EventHandler<string>? ContentFlushed;
+
+        public MessageBoxViewModel()
         {
-            _ClientModule = clientModule;
+            _Content = string.Empty;
 
-            _MessageBoxContent = string.Empty;
-
-            SendMessageBoxContent = ReactiveCommand.CreateFromTask(SendMessageContentsAsync);
+            FlushContent = ReactiveCommand.Create(OnMessageContentFlushed);
         }
 
-        private async Task SendMessageContentsAsync()
+        private void OnMessageContentFlushed()
         {
-            Connection<Packet>? connection = _ClientModule.ReadOnlyConnections.Values.FirstOrDefault();
-
-            if (string.IsNullOrWhiteSpace(MessageBoxContent) || connection is null)
+            if (!string.IsNullOrWhiteSpace(Content))
             {
-                return;
+                ContentFlushed?.Invoke(this, Content);
+                Content = string.Empty;
             }
-
-            ReadOnlyMemory<byte> content = Encoding.Unicode.GetBytes(MessageBoxContent);
-
-            await connection.WriteAsync(new Packet(PacketType.Text, DateTime.UtcNow, content.Span), CancellationToken.None);
-
-            MessageBoxContent = string.Empty;
         }
     }
 }

@@ -1,14 +1,14 @@
-using Avalonia;
+﻿using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Markup.Xaml;
 
 namespace Disfigure.GUI.Client.Views
 {
-    public class MainWindow : Window
+    public class MessageBox : UserControl
     {
-        public MainWindow()
+        public MessageBox()
         {
-            InitializeComponent();
+            this.InitializeComponent();
         }
 
         private void InitializeComponent()

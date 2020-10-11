@@ -1,12 +1,12 @@
-<Window xmlns="https://github.com/avaloniaui"
+﻿<Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:vm="clr-namespace:Disfigure.GUI.Client.ViewModels;assembly=Disfigure.GUI.Client"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:vm="clr-namespace:Disfigure.GUI.Client.ViewModels;assembly=Disfigure.GUI.Client"
+        xmlns:ctrls="clr-namespace:Disfigure.GUI.Client.Views;assembly=Disfigure.GUI.Client"
         mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
         x:Class="Disfigure.GUI.Client.Views.MainWindow"
-        Icon="/Assets/avalonia-logo.ico"
-        Title="Disfigure"
+        Title="MainWindow"
         Background="{DynamicResource ThemePrimary}">
 
     <Design.DataContext>
@@ -14,23 +14,14 @@
     </Design.DataContext>
 
     <StackPanel VerticalAlignment="Bottom" Orientation="Vertical">
-        <ListBox VerticalAlignment="Stretch" Background="Transparent" BorderThickness="0"
-                 Items="{Binding Messages, Mode=OneWay}">
+        <ListBox VerticalAlignment="Stretch" Background="Transparent" BorderThickness="0" Items="{Binding Messages, Mode=OneWay}">
             <ListBox.ItemTemplate>
                 <DataTemplate>
                     <TextBlock Text="{Binding}" />
                 </DataTemplate>
             </ListBox.ItemTemplate>
         </ListBox>
-        <TextBox Background="Transparent" Text="{Binding MessageBoxContent, Mode=TwoWay}">
-            <TextBox.DataContext>
-                < />
-            </TextBox.DataContext>
 
-            <TextBox.KeyBindings>
-                <KeyBinding Command="{Binding SendMessageBoxContent}" Gesture="Enter" />
-            </TextBox.KeyBindings>
-        </TextBox>
+        <ctrls:MessageBox DataContext="{Binding MessageBoxViewModel}" />
     </StackPanel>
-
 </Window>
