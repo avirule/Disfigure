@@ -1,16 +1,13 @@
 ﻿#region
 
-using System;
 using System.Collections.ObjectModel;
-using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
 using Avalonia.Threading;
-using Disfigure.CLI;
 using Disfigure.Collections;
 using Disfigure.Modules;
-using ReactiveUI;
 using Serilog;
+using Serilog.Events;
 
 #endregion
 
@@ -19,37 +16,22 @@ namespace Disfigure.GUI.Client.ViewModels
     public class MainWindowViewModel : ViewModelBase
     {
         private readonly ChannelBag<string> _PendingMessages;
+        private readonly ClientModule _ClientModule;
 
-        private ClientModule _ClientModule;
-        private string _SendMessageText;
+        public MessageBoxViewModel MessageBoxViewModel { get; }
 
-        public ObservableCollection<string> Messages { get; set; }
-
-        public string SendMessageText
-        {
-            get => _SendMessageText;
-            set => this.RaiseAndSetIfChanged(ref _SendMessageText, value);
-        }
+        public ObservableCollection<string> Messages { get; }
 
         public MainWindowViewModel()
         {
             _PendingMessages = new ChannelBag<string>(true, false);
-            Messages = new ObservableCollection<string>();
-            SendMessageText = String.Empty;
 
-            HostModuleOption hostModuleOption = CLIParser.Parse<HostModuleOption>(new[]
-            {
-                "-l",
-                "verbose",
-                "127.0.0.1",
-                "8998"
-            });
+            MessageBoxViewModel = new MessageBoxViewModel(_ClientModule);
+            Messages = new ObservableCollection<string>();
 
             Log.Logger = new LoggerConfiguration()
-                .WriteTo.Async(config => config.Console()).MinimumLevel.Is(hostModuleOption.LogLevel)
+                .WriteTo.Async(config => config.Console()).MinimumLevel.Is(LogEventLevel.Verbose)
                 .CreateLogger();
-
-            IPEndPoint ipEndPoint = new IPEndPoint(hostModuleOption.IPAddress, hostModuleOption.Port);
 
             _ClientModule = new ClientModule();
             _ClientModule.PacketWritten += async (connection, packet) =>
@@ -59,12 +41,10 @@ namespace Disfigure.GUI.Client.ViewModels
                 await _PendingMessages.AddAsync(
                     $"INC {string.Format(FormatHelper.CONNECTION_LOGGING, connection.RemoteEndPoint, packet.ToString())}");
 
-
-            Task.Run(() => _ClientModule.ConnectAsync(ipEndPoint));
-            Task.Run(() => MessageAdditionLoop(CancellationToken.None));
+            Task.Run(() => DispatchAddMessages(CancellationToken.None));
         }
 
-        private async Task MessageAdditionLoop(CancellationToken cancellationToken)
+        private async Task DispatchAddMessages(CancellationToken cancellationToken)
         {
             while (!cancellationToken.IsCancellationRequested)
             {
