@@ -1,5 +1,7 @@
 #region
 
+using Disfigure.Cryptography;
+using Serilog;
 using System;
 using System.Buffers;
 using System.Collections.Concurrent;
@@ -7,8 +9,6 @@ using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
-using Disfigure.Cryptography;
-using Serilog;
 
 #endregion
 

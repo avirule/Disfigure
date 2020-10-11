@@ -47,6 +47,7 @@ namespace Disfigure.Diagnostics
                 case ConstructionTime constructionTime:
                     ConstructionTimes.Add(constructionTime);
                     break;
+
                 case DecryptionTime decryptionTime:
                     DecryptionTimes.Add(decryptionTime);
                     break;

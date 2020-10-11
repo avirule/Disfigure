@@ -1,12 +1,12 @@
 #region
 
+using Disfigure.Net;
+using Serilog;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
-using Disfigure.Net;
-using Serilog;
 
 #endregion
 
@@ -73,12 +73,11 @@ namespace Disfigure
             Log.Warning(string.Format(FormatHelper.CONNECTION_LOGGING, connection.RemoteEndPoint, "Connection forcibly disconnected."));
         }
 
-
         #region Connection Events
 
         public event ConnectionEventHandler<TPacket>? Connected;
-        public event ConnectionEventHandler<TPacket>? Disconnected;
 
+        public event ConnectionEventHandler<TPacket>? Disconnected;
 
         protected async Task OnConnected(Connection<TPacket> connection)
         {
@@ -98,10 +97,10 @@ namespace Disfigure
 
         #endregion
 
-
         #region Packet Events
 
         public event PacketEventHandler<TPacket>? PacketWritten;
+
         public event PacketEventHandler<TPacket>? PacketReceived;
 
         private async Task OnPacketWrittenAsync(Connection<TPacket> connection, TPacket packet)
@@ -121,7 +120,6 @@ namespace Disfigure
         }
 
         #endregion
-
 
         #region IDisposable
 

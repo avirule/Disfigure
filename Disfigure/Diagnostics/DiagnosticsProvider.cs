@@ -1,10 +1,10 @@
 #region
 
+using Disfigure.Collections;
+using Serilog;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using Disfigure.Collections;
-using Serilog;
 
 #endregion
 

@@ -6,7 +6,6 @@ using ReactiveUI;
 using SharpDX.Text;
 using System;
 using System.Collections.ObjectModel;
-using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
 

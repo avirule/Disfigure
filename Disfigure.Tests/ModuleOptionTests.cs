@@ -1,8 +1,8 @@
 #region
 
-using System.Net;
 using Disfigure.CLI;
 using Serilog.Events;
+using System.Net;
 using Xunit;
 
 #endregion
