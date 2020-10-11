@@ -36,7 +36,7 @@ namespace Disfigure.Net.Packets
 
         #region PacketSerializerAsync
 
-        public static async ValueTask<ReadOnlyMemory<byte>> SerializerAsync(Packet packet, IEncryptionProvider? encryptionProvider,
+        public static async Task<ReadOnlyMemory<byte>> SerializerAsync(Packet packet, IEncryptionProvider? encryptionProvider,
             CancellationToken cancellationToken)
         {
             ReadOnlyMemory<byte> initializationVector = ReadOnlyMemory<byte>.Empty;
@@ -86,7 +86,7 @@ namespace Disfigure.Net.Packets
 
         #region PacketFactoryAsync
 
-        public static async ValueTask<(bool, SequencePosition, Packet)> FactoryAsync(ReadOnlySequence<byte> sequence,
+        public static async Task<(bool, SequencePosition, Packet)> FactoryAsync(ReadOnlySequence<byte> sequence,
             IEncryptionProvider? encryptionProvider, CancellationToken cancellationToken)
         {
             if (!TryGetData(sequence, out SequencePosition consumed, out ReadOnlyMemory<byte> data))

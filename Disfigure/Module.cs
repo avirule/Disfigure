@@ -51,11 +51,12 @@ namespace Disfigure
             };
         }
 
-        protected void RegisterConnection(Connection<TPacket> connection)
+        protected virtual void RegisterConnection(Connection<TPacket> connection)
         {
             connection.Connected += OnConnected;
             connection.Disconnected += OnDisconnected;
-            connection.PacketReceived += OnClientPacketReceived;
+            connection.PacketWritten += OnPacketWrittenAsync;
+            connection.PacketReceived += OnPacketReceivedAsync;
         }
 
         /// <summary>
@@ -73,28 +74,13 @@ namespace Disfigure
         }
 
 
-        #region Packet Events
-
-        public event PacketEventHandler<TPacket>? PacketReceived;
-
-        private async Task OnClientPacketReceived(Connection<TPacket> connection, TPacket packet)
-        {
-            if (PacketReceived is { })
-            {
-                await PacketReceived(connection, packet);
-            }
-        }
-
-        #endregion
-
-
         #region Connection Events
 
         public event ConnectionEventHandler<TPacket>? Connected;
         public event ConnectionEventHandler<TPacket>? Disconnected;
 
 
-        protected virtual async Task OnConnected(Connection<TPacket> connection)
+        protected async Task OnConnected(Connection<TPacket> connection)
         {
             if (Connected is { })
             {
@@ -102,11 +88,35 @@ namespace Disfigure
             }
         }
 
-        protected virtual async Task OnDisconnected(Connection<TPacket> connection)
+        protected async Task OnDisconnected(Connection<TPacket> connection)
         {
             if (Disconnected is { })
             {
                 await Disconnected(connection);
+            }
+        }
+
+        #endregion
+
+
+        #region Packet Events
+
+        public event PacketEventHandler<TPacket>? PacketWritten;
+        public event PacketEventHandler<TPacket>? PacketReceived;
+
+        private async Task OnPacketWrittenAsync(Connection<TPacket> connection, TPacket packet)
+        {
+            if (PacketWritten is { })
+            {
+                await PacketWritten(connection, packet);
+            }
+        }
+
+        private async Task OnPacketReceivedAsync(Connection<TPacket> connection, TPacket packet)
+        {
+            if (PacketReceived is { })
+            {
+                await PacketReceived(connection, packet);
             }
         }
 

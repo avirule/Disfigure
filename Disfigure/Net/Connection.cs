@@ -18,15 +18,15 @@ using Serilog;
 
 namespace Disfigure.Net
 {
-    public delegate ValueTask<ReadOnlyMemory<byte>> PacketSerializerAsync<in TPacket>(TPacket packet, IEncryptionProvider? encryptionProvider,
+    public delegate Task<ReadOnlyMemory<byte>> PacketSerializerAsync<in TPacket>(TPacket packet, IEncryptionProvider? encryptionProvider,
         CancellationToken cancellationToken);
 
-    public delegate ValueTask<(bool, SequencePosition, TPacket)> PacketFactoryAsync<TPacket>(ReadOnlySequence<byte> sequence,
+    public delegate Task<(bool, SequencePosition, TPacket)> PacketFactoryAsync<TPacket>(ReadOnlySequence<byte> sequence,
         IEncryptionProvider? encryptionProvider, CancellationToken cancellationToken);
 
     public delegate Task ConnectionEventHandler<TPacket>(Connection<TPacket> connection) where TPacket : struct;
 
-    public delegate Task PacketEventHandler<TPacket>(Connection<TPacket> origin, TPacket packet) where TPacket : struct;
+    public delegate Task PacketEventHandler<TPacket>(Connection<TPacket> connection, TPacket packet) where TPacket : struct;
 
     public class Connection<TPacket> : IDisposable, IEquatable<Connection<TPacket>> where TPacket : struct
     {
@@ -115,7 +115,7 @@ namespace Disfigure.Net
 
                         Log.Verbose(string.Format(FormatHelper.CONNECTION_LOGGING, RemoteEndPoint, $"INC {packet}"));
 
-                        await PacketReceivedCallback(packet);
+                        await OnPacketReceivedAsync(packet);
                     }
 
                     _Reader.AdvanceTo(consumed, consumed);
@@ -143,13 +143,13 @@ namespace Disfigure.Net
 
         public async Task WriteAsync(TPacket packet, CancellationToken cancellationToken)
         {
-            Log.Verbose(string.Format(FormatHelper.CONNECTION_LOGGING, RemoteEndPoint, $"OUT {packet}"));
-
             ReadOnlyMemory<byte> encrypted = await _PacketSerializerAsync(packet, _EncryptionProvider, cancellationToken);
             await _Writer.WriteAsync(encrypted, cancellationToken);
             await _Writer.FlushAsync(cancellationToken);
 
-            await PacketWrittenCallback(packet);
+            Log.Verbose(string.Format(FormatHelper.CONNECTION_LOGGING, RemoteEndPoint, $"OUT {packet}"));
+
+            await OnPacketWrittenAsync(packet);
         }
 
         #endregion
@@ -184,7 +184,7 @@ namespace Disfigure.Net
         public event PacketEventHandler<TPacket>? PacketWritten;
         public event PacketEventHandler<TPacket>? PacketReceived;
 
-        private async ValueTask PacketWrittenCallback(TPacket packet)
+        private async Task OnPacketWrittenAsync(TPacket packet)
         {
             if (PacketWritten is { })
             {
@@ -192,7 +192,7 @@ namespace Disfigure.Net
             }
         }
 
-        private async ValueTask PacketReceivedCallback(TPacket packet)
+        private async Task OnPacketReceivedAsync(TPacket packet)
         {
             if (PacketReceived is { })
             {
