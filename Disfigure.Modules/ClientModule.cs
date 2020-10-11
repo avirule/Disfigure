@@ -15,24 +15,21 @@ namespace Disfigure.Modules
 {
     public class ClientModule : Module<Packet>
     {
-        public async Task<Connection<Packet>> ConnectAsync(IPEndPoint ipEndPoint)
+        public ClientModule()
         {
-            TcpClient tcpClient = await ConnectionHelper.ConnectAsync(ipEndPoint, ConnectionHelper.DefaultRetryParameters, CancellationToken.None);
-            Connection<Packet> connection = new Connection<Packet>(tcpClient, new ECDHEncryptionProvider(), Packet.SerializerAsync,
-                Packet.FactoryAsync);
-            RegisterConnection(connection);
-
-            await connection.FinalizeAsync(CancellationToken.None);
-
-            return connection;
+            Connected += Packet.SendEncryptionKeys;
+            PacketReceived += PacketReceivedCallbackAsync;
         }
 
-        protected override void RegisterConnection(Connection<Packet> connection)
+        public async Task<Connection<Packet>> ConnectAsync(IPEndPoint ipEndPoint)
         {
-            base.RegisterConnection(connection);
+            TcpClient tcpClient = await ConnectionHelper.ConnectAsync(ipEndPoint, ConnectionHelper.DefaultRetryParameters, CancellationToken);
+            Connection<Packet> connection = new Connection<Packet>(tcpClient, new ECDHEncryptionProvider(), Packet.SerializerAsync, Packet.FactoryAsync);
+            RegisterConnection(connection);
 
-            connection.Connected += Packet.SendEncryptionKeys;
-            connection.PacketReceived += PacketReceivedCallbackAsync;
+            await connection.FinalizeAsync(CancellationToken);
+
+            return connection;
         }
 
         #region Events
@@ -42,10 +39,11 @@ namespace Disfigure.Modules
             switch (packet.Type)
             {
                 case PacketType.EncryptionKeys:
-                    connection.EncryptionProviderAs<ECDHEncryptionProvider>().AssignRemoteKeys(packet.Content);
+                    connection.EncryptionProviderAs<ECDHEncryptionProvider>().AssignRemoteKeys(packet.ContentSpan);
                     break;
+
                 case PacketType.Ping:
-                    await connection.WriteAsync(new Packet(PacketType.Pong, DateTime.UtcNow, packet.Content), CancellationToken.None);
+                    await connection.WriteAsync(new Packet(PacketType.Pong, DateTime.UtcNow, packet.ContentSpan), CancellationToken.None);
                     break;
             }
         }

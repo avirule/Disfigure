@@ -9,10 +9,10 @@
         <KeyBinding Command="{Binding FlushContent}" Gesture="Enter" />
     </UserControl.KeyBindings>
 
-    <DockPanel>
-        <Border BorderBrush="ThemePrimaryHighlight" BorderThickness="2">
-            <TextBlock DockPanel.Dock="Left" VerticalAlignment="Bottom" Margin="5, 5, 0, 0" Text=":>" />
-            <TextBox DockPanel.Dock="Left" HorizontalAlignment="Stretch" VerticalAlignment="Bottom" BorderThickness="0" Text="{Binding Content}" />
-        </Border>
-    </DockPanel>
+    <Border BorderBrush="{DynamicResource ThemeHighlight}" BorderThickness="2">
+        <DockPanel>
+            <TextBlock DockPanel.Dock="Left" VerticalAlignment="Center" Margin="5, 0, 10, 0" Text=":>" />
+            <TextBox DockPanel.Dock="Left" HorizontalAlignment="Stretch" VerticalAlignment="Center" BorderThickness="0" Text="{Binding Content}" />
+        </DockPanel>
+    </Border>
 </UserControl>

@@ -2,7 +2,7 @@
   "profiles": {
     "Disfigure.CLI.Server": {
       "commandName": "Project",
-      "commandLineArgs": "-l verbose 127.0.0.1 8998"
+      "commandLineArgs": "-l verbose 127.0.0.1 8998 testserver"
     }
   }
 }

@@ -29,10 +29,9 @@ namespace Disfigure.Net.Packets
 
         public const int TOTAL_HEADER_LENGTH = ENCRYPTION_HEADER_LENGTH + HEADER_LENGTH;
 
-        public static async Task SendEncryptionKeys(Connection<Packet> connection) => await connection.WriteAsync(
-            new Packet(PacketType.EncryptionKeys, DateTime.UtcNow, connection.EncryptionProviderAs<IEncryptionProvider>().PublicKey),
-            CancellationToken.None);
-
+        public static async Task SendEncryptionKeys(Connection<Packet> connection) => await connection.WriteDirectAsync(
+                SerializePacket(ReadOnlyMemory<byte>.Empty, new Packet(PacketType.EncryptionKeys, DateTime.UtcNow, connection.EncryptionProviderAs<IEncryptionProvider>().PublicKey).Serialize()),
+                CancellationToken.None);
 
         #region PacketSerializerAsync
 
@@ -42,13 +41,13 @@ namespace Disfigure.Net.Packets
             ReadOnlyMemory<byte> initializationVector = ReadOnlyMemory<byte>.Empty;
             ReadOnlyMemory<byte> packetData = packet.Serialize();
 
-            if (encryptionProvider?.IsEncryptable ?? false)
+            if (encryptionProvider is { })
             {
-                (initializationVector, packetData) = await encryptionProvider.EncryptAsync(packetData, cancellationToken);
+                (initializationVector, packetData) = await encryptionProvider!.EncryptAsync(packetData, cancellationToken);
             }
             else
             {
-                Log.Warning($"Write call has been received, but the {nameof(IEncryptionProvider)} is in an unusable state.");
+                throw new ArgumentException($"Write call has been received, but the {nameof(IEncryptionProvider)} is in an unusable state.", nameof(encryptionProvider));
             }
 
             return SerializePacket(initializationVector, packetData);
@@ -82,7 +81,6 @@ namespace Disfigure.Net.Packets
         }
 
         #endregion
-
 
         #region PacketFactoryAsync
 
@@ -146,7 +144,6 @@ namespace Disfigure.Net.Packets
 
         #endregion
 
-
         #region PingPongLoop
 
         public static void PingPongLoop(Module<Packet> module, TimeSpan pingInterval, CancellationToken cancellationToken) =>
@@ -169,13 +166,13 @@ namespace Disfigure.Net.Packets
                     Log.Warning($"<{connection.RemoteEndPoint}> Received pong, but no ping with that identity was pending.");
                     return Task.CompletedTask;
                 }
-                else if (basicPacket.Content.Length < 16)
+                else if (basicPacket.ContentSpan.Length < 16)
                 {
                     Log.Warning($"<{connection.RemoteEndPoint}> Ping identity was malformed (too few bytes).");
                     return Task.CompletedTask;
                 }
 
-                Guid remotePingIdentity = new Guid(basicPacket.Content);
+                Guid remotePingIdentity = new Guid(basicPacket.ContentSpan);
                 if (remotePingIdentity != pingIdentity)
                 {
                     Log.Warning($"<{connection.RemoteEndPoint}> Received pong, but ping identity didn't match.");

@@ -137,6 +137,14 @@ namespace Disfigure.Net
 
         #region Writing Data
 
+        public async Task WriteDirectAsync(ReadOnlyMemory<byte> data, CancellationToken cancellationToken)
+        {
+            await _Writer.WriteAsync(data, cancellationToken);
+            await _Writer.FlushAsync(cancellationToken);
+
+            Log.Warning(string.Format(FormatHelper.CONNECTION_LOGGING, RemoteEndPoint, $"DIRECT OUT {data.Length} BYTES"));
+        }
+
         public async Task WriteAsync(TPacket packet, CancellationToken cancellationToken)
         {
             ReadOnlyMemory<byte> encrypted = await _PacketSerializerAsync(packet, _EncryptionProvider, cancellationToken);

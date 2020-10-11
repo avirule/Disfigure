@@ -9,7 +9,6 @@ namespace Disfigure.CLI
 {
     public class ModuleOption
     {
-        [Option('l', "loglevel", SetName = nameof(LogLevel), Required = false, Default = LogEventLevel.Information)]
-        public LogEventLevel LogLevel { get; set; }
+
     }
 }

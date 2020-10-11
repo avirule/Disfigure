@@ -144,7 +144,7 @@ namespace Disfigure.Tests
             Assert.Equal(sequence.Length, consumed.GetInteger());
             Assert.Equal(_Packet.Type, packet.Type);
             Assert.Equal(_Packet.UtcTimestamp, packet.UtcTimestamp);
-            Assert.Equal(_Packet.Content.ToArray(), packet.Content.ToArray());
+            Assert.Equal(_Packet.ContentSpan.ToArray(), packet.ContentSpan.ToArray());
             Assert.Equal(_Packet.Data.ToArray(), packet.Data.ToArray());
         }
     }

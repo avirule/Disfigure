@@ -14,7 +14,8 @@ namespace Disfigure.Net.Packets
         public PacketType Type { get; }
         public DateTime UtcTimestamp { get; }
 
-        public ReadOnlySpan<byte> Content => Data.Slice(HEADER_LENGTH).Span;
+        public ReadOnlyMemory<byte> ContentMemory => Data.Slice(HEADER_LENGTH);
+        public ReadOnlySpan<byte> ContentSpan => Data.Slice(HEADER_LENGTH).Span;
 
         public Packet(ReadOnlyMemory<byte> data)
         {
@@ -52,8 +53,8 @@ namespace Disfigure.Net.Packets
                 .Append(' ')
                 .Append(Type switch
                 {
-                    PacketType.Text => Encoding.Unicode.GetString(Content),
-                    _ => MemoryMarshal.Cast<byte, char>(Content)
+                    PacketType.Text => Encoding.Unicode.GetString(ContentSpan),
+                    _ => MemoryMarshal.Cast<byte, char>(ContentSpan)
                 })
                 .ToString();
         }

@@ -27,7 +27,7 @@ namespace Disfigure.Tests
             const string local_host = "127.0.0.1";
             const int port = 8998;
 
-            HostModuleOption hostModuleOption = CLIParser.Parse<HostModuleOption>(args);
+            Host hostModuleOption = CLIParser.Parse<Host>(args);
 
             Assert.Equal(LogEventLevel.Verbose, hostModuleOption.LogLevel);
             Assert.Equal(local_host, hostModuleOption.IPAddressUnparsed);

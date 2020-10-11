@@ -31,7 +31,7 @@ namespace Disfigure.GUI.Client.ViewModels
             settings.CaseInsensitiveEnumValues = true;
         });
 
-        private readonly ConcurrentChannel<Connection<Packet>> _PendingConnectionModels;
+        private readonly ConcurrentChannel<ConnectionViewModel> _PendingConnectionViewModels;
         private readonly ClientModule _ClientModule;
 
         public ControlBoxViewModel MessageBoxViewModel { get; }
@@ -40,16 +40,12 @@ namespace Disfigure.GUI.Client.ViewModels
 
         public ClientModuleViewModel()
         {
-            _PendingConnectionModels = new ConcurrentChannel<Connection<Packet>>(true, false);
+            _PendingConnectionViewModels = new ConcurrentChannel<ConnectionViewModel>(true, false);
 
             ConnectionViewModels = new ObservableCollection<ConnectionViewModel>();
 
-            Log.Logger = new LoggerConfiguration()
-                .WriteTo.Async(config => config.Console()).MinimumLevel.Is(LogEventLevel.Verbose)
-                .CreateLogger();
-
             _ClientModule = new ClientModule();
-            _ClientModule.Connected += async connection => await _PendingConnectionModels.AddAsync(connection);
+            _ClientModule.Connected += async connection => await _PendingConnectionViewModels.AddAsync(new ConnectionViewModel(connection));
 
             MessageBoxViewModel = new ControlBoxViewModel();
             MessageBoxViewModel.ContentFlushed += MessageBoxContentFlushedCallback;
@@ -78,7 +74,7 @@ namespace Disfigure.GUI.Client.ViewModels
             }
             else
             {
-                Task.Run(() => _ClientModule.ReadOnlyConnections.Values.First().WriteAsync(new Packet(PacketType.Text, DateTime.UtcNow, Encoding.Unicode.GetBytes(content)), CancellationToken.None));
+                //Task.Run(() => _ClientModule.ReadOnlyConnections.Values.First().WriteAsync(new Packet(PacketType.Text, DateTime.UtcNow, Encoding.Unicode.GetBytes(content)), CancellationToken.None));
             }
         }
 
@@ -86,9 +82,9 @@ namespace Disfigure.GUI.Client.ViewModels
         {
             while (!cancellationToken.IsCancellationRequested)
             {
-                Connection<Packet> connection = await _PendingConnectionModels.TakeAsync(true, cancellationToken);
+                ConnectionViewModel connectionViewModel = await _PendingConnectionViewModels.TakeAsync(true, cancellationToken);
 
-                await Dispatcher.UIThread.InvokeAsync(() => ConnectionViewModels.Add(new ConnectionViewModel(connection)));
+                await Dispatcher.UIThread.InvokeAsync(() => ConnectionViewModels.Add(connectionViewModel));
             }
         }
     }

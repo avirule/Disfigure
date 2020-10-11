@@ -1,10 +1,9 @@
 ﻿#region
 
-using System;
+using Serilog;
 using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
-using Serilog;
 
 #endregion
 
@@ -14,7 +13,7 @@ namespace Disfigure.CLI.Client
     {
         private static async Task Main(string[] args)
         {
-            HostModuleOption hostModuleOption = CLIParser.Parse<HostModuleOption>(args);
+            Host hostModuleOption = CLIParser.Parse<Host>(args);
 
             Log.Logger = new LoggerConfiguration()
                 .WriteTo.Async(config => config.Console()).MinimumLevel.Is(hostModuleOption.LogLevel)
