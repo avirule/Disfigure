@@ -15,7 +15,7 @@ namespace Disfigure.Modules
 {
     public class ClientModule : Module<Packet>
     {
-        public async Task ConnectAsync(IPEndPoint ipEndPoint)
+        public async Task<Connection<Packet>> ConnectAsync(IPEndPoint ipEndPoint)
         {
             TcpClient tcpClient = await ConnectionHelper.ConnectAsync(ipEndPoint, ConnectionHelper.DefaultRetryParameters, CancellationToken.None);
             Connection<Packet> connection = new Connection<Packet>(tcpClient, new ECDHEncryptionProvider(), Packet.SerializerAsync,
@@ -24,8 +24,7 @@ namespace Disfigure.Modules
 
             await connection.FinalizeAsync(CancellationToken.None);
 
-            await connection.WriteAsync(new Packet(PacketType.Connect, DateTime.UtcNow,
-                new SerializableEndPoint(IPAddress.Loopback, 8998).Serialize()), CancellationToken.None);
+            return connection;
         }
 
         protected override void RegisterConnection(Connection<Packet> connection)

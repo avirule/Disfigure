@@ -31,19 +31,13 @@ namespace Disfigure.Collections
 
         public async ValueTask AddAsync(T item, CancellationToken cancellationToken = default)
         {
-            Log.Verbose($"Adding data to the {nameof(ChannelBag<T>)}.");
             await _Writer.WriteAsync(item, cancellationToken);
         }
 
         public async ValueTask<T> TakeAsync(bool waitForItems = true, CancellationToken cancellationToken = default)
         {
-            if (waitForItems)
-            {
-                //Log.Verbose($"Waiting for data from {nameof(ChannelBag<T>)}.");
-                await _Reader.WaitToReadAsync(cancellationToken);
-            }
+            if (waitForItems && await _Reader.WaitToReadAsync(cancellationToken)) { }
 
-            //Log.Verbose($"Reading data from {nameof(ChannelBag<T>)}.");
             return await _Reader.ReadAsync(cancellationToken);
         }
     }
