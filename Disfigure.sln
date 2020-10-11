@@ -8,7 +8,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Git", "Git", "{0F829B42-90A
 		.gitignore = .gitignore
 	EndProjectSection
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Disfigure.Modules", "Disfigure.Modules\Disfigure.Modules.csproj", "{D3106775-7C48-4BB0-90B1-8A2CD3E5E06A}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Disfigure.Implementations", "Disfigure.Implementations\Disfigure.Implementations.csproj", "{D3106775-7C48-4BB0-90B1-8A2CD3E5E06A}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Disfigure", "Disfigure\Disfigure.csproj", "{37B481EE-BFDA-43D3-8051-60F72852F251}"
 EndProject

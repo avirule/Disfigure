@@ -12,7 +12,7 @@ using Serilog;
 
 #endregion
 
-namespace Disfigure.Modules
+namespace Disfigure.Implementations
 {
     public class ServerModule : Module<Packet>
     {
