@@ -1,11 +1,11 @@
 #region
 
-using Serilog;
 using System;
 using System.IO;
 using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
+using Serilog;
 
 #endregion
 
@@ -37,8 +37,8 @@ namespace Disfigure.Cryptography
         }
 
         public void WaitForRemoteKeys(CancellationToken cancellationToken) => _EncryptionKeysWait.Wait(cancellationToken);
-
         public void WaitForRemoteKeys(TimeSpan timeout) => _EncryptionKeysWait.Wait(timeout);
+
 
         #region Key Operations
 
@@ -86,6 +86,7 @@ namespace Disfigure.Cryptography
         }
 
         #endregion
+
 
         #region Encrypt / Decrypt
 

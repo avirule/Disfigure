@@ -5,8 +5,14 @@ using CommandLine;
 using Disfigure.Collections;
 using Disfigure.GUI.Client.Commands;
 using Disfigure.Modules;
+using Disfigure.Net;
+using Disfigure.Net.Packets;
+using Serilog;
+using Serilog.Events;
+using SharpDX.Text;
 using System;
 using System.Collections.ObjectModel;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 

@@ -1,9 +1,5 @@
 #region
 
-using Disfigure.Cryptography;
-using Disfigure.Diagnostics;
-using Disfigure.Net.Packets;
-using Serilog;
 using System;
 using System.Buffers;
 using System.Diagnostics;
@@ -13,6 +9,10 @@ using System.Net;
 using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
+using Disfigure.Cryptography;
+using Disfigure.Diagnostics;
+using Disfigure.Net.Packets;
+using Serilog;
 
 #endregion
 
@@ -41,7 +41,7 @@ namespace Disfigure.Net
         /// <summary>
         ///     Unique identity of the <see cref="Connection{TPacket}" />.
         /// </summary>
-        public int Identity { get; }
+        public Guid Identity { get; }
 
         /// <summary>
         ///     <see cref="EndPoint" /> the internal <see cref="TcpClient" /> is connected to.
@@ -59,7 +59,7 @@ namespace Disfigure.Net
             _PacketSerializerAsync = packetSerializerAsync;
             _PacketFactoryAsync = packetFactoryAsync;
 
-            Identity = RemoteEndPoint.GetHashCode();
+            Identity = Guid.NewGuid();
         }
 
         /// <summary>

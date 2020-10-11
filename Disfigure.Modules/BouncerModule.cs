@@ -1,12 +1,13 @@
 #region
 
-using Disfigure.Cryptography;
-using Disfigure.Net;
-using Disfigure.Net.Packets;
+using System;
 using System.Collections.Concurrent;
 using System.Net;
 using System.Net.Sockets;
 using System.Threading.Tasks;
+using Disfigure.Cryptography;
+using Disfigure.Net;
+using Disfigure.Net.Packets;
 
 #endregion
 
@@ -14,10 +15,10 @@ namespace Disfigure.Modules
 {
     public class BouncerModule : ServerModule
     {
-        private readonly ConcurrentDictionary<int, Connection<Packet>> _ServerConnections;
+        private readonly ConcurrentDictionary<Guid, Connection<Packet>> _ServerConnections;
 
         public BouncerModule(IPEndPoint hostAddress) : base(hostAddress) =>
-            _ServerConnections = new ConcurrentDictionary<int, Connection<Packet>>();
+            _ServerConnections = new ConcurrentDictionary<Guid, Connection<Packet>>();
 
         public async Task<Connection<Packet>> EstablishServerConnectionAsync(IPEndPoint ipEndPoint,
             PacketSerializerAsync<Packet> packetSerializerAsync, PacketFactoryAsync<Packet> packetFactoryAsync)
@@ -34,6 +35,7 @@ namespace Disfigure.Modules
             return connection;
         }
 
+
         #region Server PacketReceived Events
 
         public event PacketEventHandler<Packet>? ServerPacketReceived;
@@ -48,10 +50,10 @@ namespace Disfigure.Modules
 
         #endregion
 
+
         #region Server Connection Events
 
         public event ConnectionEventHandler<Packet>? ServerConnected;
-
         public event ConnectionEventHandler<Packet>? ServerDisconnected;
 
         private async Task OnServerConnected(Connection<Packet> connection)

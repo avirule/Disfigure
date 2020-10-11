@@ -1,13 +1,13 @@
 #region
 
-using Disfigure.Cryptography;
-using Disfigure.Net;
-using Disfigure.Net.Packets;
 using System;
 using System.Net;
 using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
+using Disfigure.Cryptography;
+using Disfigure.Net;
+using Disfigure.Net.Packets;
 
 #endregion
 

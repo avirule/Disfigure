@@ -1,12 +1,12 @@
 #region
 
-using Disfigure.Net;
-using Serilog;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using Disfigure.Net;
+using Serilog;
 
 #endregion
 
@@ -22,7 +22,7 @@ namespace Disfigure
         /// <summary>
         ///     Thread-safe dictionary of current connections.
         /// </summary>
-        protected readonly ConcurrentDictionary<int, Connection<TPacket>> Connections;
+        protected readonly ConcurrentDictionary<Guid, Connection<TPacket>> Connections;
 
         /// <summary>
         ///     <see cref="CancellationToken" /> used for async operations.
@@ -32,12 +32,12 @@ namespace Disfigure
         /// <summary>
         ///     Read-only representation of internal connections dictionary.
         /// </summary>
-        public IReadOnlyDictionary<int, Connection<TPacket>> ReadOnlyConnections => Connections;
+        public IReadOnlyDictionary<Guid, Connection<TPacket>> ReadOnlyConnections => Connections;
 
         protected Module()
         {
             CancellationTokenSource = new CancellationTokenSource();
-            Connections = new ConcurrentDictionary<int, Connection<TPacket>>();
+            Connections = new ConcurrentDictionary<Guid, Connection<TPacket>>();
 
             Connected += connection =>
             {
@@ -62,7 +62,7 @@ namespace Disfigure
         /// <summary>
         ///     Forcibly (and as safely as possible) disconnects the given <see cref="Connection{T}" />.
         /// </summary>
-        public void ForceDisconnect(int connectionIdentity)
+        public void ForceDisconnect(Guid connectionIdentity)
         {
             if (!Connections.TryRemove(connectionIdentity, out Connection<TPacket>? connection))
             {
@@ -73,11 +73,12 @@ namespace Disfigure
             Log.Warning(string.Format(FormatHelper.CONNECTION_LOGGING, connection.RemoteEndPoint, "Connection forcibly disconnected."));
         }
 
+
         #region Connection Events
 
         public event ConnectionEventHandler<TPacket>? Connected;
-
         public event ConnectionEventHandler<TPacket>? Disconnected;
+
 
         protected async Task OnConnected(Connection<TPacket> connection)
         {
@@ -97,10 +98,10 @@ namespace Disfigure
 
         #endregion
 
+
         #region Packet Events
 
         public event PacketEventHandler<TPacket>? PacketWritten;
-
         public event PacketEventHandler<TPacket>? PacketReceived;
 
         private async Task OnPacketWrittenAsync(Connection<TPacket> connection, TPacket packet)
@@ -121,6 +122,7 @@ namespace Disfigure
 
         #endregion
 
+
         #region IDisposable
 
         private bool _Disposed;
@@ -134,7 +136,7 @@ namespace Disfigure
 
             CancellationTokenSource.Cancel();
 
-            foreach ((int _, Connection<TPacket> connection) in Connections)
+            foreach ((Guid _, Connection<TPacket> connection) in Connections)
             {
                 connection?.Dispose();
             }

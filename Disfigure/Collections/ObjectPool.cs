@@ -19,7 +19,6 @@ namespace Disfigure.Collections
         }
 
         public T Rent() => _Pool.TryTake(out T obj) ? obj ?? throw new NullReferenceException() : _ObjectFactory();
-
         public void Return(T obj) => _Pool.Add(obj ?? throw new NullReferenceException());
     }
 }

@@ -1,8 +1,8 @@
 #region
 
+using System.Net;
 using Disfigure.CLI;
 using Serilog.Events;
-using System.Net;
 using Xunit;
 
 #endregion
@@ -16,6 +16,8 @@ namespace Disfigure.Tests
         public void VerifyModuleOptionParsing(params string[] args)
         {
             ModuleOption moduleOption = CLIParser.Parse<ModuleOption>(args);
+
+            Assert.Equal(LogEventLevel.Verbose, moduleOption.LogLevel);
         }
 
         [Theory]

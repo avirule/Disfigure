@@ -52,17 +52,8 @@ namespace Disfigure.Modules
                 while (!CancellationToken.IsCancellationRequested)
                 {
                     TcpClient tcpClient = await listener.AcceptTcpClientAsync();
+                    Log.Information(string.Format(FormatHelper.CONNECTION_LOGGING, tcpClient.Client.RemoteEndPoint, "Connection accepted."));
 
-                    int endPointHash = tcpClient.Client.RemoteEndPoint.GetHashCode();
-                    if (Connections.ContainsKey(endPointHash))
-                    {
-                        Log.Information(string.Format(FormatHelper.CONNECTION_LOGGING, tcpClient.Client.RemoteEndPoint, $"Connection attempted, but an existing connection is already active."));
-                        continue;
-                    }
-                    else
-                    {
-                        Log.Information(string.Format(FormatHelper.CONNECTION_LOGGING, tcpClient.Client.RemoteEndPoint, "Connection accepted."));
-                    }
                     Connection<Packet> connection = new Connection<Packet>(tcpClient, new ECDHEncryptionProvider(), packetSerializerAsync,
                         packetFactoryAsync);
                     RegisterConnection(connection);

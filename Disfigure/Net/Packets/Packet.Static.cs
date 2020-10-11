@@ -1,7 +1,5 @@
 #region
 
-using Disfigure.Cryptography;
-using Serilog;
 using System;
 using System.Buffers;
 using System.Collections.Concurrent;
@@ -9,6 +7,8 @@ using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
+using Disfigure.Cryptography;
+using Serilog;
 
 #endregion
 
@@ -139,8 +139,8 @@ namespace Disfigure.Net.Packets
 
         private static async Task PingPongLoopAsync(Module<Packet> module, TimeSpan pingInterval, CancellationToken cancellationToken)
         {
-            ConcurrentDictionary<int, Guid> pendingPings = new ConcurrentDictionary<int, Guid>();
-            Stack<int> abandonedConnections = new Stack<int>();
+            ConcurrentDictionary<Guid, Guid> pendingPings = new ConcurrentDictionary<Guid, Guid>();
+            Stack<Guid> abandonedConnections = new Stack<Guid>();
 
             Task PongPacketCallbackImpl(Connection<Packet> connection, Packet basicPacket)
             {
@@ -177,7 +177,7 @@ namespace Disfigure.Net.Packets
             {
                 await Task.Delay(pingInterval, cancellationToken);
 
-                foreach ((int connectionIdentity, Connection<Packet> connection) in module.ReadOnlyConnections)
+                foreach ((Guid connectionIdentity, Connection<Packet> connection) in module.ReadOnlyConnections)
                 {
                     Guid pingIdentity = Guid.NewGuid();
 
@@ -194,7 +194,7 @@ namespace Disfigure.Net.Packets
                     }
                 }
 
-                while (abandonedConnections.TryPop(out int connectionIdentity))
+                while (abandonedConnections.TryPop(out Guid connectionIdentity))
                 {
                     module.ForceDisconnect(connectionIdentity);
                 }
