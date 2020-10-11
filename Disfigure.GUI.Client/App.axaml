@@ -1,6 +1,7 @@
 ﻿<Application xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:local="clr-namespace:Disfigure.GUI.Client"
+             xmlns:system="clr-namespace:System;assembly=mscorlib"
              x:Class="Disfigure.GUI.Client.App">
 
     <Application.DataTemplates>
@@ -12,6 +13,8 @@
         <SolidColorBrush x:Key="ThemeAccent" Color="#494949" />
         <SolidColorBrush x:Key="ThemeHighlight" Color="#3A3A3A" />
         <SolidColorBrush x:Key="ThemeForegroundText" Color="#BFBFBF" />
+
+        <system:String x:Key="Title">Disfigure</system:String>
     </Application.Resources>
 
     <Application.Styles>

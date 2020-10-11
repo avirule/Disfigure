@@ -9,42 +9,10 @@
         Title="MainWindow"
         Background="{DynamicResource ThemePrimary}">
 
-    <Window.DataContext>
-        <vm:ClientModuleViewModel />
-    </Window.DataContext>
+    <!--<DockPanel>
+        <DockPanel DockPanel.Dock="Top" Background="{DynamicResource ThemeHighlight}">
+            <TextBlock DockPanel.Dock="Left"  Margin="5, 2, 0, 2" />
+        </DockPanel>-->
 
-    <DockPanel>
-        <ctrls:ControlBoxView DockPanel.Dock="Bottom" DataContext="{Binding MessageBoxViewModel}" />
-
-        <TabControl DockPanel.Dock="Bottom" Items="{Binding ConnectionViewModels}" TabStripPlacement="Bottom">
-            <TabControl.Styles>
-                <Style Selector="TabControl WrapPanel">
-                    <Setter Property="Background" Value="{DynamicResource ThemeAccent}" />
-                </Style>
-
-                <Style Selector="TabItem">
-                    <Setter Property="Background" Value="Transparent" />
-                </Style>
-                <Style Selector="TabItem:pointerover">
-                    <Setter Property="Background" Value="{DynamicResource ThemeHighlight}" />
-                </Style>
-                <Style Selector="TabItem:focus">
-                    <Setter Property="Background" Value="{DynamicResource ThemeHighlight}" />
-                </Style>
-                <Style Selector="TabItem:selected">
-                    <Setter Property="Background" Value="{DynamicResource ThemeHighlight}" />
-                </Style>
-            </TabControl.Styles>
-            <TabControl.ItemTemplate>
-                <DataTemplate>
-                    <TextBlock Text="{Binding FriendlyName, Mode=OneWay}" HorizontalAlignment="Center" />
-                </DataTemplate>
-            </TabControl.ItemTemplate>
-            <TabControl.ContentTemplate>
-                <DataTemplate>
-                    <ctrls:ConnectionMessagesView DataContext="{Binding}" />
-                </DataTemplate>
-            </TabControl.ContentTemplate>
-        </TabControl>
-    </DockPanel>
+    <ctrls:ClientModuleView />
 </Window>

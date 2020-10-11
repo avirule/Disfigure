@@ -4,16 +4,11 @@ using Avalonia.Markup.Xaml;
 
 namespace Disfigure.GUI.Client.Views
 {
-    public class MainWindow : Window
+    public class ClientModuleView : UserControl
     {
-        public MainWindow()
+        public ClientModuleView()
         {
             this.InitializeComponent();
-#if DEBUG
-            this.AttachDevTools();
-#endif
-
-            HasSystemDecorations = false;
         }
 
         private void InitializeComponent()

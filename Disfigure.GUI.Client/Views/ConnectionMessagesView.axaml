@@ -6,11 +6,13 @@
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
              x:Class="Disfigure.GUI.Client.Views.ConnectionMessagesView">
 
-    <ListBox VerticalAlignment="Bottom" Background="Transparent" BorderThickness="0" Items="{Binding Messages}" ScrollViewer.HorizontalScrollBarVisibility="Disabled">
-        <ListBox.ItemTemplate>
-            <DataTemplate>
-                <TextBlock Text="{Binding}" TextWrapping="Wrap" />
-            </DataTemplate>
-        </ListBox.ItemTemplate>
-    </ListBox>
+    <Border BorderBrush="{DynamicResource ThemeHighlight}" BorderThickness="2">
+        <ListBox VerticalAlignment="Bottom" Background="Transparent" BorderThickness="0" Items="{Binding Messages}" ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+            <ListBox.ItemTemplate>
+                <DataTemplate>
+                    <TextBlock Text="{Binding}" TextWrapping="Wrap" />
+                </DataTemplate>
+            </ListBox.ItemTemplate>
+        </ListBox>
+    </Border>
 </UserControl>
