@@ -2,17 +2,17 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-             xmlns:vm="clr-namespace:Disfigure.GUI.Client.ViewModels;assembly=Disfigure.GUI.Client"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
-             x:Class="Disfigure.GUI.Client.Views.MessageBox">
-
-    <Design.DataContext>
-        <vm:MessageBoxViewModel />
-    </Design.DataContext>
+             x:Class="Disfigure.GUI.Client.Views.ControlBoxView">
 
     <UserControl.KeyBindings>
         <KeyBinding Command="{Binding FlushContent}" Gesture="Enter" />
     </UserControl.KeyBindings>
 
-    <TextBox HorizontalAlignment="Stretch" Background="Transparent" Text="{Binding Content}" />
+    <DockPanel>
+        <Border BorderBrush="ThemePrimaryHighlight" BorderThickness="2">
+            <TextBlock DockPanel.Dock="Left" VerticalAlignment="Bottom" Margin="5, 5, 0, 0" Text=":>" />
+            <TextBox DockPanel.Dock="Left" HorizontalAlignment="Stretch" VerticalAlignment="Bottom" BorderThickness="0" Text="{Binding Content}" />
+        </Border>
+    </DockPanel>
 </UserControl>

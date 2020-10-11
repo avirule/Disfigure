@@ -43,7 +43,6 @@ namespace Disfigure.Net
         /// </summary>
         public Guid Identity { get; }
 
-
         /// <summary>
         ///     <see cref="EndPoint" /> the internal <see cref="TcpClient" /> is connected to.
         /// </summary>
@@ -74,11 +73,9 @@ namespace Disfigure.Net
             BeginListen(cancellationToken);
         }
 
-
         public TEncryptionProvider EncryptionProviderAs<TEncryptionProvider>() where TEncryptionProvider : class, IEncryptionProvider
             => _EncryptionProvider as TEncryptionProvider
                ?? throw new InvalidCastException($"Cannot cast {typeof(IEncryptionProvider)} to {typeof(TEncryptionProvider)}");
-
 
         #region Reading Data
 
@@ -138,7 +135,6 @@ namespace Disfigure.Net
 
         #endregion
 
-
         #region Writing Data
 
         public async Task WriteAsync(TPacket packet, CancellationToken cancellationToken)
@@ -154,10 +150,10 @@ namespace Disfigure.Net
 
         #endregion
 
-
         #region Connection Events
 
         public event ConnectionEventHandler<TPacket>? Connected;
+
         public event ConnectionEventHandler<TPacket>? Disconnected;
 
         private async Task OnConnected()
@@ -178,10 +174,10 @@ namespace Disfigure.Net
 
         #endregion
 
-
         #region Packet Events
 
         public event PacketEventHandler<TPacket>? PacketWritten;
+
         public event PacketEventHandler<TPacket>? PacketReceived;
 
         private async Task OnPacketWrittenAsync(TPacket packet)
@@ -201,7 +197,6 @@ namespace Disfigure.Net
         }
 
         #endregion
-
 
         #region IDisposable
 
@@ -232,7 +227,6 @@ namespace Disfigure.Net
         }
 
         #endregion
-
 
         #region IEquatable<Connection>
 

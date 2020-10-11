@@ -9,19 +9,24 @@
         Title="MainWindow"
         Background="{DynamicResource ThemePrimary}">
 
-    <Design.DataContext>
-        <vm:MainWindowViewModel />
-    </Design.DataContext>
+    <Window.DataContext>
+        <vm:ClientModuleViewModel />
+    </Window.DataContext>
 
-    <StackPanel VerticalAlignment="Bottom" Orientation="Vertical">
-        <ListBox VerticalAlignment="Stretch" Background="Transparent" BorderThickness="0" Items="{Binding Messages, Mode=OneWay}">
-            <ListBox.ItemTemplate>
+    <DockPanel>
+        <ctrls:ControlBoxView DockPanel.Dock="Bottom" DataContext="{Binding MessageBoxViewModel}" />
+
+        <TabControl DockPanel.Dock="Bottom" Items="{Binding ConnectionViewModels}" TabStripPlacement="Bottom">
+            <TabControl.ItemTemplate>
                 <DataTemplate>
-                    <TextBlock Text="{Binding}" />
+                    <TextBlock Text="{Binding Name}" HorizontalAlignment="Center" />
                 </DataTemplate>
-            </ListBox.ItemTemplate>
-        </ListBox>
-
-        <ctrls:MessageBox DataContext="{Binding MessageBoxViewModel}" />
-    </StackPanel>
+            </TabControl.ItemTemplate>
+            <TabControl.ContentTemplate>
+                <DataTemplate>
+                    <ctrls:ConnectionMessagesView DataContext="{Binding}" />
+                </DataTemplate>
+            </TabControl.ContentTemplate>
+        </TabControl>
+    </DockPanel>
 </Window>

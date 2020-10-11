@@ -19,7 +19,7 @@ namespace Disfigure.GUI.Client
             {
                 desktop.MainWindow = new MainWindow
                 {
-                    DataContext = new MainWindowViewModel(),
+                    DataContext = new ClientModuleViewModel(),
                 };
             }
 

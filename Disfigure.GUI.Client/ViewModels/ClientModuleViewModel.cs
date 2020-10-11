@@ -1,12 +1,11 @@
 ﻿#region
 
-using Avalonia;
-using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Threading;
 using CommandLine;
 using Disfigure.Collections;
 using Disfigure.GUI.Client.Commands;
 using Disfigure.Modules;
+using Disfigure.Net;
 using Disfigure.Net.Packets;
 using Serilog;
 using Serilog.Events;
@@ -21,8 +20,10 @@ using System.Threading.Tasks;
 
 namespace Disfigure.GUI.Client.ViewModels
 {
-    public class MainWindowViewModel : ViewModelBase
+    public class ClientModuleViewModel : ViewModelBase
     {
+        private static readonly Type[] _CommandTypes = new[] { typeof(Connect), typeof(Exit) };
+
         private static readonly Parser _Parser = new Parser(settings =>
         {
             settings.HelpWriter = Console.Error;
@@ -30,47 +31,31 @@ namespace Disfigure.GUI.Client.ViewModels
             settings.CaseInsensitiveEnumValues = true;
         });
 
-        private readonly ConcurrentChannel<string> _PendingMessages;
+        private readonly ConcurrentChannel<Connection<Packet>> _PendingConnectionModels;
         private readonly ClientModule _ClientModule;
 
-        public MessageBoxViewModel MessageBoxViewModel { get; }
+        public ControlBoxViewModel MessageBoxViewModel { get; }
 
-        public ObservableCollection<string> Messages { get; }
+        public ObservableCollection<ConnectionViewModel> ConnectionViewModels { get; }
 
-        public MainWindowViewModel()
+        public ClientModuleViewModel()
         {
-            _PendingMessages = new ConcurrentChannel<string>(true, false);
+            _PendingConnectionModels = new ConcurrentChannel<Connection<Packet>>(true, false);
 
-            Messages = new ObservableCollection<string>();
+            ConnectionViewModels = new ObservableCollection<ConnectionViewModel>();
 
             Log.Logger = new LoggerConfiguration()
                 .WriteTo.Async(config => config.Console()).MinimumLevel.Is(LogEventLevel.Verbose)
                 .CreateLogger();
 
             _ClientModule = new ClientModule();
-            _ClientModule.PacketWritten += async (connection, packet) =>
-                await _PendingMessages.AddAsync(
-                    $"OUT {string.Format(FormatHelper.CONNECTION_LOGGING, connection.RemoteEndPoint, packet.ToString())}");
-            _ClientModule.PacketReceived += async (connection, packet) =>
-                await _PendingMessages.AddAsync(
-                    $"INC {string.Format(FormatHelper.CONNECTION_LOGGING, connection.RemoteEndPoint, packet.ToString())}");
-            MessageBoxViewModel = new MessageBoxViewModel();
+            _ClientModule.Connected += async connection => await _PendingConnectionModels.AddAsync(connection);
+
+            MessageBoxViewModel = new ControlBoxViewModel();
             MessageBoxViewModel.ContentFlushed += MessageBoxContentFlushedCallback;
 
-            Task.Run(() => DispatchAddMessages(CancellationToken.None));
+            Task.Run(() => AddConnectionsDispatched(CancellationToken.None));
         }
-
-        private async Task DispatchAddMessages(CancellationToken cancellationToken)
-        {
-            while (!cancellationToken.IsCancellationRequested)
-            {
-                string message = await _PendingMessages.TakeAsync(true, cancellationToken);
-
-                await Dispatcher.UIThread.InvokeAsync(() => Messages.Add(message));
-            }
-        }
-
-        private static readonly Type[] _CommandTypes = new[] { typeof(Connect), typeof(Exit) };
 
         private void MessageBoxContentFlushedCallback(object? sender, string content)
         {
@@ -94,6 +79,16 @@ namespace Disfigure.GUI.Client.ViewModels
             else
             {
                 Task.Run(() => _ClientModule.ReadOnlyConnections.Values.First().WriteAsync(new Packet(PacketType.Text, DateTime.UtcNow, Encoding.Unicode.GetBytes(content)), CancellationToken.None));
+            }
+        }
+
+        private async Task AddConnectionsDispatched(CancellationToken cancellationToken)
+        {
+            while (!cancellationToken.IsCancellationRequested)
+            {
+                Connection<Packet> connection = await _PendingConnectionModels.TakeAsync(true, cancellationToken);
+
+                await Dispatcher.UIThread.InvokeAsync(() => ConnectionViewModels.Add(new ConnectionViewModel(connection)));
             }
         }
     }

@@ -4,9 +4,9 @@ using Avalonia.Markup.Xaml;
 
 namespace Disfigure.GUI.Client.Views
 {
-    public class MessageBox : UserControl
+    public class ConnectionMessagesView : UserControl
     {
-        public MessageBox()
+        public ConnectionMessagesView()
         {
             this.InitializeComponent();
         }

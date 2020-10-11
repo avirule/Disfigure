@@ -15,7 +15,7 @@ using ReactiveUI;
 
 namespace Disfigure.GUI.Client.ViewModels
 {
-    public class MessageBoxViewModel : ViewModelBase
+    public class ControlBoxViewModel : ViewModelBase
     {
         private string _Content;
 
@@ -29,7 +29,7 @@ namespace Disfigure.GUI.Client.ViewModels
 
         public event EventHandler<string>? ContentFlushed;
 
-        public MessageBoxViewModel()
+        public ControlBoxViewModel()
         {
             _Content = string.Empty;
 

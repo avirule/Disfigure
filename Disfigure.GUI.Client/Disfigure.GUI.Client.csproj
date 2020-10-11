@@ -6,7 +6,6 @@
         <Nullable>enable</Nullable>
     </PropertyGroup>
     <ItemGroup>
-        <Folder Include="Models\" />
         <Compile Update="**\*.xaml.cs">
             <DependentUpon>%(Filename)</DependentUpon>
         </Compile>
@@ -30,5 +29,14 @@
       <Compile Update="App.axaml.cs">
         <DependentUpon>%(Filename)</DependentUpon>
       </Compile>
+      <Compile Update="Views\ConnectionMessagesView.axaml.cs">
+        <DependentUpon>ConnectionMessagesView.axaml</DependentUpon>
+      </Compile>
+      <Compile Update="Views\ControlBoxView.axaml.cs">
+        <DependentUpon>ControlBoxView.axaml</DependentUpon>
+      </Compile>
+    </ItemGroup>
+    <ItemGroup>
+      <Folder Include="Models\" />
     </ItemGroup>
 </Project>
