@@ -1,9 +1,8 @@
 #region
 
-using System.Diagnostics.CodeAnalysis;
-using System.Net;
 using CommandLine;
 using Serilog.Events;
+using System.Net;
 
 #endregion
 

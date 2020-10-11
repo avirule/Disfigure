@@ -1,8 +1,8 @@
 #region
 
+using CommandLine;
 using System;
 using System.Collections.Generic;
-using CommandLine;
 
 #endregion
 

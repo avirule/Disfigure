@@ -1,10 +1,8 @@
 #region
 
-using System;
 using System.Threading;
 using System.Threading.Channels;
 using System.Threading.Tasks;
-using Serilog;
 
 #endregion
 
@@ -27,6 +25,7 @@ namespace Disfigure.Collections
         }
 
         public bool TryAdd(T item) => _Writer.TryWrite(item);
+
         public bool TryTake(out T item) => _Reader.TryRead(out item);
 
         public async ValueTask AddAsync(T item, CancellationToken cancellationToken = default)

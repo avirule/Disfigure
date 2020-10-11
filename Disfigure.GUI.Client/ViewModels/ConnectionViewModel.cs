@@ -4,9 +4,7 @@ using Disfigure.Net;
 using Disfigure.Net.Packets;
 using ReactiveUI;
 using SharpDX.Text;
-using System;
 using System.Collections.ObjectModel;
-using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -26,7 +24,7 @@ namespace Disfigure.GUI.Client.ViewModels
             set { this.RaiseAndSetIfChanged(ref _FriendlyName, value); }
         }
 
-        public Guid Identity => Connection.Identity;
+        public int Identity => Connection.Identity;
 
         public ObservableCollection<string> Messages { get; }
 

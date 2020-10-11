@@ -27,7 +27,6 @@ namespace Disfigure.Cryptography
             }
         }
 
-
         // native signature
         // note: output is a pre-allocated byte array that is filled by native function
         // __declspec(dllexport) int ecdh_shared_secret(const uint8_t* private_key, const uint8_t* others_pub, uint8_t* output);
