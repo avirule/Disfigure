@@ -6,6 +6,7 @@ using ReactiveUI;
 using SharpDX.Text;
 using System;
 using System.Collections.ObjectModel;
+using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -35,11 +36,10 @@ namespace Disfigure.GUI.Client.ViewModels
             _FriendlyName = string.Empty;
 
             Messages = new ObservableCollection<string>();
-
             Connection = connection;
+            connection.PacketReceived += TryAssignIdentity;
             Connection.PacketReceived += async (connection, packet) => await _PendingMessages.AddAsync($"INC {packet}");
             Connection.PacketWritten += async (connection, packet) => await _PendingMessages.AddAsync($"OUT {packet}");
-            connection.PacketReceived += TryAssignIdentity;
 
             FriendlyName = connection.RemoteEndPoint.ToString() ?? "invalid address";
 

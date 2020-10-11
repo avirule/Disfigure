@@ -65,19 +65,7 @@ namespace Disfigure.Net.Packets
             initializationVector.CopyTo(data.Slice(OFFSET_INITIALIZATION_VECTOR));
             packetData.CopyTo(data.Slice(ENCRYPTION_HEADER_LENGTH));
 
-#if DEBUG
-            ValidateSerialization(dataSpan);
-#endif
-
             return data;
-        }
-
-        private static void ValidateSerialization(ReadOnlySpan<byte> dataSpan)
-        {
-            bool goodLength = dataSpan.Length >= TOTAL_HEADER_LENGTH;
-            bool aligned = MemoryMarshal.Read<int>(dataSpan.Slice(sizeof(int))) == ALIGNMENT_CONSTANT;
-
-            Log.Debug($"OUT CALL | {dataSpan.Length} BYTES | LENGTH {(goodLength ? "GOOD" : "BAD")} | ALIGNMENT {(aligned ? "GOOD" : "BAD")}");
         }
 
         #endregion
