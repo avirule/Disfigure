@@ -1,0 +1,26 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="clr-namespace:Disfigure.GUI.Client.ViewModels;assembly=Disfigure.GUI.Client"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+        x:Class="Disfigure.GUI.Client.Views.MainWindow"
+        Icon="/Assets/avalonia-logo.ico"
+        Title="Disfigure.GUI.Client"
+        Background="Gray">
+
+    <Design.DataContext>
+        <vm:MainWindowViewModel/>
+    </Design.DataContext>
+
+    <ListBox Items="{Binding Messages}">
+        <ListBox.ItemTemplate>
+            <DataTemplate>
+                <Border Background="Red" Padding="4">
+                <TextBlock Text="{Binding}" />
+                </Border>
+            </DataTemplate>
+        </ListBox.ItemTemplate>
+    </ListBox>
+
+</Window>

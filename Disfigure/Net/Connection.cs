@@ -18,11 +18,11 @@ using Serilog;
 
 namespace Disfigure.Net
 {
-    public delegate ValueTask<(bool, SequencePosition, TPacket)> PacketFactoryAsync<TPacket>(ReadOnlySequence<byte> sequence,
-        IEncryptionProvider? encryptionProvider, CancellationToken cancellationToken);
-
     public delegate ValueTask<ReadOnlyMemory<byte>> PacketSerializerAsync<in TPacket>(TPacket packet, IEncryptionProvider? encryptionProvider,
         CancellationToken cancellationToken);
+
+    public delegate ValueTask<(bool, SequencePosition, TPacket)> PacketFactoryAsync<TPacket>(ReadOnlySequence<byte> sequence,
+        IEncryptionProvider? encryptionProvider, CancellationToken cancellationToken);
 
     public delegate Task ConnectionEventHandler<TPacket>(Connection<TPacket> connection) where TPacket : struct;
 
@@ -148,6 +148,8 @@ namespace Disfigure.Net
             ReadOnlyMemory<byte> encrypted = await _PacketSerializerAsync(packet, _EncryptionProvider, cancellationToken);
             await _Writer.WriteAsync(encrypted, cancellationToken);
             await _Writer.FlushAsync(cancellationToken);
+
+            await PacketWrittenCallback(packet);
         }
 
         #endregion
@@ -179,9 +181,18 @@ namespace Disfigure.Net
 
         #region Packet Events
 
+        public event PacketEventHandler<TPacket>? PacketWritten;
         public event PacketEventHandler<TPacket>? PacketReceived;
 
-        private async Task PacketReceivedCallback(TPacket packet)
+        private async ValueTask PacketWrittenCallback(TPacket packet)
+        {
+            if (PacketWritten is { })
+            {
+                await PacketWritten(this, packet);
+            }
+        }
+
+        private async ValueTask PacketReceivedCallback(TPacket packet)
         {
             if (PacketReceived is { })
             {

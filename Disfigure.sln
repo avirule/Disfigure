@@ -28,6 +28,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Disfigure.CLI", "Disfigure.
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Disfigure.Tests", "Disfigure.Tests\Disfigure.Tests.csproj", "{3ED3C7CE-A41B-4DB2-B69B-B1F343A38ED2}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Disfigure.GUI.Client", "Disfigure.GUI.Client\Disfigure.GUI.Client.csproj", "{5EF2AD3E-74FF-4F3B-9511-64C270DC6DB2}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -62,6 +64,10 @@ Global
 		{3ED3C7CE-A41B-4DB2-B69B-B1F343A38ED2}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{3ED3C7CE-A41B-4DB2-B69B-B1F343A38ED2}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{3ED3C7CE-A41B-4DB2-B69B-B1F343A38ED2}.Release|Any CPU.Build.0 = Release|Any CPU
+		{5EF2AD3E-74FF-4F3B-9511-64C270DC6DB2}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{5EF2AD3E-74FF-4F3B-9511-64C270DC6DB2}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{5EF2AD3E-74FF-4F3B-9511-64C270DC6DB2}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{5EF2AD3E-74FF-4F3B-9511-64C270DC6DB2}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
