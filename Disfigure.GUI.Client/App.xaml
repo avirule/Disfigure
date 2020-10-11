@@ -2,12 +2,31 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:local="clr-namespace:Disfigure.GUI.Client"
              x:Class="Disfigure.GUI.Client.App">
+
     <Application.DataTemplates>
         <local:ViewLocator/>
     </Application.DataTemplates>
 
+    <Application.Resources>
+        <SolidColorBrush x:Key="ThemePrimary" Color="#181818" />
+        <SolidColorBrush x:Key="ThemeForegroundText" Color="#BFBFBF" />
+    </Application.Resources>
+
     <Application.Styles>
         <StyleInclude Source="avares://Avalonia.Themes.Default/DefaultTheme.xaml"/>
         <StyleInclude Source="avares://Avalonia.Themes.Default/Accents/BaseLight.xaml"/>
+
+        <Style Selector="TextBlock">
+            <Setter Property="FontFamily" Value="Courier New" />
+            <Setter Property="FontSize" Value="20" />
+            <Setter Property="Foreground" Value="{DynamicResource ThemeForegroundText}" />
+        </Style>
+
+        <Style Selector="TextBox">
+            <Setter Property="FontFamily" Value="Courier New" />
+            <Setter Property="FontSize" Value="20" />
+            <Setter Property="Foreground" Value="{DynamicResource ThemeForegroundText}" />
+        </Style>
+
     </Application.Styles>
 </Application>

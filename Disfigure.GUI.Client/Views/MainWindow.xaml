@@ -6,21 +6,22 @@
         mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
         x:Class="Disfigure.GUI.Client.Views.MainWindow"
         Icon="/Assets/avalonia-logo.ico"
-        Title="Disfigure.GUI.Client"
-        Background="Gray">
+        Title="Disfigure"
+        Background="{DynamicResource ThemePrimary}">
 
     <Design.DataContext>
-        <vm:MainWindowViewModel/>
+        <vm:MainWindowViewModel />
     </Design.DataContext>
 
-    <ListBox Items="{Binding Messages}">
-        <ListBox.ItemTemplate>
-            <DataTemplate>
-                <Border Background="Red" Padding="4">
-                <TextBlock Text="{Binding}" />
-                </Border>
-            </DataTemplate>
-        </ListBox.ItemTemplate>
-    </ListBox>
+    <StackPanel VerticalAlignment="Bottom" Orientation="Vertical">
+        <ListBox VerticalAlignment="Stretch" Background="Transparent" BorderThickness="0" Items="{Binding Messages, Mode=OneWay}">
+            <ListBox.ItemTemplate>
+                <DataTemplate>
+                    <TextBlock Text="{Binding}" />
+                </DataTemplate>
+            </ListBox.ItemTemplate>
+        </ListBox>
+        <TextBox Background="Transparent" Text="{Binding SendMessageText, Mode=TwoWay}" />
+    </StackPanel>
 
 </Window>

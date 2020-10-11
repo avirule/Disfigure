@@ -1,5 +1,6 @@
 ﻿#region
 
+using System;
 using System.Collections.ObjectModel;
 using System.Net;
 using System.Threading;
@@ -8,6 +9,7 @@ using Avalonia.Threading;
 using Disfigure.CLI;
 using Disfigure.Collections;
 using Disfigure.Modules;
+using ReactiveUI;
 using Serilog;
 
 #endregion
@@ -19,13 +21,21 @@ namespace Disfigure.GUI.Client.ViewModels
         private readonly ChannelBag<string> _PendingMessages;
 
         private ClientModule _ClientModule;
+        private string _SendMessageText;
 
         public ObservableCollection<string> Messages { get; set; }
+
+        public string SendMessageText
+        {
+            get => _SendMessageText;
+            set => this.RaiseAndSetIfChanged(ref _SendMessageText, value);
+        }
 
         public MainWindowViewModel()
         {
             _PendingMessages = new ChannelBag<string>(true, false);
             Messages = new ObservableCollection<string>();
+            SendMessageText = String.Empty;
 
             HostModuleOption hostModuleOption = CLIParser.Parse<HostModuleOption>(new[]
             {
