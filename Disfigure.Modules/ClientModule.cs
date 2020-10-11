@@ -11,12 +11,10 @@ using Disfigure.Net.Packets;
 
 #endregion
 
-namespace Disfigure.Implementations
+namespace Disfigure.Modules
 {
     public class ClientModule : Module<Packet>
     {
-        public ClientModule() : base() {}
-
         public async Task ConnectAsync(IPEndPoint ipEndPoint)
         {
             TcpClient tcpClient = await ConnectionHelper.ConnectAsync(ipEndPoint, ConnectionHelper.DefaultRetryParameters, CancellationToken.None);

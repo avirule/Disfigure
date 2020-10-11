@@ -9,7 +9,7 @@
 
     <ItemGroup>
       <ProjectReference Include="..\Disfigure.CLI\Disfigure.CLI.csproj" />
-      <ProjectReference Include="..\Disfigure.Implementations\Disfigure.Implementations.csproj" />
+      <ProjectReference Include="..\Disfigure.Modules\Disfigure.Modules.csproj" />
       <ProjectReference Include="..\Disfigure\Disfigure.csproj" />
     </ItemGroup>
 

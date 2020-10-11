@@ -20,17 +20,17 @@ namespace Disfigure.CLI.Client
                 .WriteTo.Async(config => config.Console()).MinimumLevel.Is(hostModuleOption.LogLevel)
                 .CreateLogger();
 
-            Implementations.ClientModule clientModule = new Implementations.ClientModule();
+            Modules.ClientModule clientModule = new Modules.ClientModule();
             IPEndPoint ipEndPoint = new IPEndPoint(hostModuleOption.IPAddress, hostModuleOption.Port);
             clientModule.PacketWritten += (connection, packet) =>
             {
                 Log.Information(string.Format(FormatHelper.CONNECTION_LOGGING, connection.RemoteEndPoint, packet.ToString()));
-                return default!;
+                return Task.CompletedTask;
             };
             clientModule.PacketReceived += (connection, packet) =>
             {
                 Log.Information(string.Format(FormatHelper.CONNECTION_LOGGING, connection.RemoteEndPoint, packet.ToString()));
-                return default!;
+                return Task.CompletedTask;
             };
 
             await clientModule.ConnectAsync(ipEndPoint);

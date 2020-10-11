@@ -6,7 +6,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Disfigure.Cryptography;
 using Disfigure.Diagnostics;
-using Disfigure.Implementations;
+using Disfigure.Modules;
 using Disfigure.Net;
 using Disfigure.Net.Packets;
 using Serilog;
