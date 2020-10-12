@@ -5,6 +5,7 @@ using CommandLine;
 using Disfigure.Collections;
 using Disfigure.GUI.Client.Commands;
 using Disfigure.Modules;
+using ReactiveUI;
 using System;
 using System.Collections.ObjectModel;
 using System.Threading;
@@ -28,9 +29,16 @@ namespace Disfigure.GUI.Client.ViewModels
         private readonly ConcurrentChannel<ConnectionViewModel> _PendingConnectionViewModels;
         private readonly ClientModule _ClientModule;
 
-        public ControlBoxViewModel MessageBoxViewModel { get; }
+        private ConnectionViewModel _SelectedViewModel;
 
         public ObservableCollection<ConnectionViewModel> ConnectionViewModels { get; }
+        public ControlBoxViewModel ControlBoxViewModel { get; }
+
+        public ConnectionViewModel SelectedViewModel
+        {
+            get => _SelectedViewModel;
+            set { this.RaiseAndSetIfChanged(ref _SelectedViewModel, value); }
+        }
 
         public ClientModuleViewModel()
         {
@@ -41,8 +49,8 @@ namespace Disfigure.GUI.Client.ViewModels
             _ClientModule = new ClientModule();
             _ClientModule.Connected += async connection => await _PendingConnectionViewModels.AddAsync(new ConnectionViewModel(connection));
 
-            MessageBoxViewModel = new ControlBoxViewModel();
-            MessageBoxViewModel.ContentFlushed += MessageBoxContentFlushedCallback;
+            ControlBoxViewModel = new ControlBoxViewModel();
+            ControlBoxViewModel.ContentFlushed += MessageBoxContentFlushedCallback;
 
             Task.Run(() => AddConnectionsDispatched(CancellationToken.None));
         }
@@ -78,8 +86,15 @@ namespace Disfigure.GUI.Client.ViewModels
             {
                 ConnectionViewModel connectionViewModel = await _PendingConnectionViewModels.TakeAsync(true, cancellationToken);
 
-                await Dispatcher.UIThread.InvokeAsync(() => ConnectionViewModels.Add(connectionViewModel));
+                await Dispatcher.UIThread.InvokeAsync(() => SetSelectedViewModel(connectionViewModel));
             }
+        }
+
+        private void SetSelectedViewModel(ConnectionViewModel connectionViewModel)
+        {
+            ConnectionViewModels.Add(connectionViewModel);
+
+            SelectedViewModel = connectionViewModel;
         }
     }
 }

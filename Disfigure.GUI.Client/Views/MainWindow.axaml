@@ -9,10 +9,53 @@
         Title="MainWindow"
         Background="{DynamicResource ThemePrimary}">
 
-    <!--<DockPanel>
-        <DockPanel DockPanel.Dock="Top" Background="{DynamicResource ThemeHighlight}">
-            <TextBlock DockPanel.Dock="Left"  Margin="5, 2, 0, 2" />
+    <Window.DataContext>
+        <vm:ClientModuleViewModel />
+    </Window.DataContext>
+
+    <DockPanel>
+        <!--<DockPanel DockPanel.Dock="Top" Background="{DynamicResource ThemeHighlight}">
+            <TextBlock DockPanel.Dock="Left" Text="{DynamicResource Title}" Margin="5, 2, 0, 2" />
         </DockPanel>-->
 
-    <ctrls:ClientModuleView />
+        <DockPanel HorizontalAlignment="Stretch">
+            <Border DockPanel.Dock="Bottom" BorderBrush="{DynamicResource ThemeHighlight}" BorderThickness="2">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="0.2*" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+
+                    <DropDown Grid.Column="0" Items="{Binding ConnectionViewModels, Mode=OneWay}" SelectedItem="{Binding SelectedViewModel, Mode=TwoWay}" BorderThickness="0">
+                        <DropDown.ItemTemplate>
+                            <DataTemplate>
+                                <Panel HorizontalAlignment="Center" VerticalAlignment="Center">
+                                    <TextBlock Text="{Binding FriendlyName}" />
+                                </Panel>
+                            </DataTemplate>
+                        </DropDown.ItemTemplate>
+                    </DropDown>
+
+                    <TextBlock Grid.Column="1" VerticalAlignment="Center" Margin="10, 0, 10, 0" Text=":>" />
+
+                    <Panel Grid.Column="2" HorizontalAlignment="Stretch"  VerticalAlignment="Center" DataContext="{Binding ControlBoxViewModel}">
+                        <Panel.KeyBindings>
+                            <KeyBinding Command="{Binding FlushContent}" Gesture="Enter" />
+                        </Panel.KeyBindings>
+
+                        <TextBox BorderThickness="0" CaretBrush="{DynamicResource ThemeForegroundText}" Text="{Binding Content}" />
+                    </Panel>
+                </Grid>
+            </Border>
+
+            <ContentControl Content="{Binding SelectedViewModel}">
+                <ContentControl.ContentTemplate>
+                    <DataTemplate>
+                        <ctrls:ConnectionMessagesView />
+                    </DataTemplate>
+                </ContentControl.ContentTemplate>
+            </ContentControl>
+        </DockPanel>
+    </DockPanel>
 </Window>

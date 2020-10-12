@@ -13,7 +13,7 @@ namespace Disfigure.GUI.Client.Views
             this.AttachDevTools();
 #endif
 
-            HasSystemDecorations = false;
+            // HasSystemDecorations = false;
         }
 
         private void InitializeComponent()

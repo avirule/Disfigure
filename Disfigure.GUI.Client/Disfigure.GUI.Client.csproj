@@ -31,14 +31,22 @@
       <Compile Update="App.axaml.cs">
         <DependentUpon>%(Filename)</DependentUpon>
       </Compile>
+      <Compile Update="Properties\Resources.Designer.cs">
+        <DesignTime>True</DesignTime>
+        <AutoGen>True</AutoGen>
+        <DependentUpon>Resources.resx</DependentUpon>
+      </Compile>
       <Compile Update="Views\ConnectionMessagesView.axaml.cs">
         <DependentUpon>ConnectionMessagesView.axaml</DependentUpon>
-      </Compile>
-      <Compile Update="Views\ControlBoxView.axaml.cs">
-        <DependentUpon>ControlBoxView.axaml</DependentUpon>
       </Compile>
     </ItemGroup>
     <ItemGroup>
       <Folder Include="Models\" />
+    </ItemGroup>
+    <ItemGroup>
+      <EmbeddedResource Update="Properties\Resources.resx">
+        <Generator>ResXFileCodeGenerator</Generator>
+        <LastGenOutput>Resources.Designer.cs</LastGenOutput>
+      </EmbeddedResource>
     </ItemGroup>
 </Project>
