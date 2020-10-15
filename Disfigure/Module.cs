@@ -1,19 +1,18 @@
 #region
 
+using Disfigure.Net;
+using Serilog;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
-using Disfigure.Net;
-using Disfigure.Net.Packets;
-using Serilog;
 
 #endregion
 
 namespace Disfigure
 {
-    public abstract class Module<TPacket> : IDisposable where TPacket : struct, IPacket
+    public abstract class Module<TPacket> : IDisposable where TPacket : struct
     {
         /// <summary>
         ///     <see cref="CancellationTokenSource" /> used to provide <see cref="CancellationToken" /> for async operations.
@@ -43,20 +42,21 @@ namespace Disfigure
             Connected += connection =>
             {
                 Connections.TryAdd(connection.Identity, connection);
-                return default;
+                return Task.CompletedTask;
             };
             Disconnected += connection =>
             {
                 Connections.TryRemove(connection.Identity, out _);
-                return default;
+                return Task.CompletedTask;
             };
         }
 
-        protected void RegisterConnection(Connection<TPacket> connection)
+        protected virtual void RegisterConnection(Connection<TPacket> connection)
         {
             connection.Connected += OnConnected;
             connection.Disconnected += OnDisconnected;
-            connection.PacketReceived += OnClientPacketReceived;
+            connection.PacketWritten += OnPacketWrittenAsync;
+            connection.PacketReceived += OnPacketReceivedAsync;
         }
 
         /// <summary>
@@ -70,32 +70,16 @@ namespace Disfigure
             }
 
             connection.Dispose();
-            Log.Information(string.Format(FormatHelper.CONNECTION_LOGGING, connection.RemoteEndPoint, "Connection forcibly disconnected."));
+            Log.Warning(string.Format(FormatHelper.CONNECTION_LOGGING, connection.RemoteEndPoint, "Connection forcibly disconnected."));
         }
-
-
-        #region Packet Events
-
-        public event PacketEventHandler<TPacket>? PacketReceived;
-
-        private async ValueTask OnClientPacketReceived(Connection<TPacket> connection, TPacket packet)
-        {
-            if (PacketReceived is { })
-            {
-                await PacketReceived(connection, packet);
-            }
-        }
-
-        #endregion
-
 
         #region Connection Events
 
         public event ConnectionEventHandler<TPacket>? Connected;
+
         public event ConnectionEventHandler<TPacket>? Disconnected;
 
-
-        protected virtual async ValueTask OnConnected(Connection<TPacket> connection)
+        protected async Task OnConnected(Connection<TPacket> connection)
         {
             if (Connected is { })
             {
@@ -103,7 +87,7 @@ namespace Disfigure
             }
         }
 
-        protected virtual async ValueTask OnDisconnected(Connection<TPacket> connection)
+        protected async Task OnDisconnected(Connection<TPacket> connection)
         {
             if (Disconnected is { })
             {
@@ -113,6 +97,29 @@ namespace Disfigure
 
         #endregion
 
+        #region Packet Events
+
+        public event PacketEventHandler<TPacket>? PacketWritten;
+
+        public event PacketEventHandler<TPacket>? PacketReceived;
+
+        private async Task OnPacketWrittenAsync(Connection<TPacket> connection, TPacket packet)
+        {
+            if (PacketWritten is { })
+            {
+                await PacketWritten(connection, packet);
+            }
+        }
+
+        private async Task OnPacketReceivedAsync(Connection<TPacket> connection, TPacket packet)
+        {
+            if (PacketReceived is { })
+            {
+                await PacketReceived(connection, packet);
+            }
+        }
+
+        #endregion
 
         #region IDisposable
 

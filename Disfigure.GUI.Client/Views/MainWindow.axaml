@@ -1,0 +1,33 @@
+﻿<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:vm="clr-namespace:Disfigure.GUI.Client.ViewModels;assembly=Disfigure.GUI.Client"
+        xmlns:ctrls="clr-namespace:Disfigure.GUI.Client.Views;assembly=Disfigure.GUI.Client"
+        mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+        x:Class="Disfigure.GUI.Client.Views.MainWindow"
+        Title="MainWindow"
+        Background="{DynamicResource ThemePrimary}">
+
+    <Window.DataContext>
+        <vm:ClientModuleViewModel />
+    </Window.DataContext>
+
+    <DockPanel>
+        <!--<DockPanel DockPanel.Dock="Top" Background="{DynamicResource ThemeHighlight}">
+            <TextBlock DockPanel.Dock="Left" Text="{DynamicResource Title}" Margin="5, 2, 0, 2" />
+        </DockPanel>-->
+
+        <DockPanel HorizontalAlignment="Stretch">
+            <ctrls:ControlBoxView DockPanel.Dock="Bottom" DataContext="{Binding}" />
+
+            <ContentControl Content="{Binding SelectedViewModel}">
+                <ContentControl.ContentTemplate>
+                    <DataTemplate>
+                        <ctrls:ConnectionMessagesView />
+                    </DataTemplate>
+                </ContentControl.ContentTemplate>
+            </ContentControl>
+        </DockPanel>
+    </DockPanel>
+</Window>

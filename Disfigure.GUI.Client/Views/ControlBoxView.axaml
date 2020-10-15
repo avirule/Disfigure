@@ -1,0 +1,35 @@
+﻿<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+             x:Class="Disfigure.GUI.Client.Views.ControlBoxView">
+
+    <Border BorderBrush="{DynamicResource ThemeHighlight}" BorderThickness="2">
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="0.2*" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <DropDown Grid.Column="0" Items="{Binding ConnectionViewModels, Mode=OneWay}" SelectedItem="{Binding SelectedViewModel, Mode=TwoWay}" BorderThickness="0">
+                <DropDown.ItemTemplate>
+                    <DataTemplate>
+                        <TextBlock Text="{Binding FriendlyName}" />
+                    </DataTemplate>
+                </DropDown.ItemTemplate>
+            </DropDown>
+
+            <TextBlock Grid.Column="1" Margin="10, 0, 10, 0" Text=":>" />
+
+            <Panel Grid.Column="2" HorizontalAlignment="Stretch" DataContext="{Binding ControlBoxViewModel}">
+                <Panel.KeyBindings>
+                    <KeyBinding Command="{Binding FlushContent}" Gesture="Enter" />
+                </Panel.KeyBindings>
+
+                <TextBox BorderThickness="0" CaretBrush="{DynamicResource ThemeForegroundText}" Text="{Binding Content}" />
+            </Panel>
+        </Grid>
+    </Border>
+</UserControl>

@@ -24,4 +24,10 @@
       </Content>
     </ItemGroup>
 
+    <ItemGroup>
+      <Reference Include="DiagnosticsProviderNS, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null">
+        <HintPath>..\References\DiagnosticsProviderNS.dll</HintPath>
+      </Reference>
+    </ItemGroup>
+
 </Project>

@@ -1,1 +1,1 @@
-namespace Disfigure.Net {}
+namespace Disfigure.Net { }

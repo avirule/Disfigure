@@ -1,14 +1,15 @@
 ﻿#region
 
-using System;
-using System.Net;
-using System.Threading.Tasks;
 using Disfigure.Cryptography;
 using Disfigure.Diagnostics;
 using Disfigure.Modules;
 using Disfigure.Net;
 using Disfigure.Net.Packets;
 using Serilog;
+using System;
+using System.Net;
+using System.Threading.Tasks;
+using DiagnosticsProviderNS;
 
 #endregion
 
@@ -20,13 +21,13 @@ namespace Disfigure.CLI.Server
         {
             try
             {
-                HostModuleOption hostModuleOption = CLIParser.Parse<HostModuleOption>(args);
+                Host hostVerb = CLIParser.Parse<Host>(args);
 
-                Log.Logger = new LoggerConfiguration().WriteTo.Console().MinimumLevel.Is(hostModuleOption.LogLevel).CreateLogger();
+                Log.Logger = new LoggerConfiguration().WriteTo.Console().MinimumLevel.Is(hostVerb.LogLevel).CreateLogger();
 
                 DiagnosticsProvider.EnableGroup<PacketDiagnosticGroup>();
 
-                using ServerModule module = new ServerModule(new IPEndPoint(hostModuleOption.IPAddress, hostModuleOption.Port));
+                using ServerModule module = new ServerModule(new IPEndPoint(hostVerb.IPAddress, hostVerb.Port), hostVerb.Name);
                 module.Connected += Packet.SendEncryptionKeys;
                 module.PacketReceived += PacketReceivedCallback;
 
@@ -45,16 +46,16 @@ namespace Disfigure.CLI.Server
             }
         }
 
-        private static ValueTask PacketReceivedCallback(Connection<Packet> connection, Packet packet)
+        private static Task PacketReceivedCallback(Connection<Packet> connection, Packet packet)
         {
             switch (packet.Type)
             {
                 case PacketType.EncryptionKeys:
-                    connection.EncryptionProviderAs<ECDHEncryptionProvider>().AssignRemoteKeys(packet.Content);
+                    connection.EncryptionProviderAs<ECDHEncryptionProvider>().AssignRemoteKeys(packet.ContentSpan);
                     break;
             }
 
-            return default;
+            return Task.CompletedTask;
         }
     }
 }

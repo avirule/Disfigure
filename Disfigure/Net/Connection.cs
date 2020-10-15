@@ -1,5 +1,9 @@
 #region
 
+using Disfigure.Cryptography;
+using Disfigure.Diagnostics;
+using Disfigure.Net.Packets;
+using Serilog;
 using System;
 using System.Buffers;
 using System.Diagnostics;
@@ -9,32 +13,29 @@ using System.Net;
 using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
-using Disfigure.Cryptography;
-using Disfigure.Diagnostics;
-using Disfigure.Net.Packets;
-using Serilog;
+using DiagnosticsProviderNS;
 
 #endregion
 
 namespace Disfigure.Net
 {
-    public delegate ValueTask<(bool, SequencePosition, TPacket)> PacketFactoryAsync<TPacket>(ReadOnlySequence<byte> sequence,
-        IEncryptionProvider? encryptionProvider, CancellationToken cancellationToken);
-
-    public delegate ValueTask<ReadOnlyMemory<byte>> PacketSerializerAsync<in TPacket>(TPacket packet, IEncryptionProvider? encryptionProvider,
+    public delegate Task<ReadOnlyMemory<byte>> PacketSerializerAsync<in TPacket>(TPacket packet, IEncryptionProvider? encryptionProvider,
         CancellationToken cancellationToken);
 
-    public delegate ValueTask ConnectionEventHandler<TPacket>(Connection<TPacket> connection) where TPacket : struct, IPacket;
+    public delegate Task<(bool, SequencePosition, TPacket)> PacketFactoryAsync<TPacket>(ReadOnlySequence<byte> sequence,
+        IEncryptionProvider? encryptionProvider, CancellationToken cancellationToken);
 
-    public delegate ValueTask PacketEventHandler<TPacket>(Connection<TPacket> origin, TPacket packet) where TPacket : struct, IPacket;
+    public delegate Task ConnectionEventHandler<TPacket>(Connection<TPacket> connection) where TPacket : struct;
 
-    public class Connection<TPacket> : IDisposable, IEquatable<Connection<TPacket>> where TPacket : struct, IPacket
+    public delegate Task PacketEventHandler<TPacket>(Connection<TPacket> connection, TPacket packet) where TPacket : struct;
+
+    public class Connection<TPacket> : IDisposable, IEquatable<Connection<TPacket>> where TPacket : struct
     {
         private readonly TcpClient _Client;
         private readonly NetworkStream _Stream;
         private readonly PipeWriter _Writer;
         private readonly PipeReader _Reader;
-        private IEncryptionProvider? _EncryptionProvider;
+        private readonly IEncryptionProvider? _EncryptionProvider;
         private readonly PacketSerializerAsync<TPacket> _PacketSerializerAsync;
         private readonly PacketFactoryAsync<TPacket> _PacketFactoryAsync;
 
@@ -42,7 +43,6 @@ namespace Disfigure.Net
         ///     Unique identity of the <see cref="Connection{TPacket}" />.
         /// </summary>
         public Guid Identity { get; }
-
 
         /// <summary>
         ///     <see cref="EndPoint" /> the internal <see cref="TcpClient" /> is connected to.
@@ -67,24 +67,22 @@ namespace Disfigure.Net
         ///     Invokes <see cref="Connected" /> event and begins read loop.
         /// </summary>
         /// <param name="cancellationToken"><see cref="CancellationToken" /> to observe.</param>
-        public async ValueTask FinalizeAsync(CancellationToken cancellationToken)
+        public async Task FinalizeAsync(CancellationToken cancellationToken)
         {
             await OnConnected();
 
             BeginListen(cancellationToken);
         }
 
-
         public TEncryptionProvider EncryptionProviderAs<TEncryptionProvider>() where TEncryptionProvider : class, IEncryptionProvider
             => _EncryptionProvider as TEncryptionProvider
                ?? throw new InvalidCastException($"Cannot cast {typeof(IEncryptionProvider)} to {typeof(TEncryptionProvider)}");
-
 
         #region Reading Data
 
         private void BeginListen(CancellationToken cancellationToken) => Task.Run(() => ReadLoopAsync(cancellationToken), cancellationToken);
 
-        private async ValueTask ReadLoopAsync(CancellationToken cancellationToken)
+        private async Task ReadLoopAsync(CancellationToken cancellationToken)
         {
             try
             {
@@ -111,11 +109,11 @@ namespace Disfigure.Net
 
                     if (success)
                     {
-                        DiagnosticsProvider.CommitData<PacketDiagnosticGroup>(new ConstructionTime(stopwatch.Elapsed));
+                        DiagnosticsProvider.CommitData<PacketDiagnosticGroup, TimeSpan>(new ConstructionTime(stopwatch.Elapsed));
 
                         Log.Verbose(string.Format(FormatHelper.CONNECTION_LOGGING, RemoteEndPoint, $"INC {packet}"));
 
-                        await PacketReceivedCallback(packet);
+                        await OnPacketReceivedAsync(packet);
                     }
 
                     _Reader.AdvanceTo(consumed, consumed);
@@ -123,7 +121,7 @@ namespace Disfigure.Net
             }
             catch (IOException exception) when (exception.InnerException is SocketException)
             {
-                Log.Error(string.Format(FormatHelper.CONNECTION_LOGGING, RemoteEndPoint, "Connection forcibly closed."));
+                Log.Error(string.Format(FormatHelper.CONNECTION_LOGGING, RemoteEndPoint, "Connection disconnected."));
                 Log.Debug(exception.Message);
             }
             catch (PacketMisalignedException)
@@ -138,27 +136,36 @@ namespace Disfigure.Net
 
         #endregion
 
-
         #region Writing Data
 
-        public async ValueTask WriteAsync(TPacket packet, CancellationToken cancellationToken)
+        public async Task WriteDirectAsync(ReadOnlyMemory<byte> data, CancellationToken cancellationToken)
         {
-            Log.Verbose(string.Format(FormatHelper.CONNECTION_LOGGING, RemoteEndPoint, $"OUT {packet}"));
+            await _Writer.WriteAsync(data, cancellationToken);
+            await _Writer.FlushAsync(cancellationToken);
 
+            Log.Warning(string.Format(FormatHelper.CONNECTION_LOGGING, RemoteEndPoint, $"DIRECT OUT {data.Length} BYTES"));
+        }
+
+        public async Task WriteAsync(TPacket packet, CancellationToken cancellationToken)
+        {
             ReadOnlyMemory<byte> encrypted = await _PacketSerializerAsync(packet, _EncryptionProvider, cancellationToken);
             await _Writer.WriteAsync(encrypted, cancellationToken);
             await _Writer.FlushAsync(cancellationToken);
+
+            Log.Verbose(string.Format(FormatHelper.CONNECTION_LOGGING, RemoteEndPoint, $"OUT {packet}"));
+
+            await OnPacketWrittenAsync(packet);
         }
 
         #endregion
 
-
         #region Connection Events
 
         public event ConnectionEventHandler<TPacket>? Connected;
+
         public event ConnectionEventHandler<TPacket>? Disconnected;
 
-        private async ValueTask OnConnected()
+        private async Task OnConnected()
         {
             if (Connected is { })
             {
@@ -166,7 +173,7 @@ namespace Disfigure.Net
             }
         }
 
-        private async ValueTask OnDisconnected()
+        private async Task OnDisconnected()
         {
             if (Disconnected is { })
             {
@@ -176,12 +183,21 @@ namespace Disfigure.Net
 
         #endregion
 
-
         #region Packet Events
+
+        public event PacketEventHandler<TPacket>? PacketWritten;
 
         public event PacketEventHandler<TPacket>? PacketReceived;
 
-        private async ValueTask PacketReceivedCallback(TPacket packet)
+        private async Task OnPacketWrittenAsync(TPacket packet)
+        {
+            if (PacketWritten is { })
+            {
+                await PacketWritten(this, packet);
+            }
+        }
+
+        private async Task OnPacketReceivedAsync(TPacket packet)
         {
             if (PacketReceived is { })
             {
@@ -190,7 +206,6 @@ namespace Disfigure.Net
         }
 
         #endregion
-
 
         #region IDisposable
 
@@ -221,7 +236,6 @@ namespace Disfigure.Net
         }
 
         #endregion
-
 
         #region IEquatable<Connection>
 

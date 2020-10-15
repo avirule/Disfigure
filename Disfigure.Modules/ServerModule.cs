@@ -1,14 +1,15 @@
 ﻿#region
 
-using System;
-using System.IO;
-using System.Net;
-using System.Net.Sockets;
-using System.Threading.Tasks;
 using Disfigure.Cryptography;
 using Disfigure.Net;
 using Disfigure.Net.Packets;
 using Serilog;
+using System;
+using System.IO;
+using System.Net;
+using System.Net.Sockets;
+using System.Text;
+using System.Threading.Tasks;
 
 #endregion
 
@@ -18,8 +19,14 @@ namespace Disfigure.Modules
     {
         private readonly IPEndPoint _HostAddress;
 
-        public ServerModule(IPEndPoint hostAddress) => _HostAddress = hostAddress;
+        public string FriendlyName { get; }
 
+        public ServerModule(IPEndPoint hostAddress, string? friendlyName = null)
+        {
+            _HostAddress = hostAddress;
+
+            FriendlyName = friendlyName ?? hostAddress.ToString();
+        }
 
         #region Runtime
 
@@ -32,7 +39,7 @@ namespace Disfigure.Modules
         public void AcceptConnections(PacketSerializerAsync<Packet> packetSerializerAsync, PacketFactoryAsync<Packet> packetFactoryAsync) =>
             Task.Run(() => AcceptConnectionsInternal(packetSerializerAsync, packetFactoryAsync));
 
-        private async ValueTask AcceptConnectionsInternal(PacketSerializerAsync<Packet> packetSerializerAsync,
+        private async Task AcceptConnectionsInternal(PacketSerializerAsync<Packet> packetSerializerAsync,
             PacketFactoryAsync<Packet> packetFactoryAsync)
         {
             try
@@ -52,6 +59,7 @@ namespace Disfigure.Modules
                     RegisterConnection(connection);
 
                     await connection.FinalizeAsync(CancellationToken);
+                    await connection.WriteAsync(new Packet(PacketType.Identity, DateTime.UtcNow, Encoding.Unicode.GetBytes(FriendlyName)), CancellationToken);
                 }
             }
             catch (SocketException exception) when (exception.ErrorCode == 10048)

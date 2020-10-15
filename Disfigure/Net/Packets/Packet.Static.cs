@@ -1,5 +1,7 @@
 #region
 
+using Disfigure.Cryptography;
+using Serilog;
 using System;
 using System.Buffers;
 using System.Collections.Concurrent;
@@ -7,8 +9,6 @@ using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
-using Disfigure.Cryptography;
-using Serilog;
 
 #endregion
 
@@ -16,39 +16,38 @@ namespace Disfigure.Net.Packets
 {
     public readonly partial struct Packet
     {
-        private const int _ALIGNMENT_CONSTANT = 205582199;
+        public const int ALIGNMENT_CONSTANT = 205582199;
 
-        private const int _OFFSET_DATA_LENGTH = 0;
-        private const int _OFFSET_ALIGNMENT_CONSTANT = _OFFSET_DATA_LENGTH + sizeof(int);
-        private const int _OFFSET_INITIALIZATION_VECTOR = _OFFSET_ALIGNMENT_CONSTANT + sizeof(int);
-        private const int _ENCRYPTION_HEADER_LENGTH = _OFFSET_INITIALIZATION_VECTOR + ECDHEncryptionProvider.INITIALIZATION_VECTOR_SIZE;
+        public const int OFFSET_DATA_LENGTH = 0;
+        public const int OFFSET_ALIGNMENT_CONSTANT = OFFSET_DATA_LENGTH + sizeof(int);
+        public const int OFFSET_INITIALIZATION_VECTOR = OFFSET_ALIGNMENT_CONSTANT + sizeof(int);
+        public const int ENCRYPTION_HEADER_LENGTH = OFFSET_INITIALIZATION_VECTOR + IEncryptionProvider.INITIALIZATION_VECTOR_SIZE;
 
-        private const int _OFFSET_PACKET_TYPE = 0;
-        private const int _OFFSET_TIMESTAMP = _OFFSET_PACKET_TYPE + sizeof(PacketType);
-        private const int _HEADER_LENGTH = _OFFSET_TIMESTAMP + sizeof(long);
+        public const int OFFSET_PACKET_TYPE = 0;
+        public const int OFFSET_TIMESTAMP = OFFSET_PACKET_TYPE + sizeof(PacketType);
+        public const int HEADER_LENGTH = OFFSET_TIMESTAMP + sizeof(long);
 
-        private const int _TOTAL_HEADER_LENGTH = _ENCRYPTION_HEADER_LENGTH + _HEADER_LENGTH;
+        public const int TOTAL_HEADER_LENGTH = ENCRYPTION_HEADER_LENGTH + HEADER_LENGTH;
 
-        public static async ValueTask SendEncryptionKeys(Connection<Packet> connection) => await connection.WriteAsync(
-            new Packet(PacketType.EncryptionKeys, DateTime.UtcNow, connection.EncryptionProviderAs<ECDHEncryptionProvider>().PublicKey),
-            CancellationToken.None);
+        public static async Task SendEncryptionKeys(Connection<Packet> connection) => await connection.WriteDirectAsync(
+                SerializePacket(ReadOnlyMemory<byte>.Empty, new Packet(PacketType.EncryptionKeys, DateTime.UtcNow, connection.EncryptionProviderAs<IEncryptionProvider>().PublicKey).Serialize()),
+                CancellationToken.None);
 
+        #region PacketSerializerAsync
 
-        #region PacketEncryptorAsync
-
-        public static async ValueTask<ReadOnlyMemory<byte>> SerializerAsync(Packet packet, IEncryptionProvider? encryptionProvider,
+        public static async Task<ReadOnlyMemory<byte>> SerializerAsync(Packet packet, IEncryptionProvider? encryptionProvider,
             CancellationToken cancellationToken)
         {
             ReadOnlyMemory<byte> initializationVector = ReadOnlyMemory<byte>.Empty;
             ReadOnlyMemory<byte> packetData = packet.Serialize();
 
-            if (encryptionProvider?.IsEncryptable ?? false)
+            if (encryptionProvider is { })
             {
-                (initializationVector, packetData) = await encryptionProvider.EncryptAsync(packetData, cancellationToken);
+                (initializationVector, packetData) = await encryptionProvider!.EncryptAsync(packetData, cancellationToken);
             }
             else
             {
-                Log.Warning($"Write call has been received, but the {nameof(ECDHEncryptionProvider)} is in an unusable state.");
+                throw new ArgumentException($"Write call has been received, but the {nameof(IEncryptionProvider)} is in an unusable state.", nameof(encryptionProvider));
             }
 
             return SerializePacket(initializationVector, packetData);
@@ -56,35 +55,24 @@ namespace Disfigure.Net.Packets
 
         private static ReadOnlyMemory<byte> SerializePacket(ReadOnlyMemory<byte> initializationVector, ReadOnlyMemory<byte> packetData)
         {
-            int alignmentConstant = _ALIGNMENT_CONSTANT;
-            int length = _ENCRYPTION_HEADER_LENGTH + packetData.Length;
+            int alignmentConstant = ALIGNMENT_CONSTANT;
+            int length = ENCRYPTION_HEADER_LENGTH + packetData.Length;
             Memory<byte> data = new byte[length];
             Span<byte> dataSpan = data.Span;
 
-            MemoryMarshal.Write(dataSpan.Slice(_OFFSET_DATA_LENGTH), ref length);
-            MemoryMarshal.Write(dataSpan.Slice(_OFFSET_ALIGNMENT_CONSTANT), ref alignmentConstant);
-            initializationVector.CopyTo(data.Slice(_OFFSET_INITIALIZATION_VECTOR));
-            packetData.CopyTo(data.Slice(_ENCRYPTION_HEADER_LENGTH));
-
-            ValidateSerialization(dataSpan);
+            MemoryMarshal.Write(dataSpan.Slice(OFFSET_DATA_LENGTH), ref length);
+            MemoryMarshal.Write(dataSpan.Slice(OFFSET_ALIGNMENT_CONSTANT), ref alignmentConstant);
+            initializationVector.CopyTo(data.Slice(OFFSET_INITIALIZATION_VECTOR));
+            packetData.CopyTo(data.Slice(ENCRYPTION_HEADER_LENGTH));
 
             return data;
         }
 
-        private static void ValidateSerialization(ReadOnlySpan<byte> dataSpan)
-        {
-            bool goodLength = dataSpan.Length >= _TOTAL_HEADER_LENGTH;
-            bool aligned = MemoryMarshal.Read<int>(dataSpan.Slice(sizeof(int))) == _ALIGNMENT_CONSTANT;
-
-            Log.Debug($"OUT CALL | {dataSpan.Length} BYTES | LENGTH {(goodLength ? "GOOD" : "BAD")} | ALIGNMENT {(aligned ? "GOOD" : "BAD")}");
-        }
-
         #endregion
-
 
         #region PacketFactoryAsync
 
-        public static async ValueTask<(bool, SequencePosition, Packet)> FactoryAsync(ReadOnlySequence<byte> sequence,
+        public static async Task<(bool, SequencePosition, Packet)> FactoryAsync(ReadOnlySequence<byte> sequence,
             IEncryptionProvider? encryptionProvider, CancellationToken cancellationToken)
         {
             if (!TryGetData(sequence, out SequencePosition consumed, out ReadOnlyMemory<byte> data))
@@ -93,8 +81,8 @@ namespace Disfigure.Net.Packets
             }
             else
             {
-                ReadOnlyMemory<byte> initializationVector = data.Slice(0, ECDHEncryptionProvider.INITIALIZATION_VECTOR_SIZE);
-                ReadOnlyMemory<byte> packetData = data.Slice(ECDHEncryptionProvider.INITIALIZATION_VECTOR_SIZE);
+                ReadOnlyMemory<byte> initializationVector = data.Slice(0, IEncryptionProvider.INITIALIZATION_VECTOR_SIZE);
+                ReadOnlyMemory<byte> packetData = data.Slice(IEncryptionProvider.INITIALIZATION_VECTOR_SIZE);
 
                 if (encryptionProvider?.IsEncryptable ?? false)
                 {
@@ -102,7 +90,7 @@ namespace Disfigure.Net.Packets
                 }
                 else
                 {
-                    Log.Warning($"Packet data has been received, but the {nameof(ECDHEncryptionProvider)} is in an unusable state.");
+                    Log.Warning($"Packet data has been received, but the {nameof(IEncryptionProvider)} is in an unusable state.");
                 }
 
                 return (true, consumed, new Packet(packetData));
@@ -122,7 +110,7 @@ namespace Disfigure.Net.Packets
                 return false;
             }
             // ensure length covers entire valid header
-            else if (length < _TOTAL_HEADER_LENGTH)
+            else if (length < TOTAL_HEADER_LENGTH)
             {
                 // if not, print warning and throw away data
                 Log.Warning("Received packet with invalid header format (too short).");
@@ -130,7 +118,7 @@ namespace Disfigure.Net.Packets
                 return false;
             }
             // ensure alignment constant is valid
-            else if (MemoryMarshal.Read<int>(span.Slice(sizeof(int))) != _ALIGNMENT_CONSTANT)
+            else if (MemoryMarshal.Read<int>(span.Slice(sizeof(int))) != ALIGNMENT_CONSTANT)
             {
                 throw new PacketMisalignedException();
             }
@@ -144,7 +132,6 @@ namespace Disfigure.Net.Packets
 
         #endregion
 
-
         #region PingPongLoop
 
         public static void PingPongLoop(Module<Packet> module, TimeSpan pingInterval, CancellationToken cancellationToken) =>
@@ -155,33 +142,33 @@ namespace Disfigure.Net.Packets
             ConcurrentDictionary<Guid, Guid> pendingPings = new ConcurrentDictionary<Guid, Guid>();
             Stack<Guid> abandonedConnections = new Stack<Guid>();
 
-            ValueTask PongPacketCallbackImpl(Connection<Packet> connection, Packet basicPacket)
+            Task PongPacketCallbackImpl(Connection<Packet> connection, Packet basicPacket)
             {
                 if (basicPacket.Type != PacketType.Pong)
                 {
-                    return default;
+                    return Task.CompletedTask;
                 }
 
                 if (!pendingPings.TryGetValue(connection.Identity, out Guid pingIdentity))
                 {
                     Log.Warning($"<{connection.RemoteEndPoint}> Received pong, but no ping with that identity was pending.");
-                    return default;
+                    return Task.CompletedTask;
                 }
-                else if (basicPacket.Content.Length < 16)
+                else if (basicPacket.ContentSpan.Length < 16)
                 {
                     Log.Warning($"<{connection.RemoteEndPoint}> Ping identity was malformed (too few bytes).");
-                    return default;
+                    return Task.CompletedTask;
                 }
 
-                Guid remotePingIdentity = new Guid(basicPacket.Content);
+                Guid remotePingIdentity = new Guid(basicPacket.ContentSpan);
                 if (remotePingIdentity != pingIdentity)
                 {
                     Log.Warning($"<{connection.RemoteEndPoint}> Received pong, but ping identity didn't match.");
-                    return default;
+                    return Task.CompletedTask;
                 }
 
                 pendingPings.TryRemove(connection.Identity, out _);
-                return default;
+                return Task.CompletedTask;
             }
 
             module.PacketReceived += PongPacketCallbackImpl;

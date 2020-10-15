@@ -1,11 +1,11 @@
 #region
 
+using Serilog;
 using System;
 using System.IO;
 using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
-using Serilog;
 
 #endregion
 
@@ -13,10 +13,6 @@ namespace Disfigure.Cryptography
 {
     public class ECDHEncryptionProvider : IEncryptionProvider
     {
-        public const int PRIVATE_KEY_SIZE = 32;
-        public const int PUBLIC_KEY_SIZE = PRIVATE_KEY_SIZE * 2;
-        public const int INITIALIZATION_VECTOR_SIZE = 16;
-
         private static readonly RNGCryptoServiceProvider _CryptoRandom = new RNGCryptoServiceProvider();
         private static readonly TimeSpan _EncryptionKeysWaitTimeout = TimeSpan.FromSeconds(5d);
 
@@ -32,17 +28,17 @@ namespace Disfigure.Cryptography
         public ECDHEncryptionProvider()
         {
             _EncryptionKeysWait = new ManualResetEventSlim(false);
-            _PrivateKey = new byte[PRIVATE_KEY_SIZE];
+            _PrivateKey = new byte[IEncryptionProvider.PRIVATE_KEY_SIZE];
 
-            PublicKey = new byte[PUBLIC_KEY_SIZE];
+            PublicKey = new byte[IEncryptionProvider.PUBLIC_KEY_SIZE];
 
             GeneratePrivateKey();
             DerivePublicKey();
         }
 
         public void WaitForRemoteKeys(CancellationToken cancellationToken) => _EncryptionKeysWait.Wait(cancellationToken);
-        public void WaitForRemoteKeys(TimeSpan timeout) => _EncryptionKeysWait.Wait(timeout);
 
+        public void WaitForRemoteKeys(TimeSpan timeout) => _EncryptionKeysWait.Wait(timeout);
 
         #region Key Operations
 
@@ -73,13 +69,13 @@ namespace Disfigure.Cryptography
             {
                 Log.Warning("Protocol requires that key exchanges happen ONLY ONCE.");
             }
-            else if (remotePublicKey.Length != PUBLIC_KEY_SIZE)
+            else if (remotePublicKey.Length != IEncryptionProvider.PUBLIC_KEY_SIZE)
             {
-                Log.Warning($"Protocol requires that public keys be {PUBLIC_KEY_SIZE} bytes.");
+                Log.Warning($"Protocol requires that public keys be {IEncryptionProvider.PUBLIC_KEY_SIZE} bytes.");
             }
             else
             {
-                byte[] derivedRemoteKey = new byte[PUBLIC_KEY_SIZE];
+                byte[] derivedRemoteKey = new byte[IEncryptionProvider.PUBLIC_KEY_SIZE];
                 DeriveSymmetricKey(remotePublicKey, derivedRemoteKey);
 
                 using SHA256CryptoServiceProvider sha256 = new SHA256CryptoServiceProvider();
@@ -91,10 +87,9 @@ namespace Disfigure.Cryptography
 
         #endregion
 
-
         #region Encrypt / Decrypt
 
-        public async ValueTask<(ReadOnlyMemory<byte> initializationVector, ReadOnlyMemory<byte> encrypted)>
+        public async Task<(ReadOnlyMemory<byte> initializationVector, ReadOnlyMemory<byte> encrypted)>
             EncryptAsync(ReadOnlyMemory<byte> unencrypted, CancellationToken cancellationToken)
         {
             WaitForRemoteKeys(_EncryptionKeysWaitTimeout);
@@ -123,7 +118,7 @@ namespace Disfigure.Cryptography
             return (aes.IV, cipherBytes.ToArray());
         }
 
-        public async ValueTask<ReadOnlyMemory<byte>> DecryptAsync(ReadOnlyMemory<byte> initializationVector, ReadOnlyMemory<byte> encrypted,
+        public async Task<ReadOnlyMemory<byte>> DecryptAsync(ReadOnlyMemory<byte> initializationVector, ReadOnlyMemory<byte> encrypted,
             CancellationToken cancellationToken)
         {
             WaitForRemoteKeys(_EncryptionKeysWaitTimeout);
