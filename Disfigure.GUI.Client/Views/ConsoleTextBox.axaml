@@ -1,0 +1,26 @@
+﻿<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+             x:Class="Disfigure.GUI.Client.Views.ConsoleTextBox">
+
+    <Grid>
+        <TextBox CaretBrush="Transparent" Padding="0" Margin="0" BorderThickness="0">
+            <!--<Border x:Name="Caret" Canvas.Left="0" Canvas.Top="0" Width="30" Height="5" Background="{DynamicResource ThemeForegroundText}">
+                    <Border.Triggers>
+                        <EventTrigger RoutedEvent="Border.Loaded">
+                            <BeginStoryboard>
+                                <Storyboard x:Name="CaretStoryBoard" RepeatBehaviour="Forever">
+                                    <ColorAnimationUsingKeyFrames Storyboard.TargetProperty="Background.Color" Duration="0:0:0:1" FillBehaviour="HoldEnd">
+                                        <DiscreteColorKeyFrame KeyTime="0:0:0.750" Value="Transparent" />
+                                        <DiscreteColorKeyFrame KeyTime="0:0:00.000" Value="Red" />
+                                    </ColorAnimationUsingKeyFrames>
+                                </Storyboard>
+                            </BeginStoryboard>
+                        </EventTrigger>
+                    </Border.Triggers>
+                </Border>-->
+        </TextBox>
+    </Grid>
+</UserControl>

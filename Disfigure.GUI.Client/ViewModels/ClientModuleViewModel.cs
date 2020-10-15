@@ -5,9 +5,11 @@ using CommandLine;
 using Disfigure.Collections;
 using Disfigure.GUI.Client.Commands;
 using Disfigure.Modules;
+using Disfigure.Net.Packets;
 using ReactiveUI;
 using System;
 using System.Collections.ObjectModel;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -29,12 +31,12 @@ namespace Disfigure.GUI.Client.ViewModels
         private readonly ConcurrentChannel<ConnectionViewModel> _PendingConnectionViewModels;
         private readonly ClientModule _ClientModule;
 
-        private ConnectionViewModel _SelectedViewModel;
+        private ConnectionViewModel? _SelectedViewModel;
 
         public ObservableCollection<ConnectionViewModel> ConnectionViewModels { get; }
         public ControlBoxViewModel ControlBoxViewModel { get; }
 
-        public ConnectionViewModel SelectedViewModel
+        public ConnectionViewModel? SelectedViewModel
         {
             get => _SelectedViewModel;
             set { this.RaiseAndSetIfChanged(ref _SelectedViewModel, value); }
@@ -76,7 +78,7 @@ namespace Disfigure.GUI.Client.ViewModels
             }
             else
             {
-                //Task.Run(() => _ClientModule.ReadOnlyConnections.Values.First().WriteAsync(new Packet(PacketType.Text, DateTime.UtcNow, Encoding.Unicode.GetBytes(content)), CancellationToken.None));
+                Task.Run(() => SelectedViewModel?.WriteAsync(new Packet(PacketType.Text, DateTime.UtcNow, Encoding.Unicode.GetBytes(content)), CancellationToken.None));
             }
         }
 

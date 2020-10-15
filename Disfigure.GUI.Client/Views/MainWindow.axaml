@@ -13,21 +13,43 @@
         <vm:ClientModuleViewModel />
     </Window.DataContext>
 
-    <DockPanel>
-        <!--<DockPanel DockPanel.Dock="Top" Background="{DynamicResource ThemeHighlight}">
+    <!--<DockPanel DockPanel.Dock="Top" Background="{DynamicResource ThemeHighlight}">
             <TextBlock DockPanel.Dock="Left" Text="{DynamicResource Title}" Margin="5, 2, 0, 2" />
         </DockPanel>-->
 
-        <DockPanel HorizontalAlignment="Stretch">
-            <ctrls:ControlBoxView DockPanel.Dock="Bottom" DataContext="{Binding}" />
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="0.2*" />
+            <ColumnDefinition Width="Auto" />
+            <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
 
-            <ContentControl Content="{Binding SelectedViewModel}">
-                <ContentControl.ContentTemplate>
-                    <DataTemplate>
-                        <ctrls:ConnectionMessagesView />
-                    </DataTemplate>
-                </ContentControl.ContentTemplate>
-            </ContentControl>
-        </DockPanel>
-    </DockPanel>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <ListBox Grid.Column="0" Grid.Row="0" VerticalAlignment="Bottom" Background="Transparent" BorderThickness="0" ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+        </ListBox>
+
+        <ListBox Grid.Column="2" Grid.Row="0" VerticalAlignment="Bottom" Background="Transparent" BorderThickness="0" Items="{Binding SelectedViewModel.Messages}" ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+            <ListBox.ItemTemplate>
+                <DataTemplate>
+                    <ctrls:MessageView DataContext="{Binding}" />
+                </DataTemplate>
+            </ListBox.ItemTemplate>
+        </ListBox>
+
+        <DropDown Grid.Column="0" Grid.Row="1" Items="{Binding ConnectionViewModels, Mode=OneWay}" SelectedItem="{Binding SelectedViewModel, Mode=TwoWay}" BorderThickness="0">
+            <DropDown.ItemTemplate>
+                <DataTemplate>
+                    <TextBlock Text="{Binding FriendlyName}" />
+                </DataTemplate>
+            </DropDown.ItemTemplate>
+        </DropDown>
+
+        <TextBlock Grid.Column="1" Grid.Row="1" VerticalAlignment="Center" Margin="5, 0, 0, 0" Text=":>" />
+
+        <ctrls:ControlBoxView Grid.Column="2" Grid.Row="1" DataContext="{Binding ControlBoxViewModel}" HorizontalAlignment="Stretch" />
+    </Grid>
 </Window>

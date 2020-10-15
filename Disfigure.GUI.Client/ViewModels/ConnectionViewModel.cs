@@ -13,11 +13,10 @@ namespace Disfigure.GUI.Client.ViewModels
 {
     public class ConnectionViewModel : ViewModelBase
     {
-        private readonly ConcurrentChannel<string> _PendingMessages;
+        private readonly ConcurrentChannel<Packet> _PendingMessages;
 
+        private Connection<Packet> _Connection;
         private string _FriendlyName;
-
-        private Connection<Packet> Connection { get; set; }
 
         public string FriendlyName
         {
@@ -25,20 +24,20 @@ namespace Disfigure.GUI.Client.ViewModels
             set { this.RaiseAndSetIfChanged(ref _FriendlyName, value); }
         }
 
-        public Guid Identity => Connection.Identity;
+        public Guid Identity => _Connection.Identity;
 
-        public ObservableCollection<string> Messages { get; }
+        public ObservableCollection<MessageViewModel> Messages { get; }
 
         public ConnectionViewModel(Connection<Packet> connection)
         {
-            _PendingMessages = new ConcurrentChannel<string>(true, false);
+            _PendingMessages = new ConcurrentChannel<Packet>(true, false);
             _FriendlyName = string.Empty;
 
-            Messages = new ObservableCollection<string>();
-            Connection = connection;
+            Messages = new ObservableCollection<MessageViewModel>();
+            _Connection = connection;
             connection.PacketReceived += TryAssignIdentity;
-            Connection.PacketReceived += async (connection, packet) => await _PendingMessages.AddAsync($"INC {packet}");
-            Connection.PacketWritten += async (connection, packet) => await _PendingMessages.AddAsync($"OUT {packet}");
+            _Connection.PacketReceived += async (connection, packet) => await _PendingMessages.AddAsync(packet);
+            _Connection.PacketWritten += async (connection, packet) => await _PendingMessages.AddAsync(packet);
 
             FriendlyName = connection.RemoteEndPoint.ToString() ?? "invalid address";
 
@@ -49,9 +48,9 @@ namespace Disfigure.GUI.Client.ViewModels
         {
             while (!cancellationToken.IsCancellationRequested)
             {
-                string message = await _PendingMessages.TakeAsync(true, cancellationToken);
+                Packet packet = await _PendingMessages.TakeAsync(true, cancellationToken);
 
-                await Dispatcher.UIThread.InvokeAsync(() => Messages.Add(message));
+                await Dispatcher.UIThread.InvokeAsync(() => Messages.Add(new MessageViewModel(packet.Type.ToString(), packet.UtcTimestamp.ToString("G"), Encoding.Unicode.GetString(packet.ContentSpan))));
             }
         }
 
@@ -65,5 +64,7 @@ namespace Disfigure.GUI.Client.ViewModels
                     break;
             }
         }
+
+        public async ValueTask WriteAsync(Packet packet, CancellationToken cancellation) => await _Connection.WriteAsync(packet, cancellation);
     }
 }
