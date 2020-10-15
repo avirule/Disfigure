@@ -9,6 +9,7 @@ using Serilog;
 using System;
 using System.Net;
 using System.Threading.Tasks;
+using DiagnosticsProviderNS;
 
 #endregion
 

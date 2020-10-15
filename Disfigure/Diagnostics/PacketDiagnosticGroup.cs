@@ -3,61 +3,54 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Runtime.CompilerServices;
+using DiagnosticsProviderNS;
 
 #endregion
 
 namespace Disfigure.Diagnostics
 {
-    public class ConstructionTime : IDiagnosticData
+    public class ConstructionTime : TimeSpanDiagnosticData
     {
-        private object _Data;
-        public object Data => _Data;
-
-        public ConstructionTime(TimeSpan data) => _Data = data;
-
-        public static explicit operator TimeSpan(ConstructionTime constructionTime) => Unsafe.As<object, TimeSpan>(ref constructionTime._Data);
+        public ConstructionTime(TimeSpan data) : base(data) { }
     }
 
-    public class DecryptionTime : IDiagnosticData
+    public class DecryptionTime : TimeSpanDiagnosticData
     {
-        private object _Data;
-        public object Data => _Data;
-
-        public DecryptionTime(TimeSpan data) => _Data = data;
-
-        public static explicit operator TimeSpan(DecryptionTime decryptionTime) => Unsafe.As<object, TimeSpan>(ref decryptionTime._Data);
+        public DecryptionTime(TimeSpan data) : base(data) { }
     }
 
     public class PacketDiagnosticGroup : IDiagnosticGroup
     {
-        public List<ConstructionTime> ConstructionTimes { get; }
-        public List<DecryptionTime> DecryptionTimes { get; }
+        private readonly List<ConstructionTime> _ConstructionTimes;
+        private readonly List<DecryptionTime> _DecryptionTimes;
+
+        public IReadOnlyList<ConstructionTime> ConstructionTimes => _ConstructionTimes;
+        public IReadOnlyList<DecryptionTime> DecryptionTimes => _DecryptionTimes;
 
         public PacketDiagnosticGroup()
         {
-            ConstructionTimes = new List<ConstructionTime>();
-            DecryptionTimes = new List<DecryptionTime>();
+            _ConstructionTimes = new List<ConstructionTime>();
+            _DecryptionTimes = new List<DecryptionTime>();
         }
 
-        public void CommitData(IDiagnosticData data)
+        public void CommitData<TDataType>(IDiagnosticData<TDataType> data)
         {
             switch (data)
             {
                 case ConstructionTime constructionTime:
-                    ConstructionTimes.Add(constructionTime);
+                    _ConstructionTimes.Add(constructionTime);
                     break;
 
                 case DecryptionTime decryptionTime:
-                    DecryptionTimes.Add(decryptionTime);
+                    _DecryptionTimes.Add(decryptionTime);
                     break;
             }
         }
 
         public (double construction, double decryption) GetAveragePacketTimes()
         {
-            double avgConstruction = ConstructionTimes.DefaultIfEmpty()?.Average(time => ((TimeSpan)time).TotalMilliseconds) ?? 0d;
-            double avgDecryption = DecryptionTimes.DefaultIfEmpty()?.Average(time => ((TimeSpan)time).TotalMilliseconds) ?? 0d;
+            double avgConstruction = _ConstructionTimes.DefaultIfEmpty()?.Average(time => ((TimeSpan)time).TotalMilliseconds) ?? 0d;
+            double avgDecryption = _DecryptionTimes.DefaultIfEmpty()?.Average(time => ((TimeSpan)time).TotalMilliseconds) ?? 0d;
 
             return (avgConstruction, avgDecryption);
         }
