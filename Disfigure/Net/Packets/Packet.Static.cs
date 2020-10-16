@@ -29,13 +29,14 @@ namespace Disfigure.Net.Packets
 
         public const int TOTAL_HEADER_LENGTH = ENCRYPTION_HEADER_LENGTH + HEADER_LENGTH;
 
-        public static async Task SendEncryptionKeys(Connection<Packet> connection) => await connection.WriteDirectAsync(
-                SerializePacket(ReadOnlyMemory<byte>.Empty, new Packet(PacketType.EncryptionKeys, DateTime.UtcNow, connection.EncryptionProviderAs<IEncryptionProvider>().PublicKey).Serialize()),
+        public static async ValueTask SendEncryptionKeys(Connection<Packet> connection) =>
+            await connection.WriteDirectAsync(SerializePacket(ReadOnlyMemory<byte>.Empty,
+                new Packet(PacketType.EncryptionKeys, DateTime.UtcNow, connection.EncryptionProviderAs<IEncryptionProvider>().PublicKey).Serialize()),
                 CancellationToken.None);
 
         #region PacketSerializerAsync
 
-        public static async Task<ReadOnlyMemory<byte>> SerializerAsync(Packet packet, IEncryptionProvider? encryptionProvider,
+        public static async ValueTask<ReadOnlyMemory<byte>> SerializerAsync(Packet packet, IEncryptionProvider? encryptionProvider,
             CancellationToken cancellationToken)
         {
             ReadOnlyMemory<byte> initializationVector = ReadOnlyMemory<byte>.Empty;
@@ -72,7 +73,7 @@ namespace Disfigure.Net.Packets
 
         #region PacketFactoryAsync
 
-        public static async Task<(bool, SequencePosition, Packet)> FactoryAsync(ReadOnlySequence<byte> sequence,
+        public static async ValueTask<(bool, SequencePosition, Packet)> FactoryAsync(ReadOnlySequence<byte> sequence,
             IEncryptionProvider? encryptionProvider, CancellationToken cancellationToken)
         {
             if (!TryGetData(sequence, out SequencePosition consumed, out ReadOnlyMemory<byte> data))
@@ -137,38 +138,38 @@ namespace Disfigure.Net.Packets
         public static void PingPongLoop(Module<Packet> module, TimeSpan pingInterval, CancellationToken cancellationToken) =>
             Task.Run(async () => await PingPongLoopAsync(module, pingInterval, cancellationToken), cancellationToken);
 
-        private static async Task PingPongLoopAsync(Module<Packet> module, TimeSpan pingInterval, CancellationToken cancellationToken)
+        private static async ValueTask PingPongLoopAsync(Module<Packet> module, TimeSpan pingInterval, CancellationToken cancellationToken)
         {
             ConcurrentDictionary<Guid, Guid> pendingPings = new ConcurrentDictionary<Guid, Guid>();
             Stack<Guid> abandonedConnections = new Stack<Guid>();
 
-            Task PongPacketCallbackImpl(Connection<Packet> connection, Packet basicPacket)
+            ValueTask PongPacketCallbackImpl(Connection<Packet> connection, Packet basicPacket)
             {
                 if (basicPacket.Type != PacketType.Pong)
                 {
-                    return Task.CompletedTask;
+                    return default;
                 }
 
                 if (!pendingPings.TryGetValue(connection.Identity, out Guid pingIdentity))
                 {
                     Log.Warning($"<{connection.RemoteEndPoint}> Received pong, but no ping with that identity was pending.");
-                    return Task.CompletedTask;
+                    return default;
                 }
                 else if (basicPacket.ContentSpan.Length < 16)
                 {
                     Log.Warning($"<{connection.RemoteEndPoint}> Ping identity was malformed (too few bytes).");
-                    return Task.CompletedTask;
+                    return default;
                 }
 
                 Guid remotePingIdentity = new Guid(basicPacket.ContentSpan);
                 if (remotePingIdentity != pingIdentity)
                 {
                     Log.Warning($"<{connection.RemoteEndPoint}> Received pong, but ping identity didn't match.");
-                    return Task.CompletedTask;
+                    return default;
                 }
 
                 pendingPings.TryRemove(connection.Identity, out _);
-                return Task.CompletedTask;
+                return default;
             }
 
             module.PacketReceived += PongPacketCallbackImpl;

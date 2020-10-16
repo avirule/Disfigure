@@ -19,15 +19,15 @@ using DiagnosticsProviderNS;
 
 namespace Disfigure.Net
 {
-    public delegate Task<ReadOnlyMemory<byte>> PacketSerializerAsync<in TPacket>(TPacket packet, IEncryptionProvider? encryptionProvider,
+    public delegate ValueTask<ReadOnlyMemory<byte>> PacketSerializerAsync<in TPacket>(TPacket packet, IEncryptionProvider? encryptionProvider,
         CancellationToken cancellationToken);
 
-    public delegate Task<(bool, SequencePosition, TPacket)> PacketFactoryAsync<TPacket>(ReadOnlySequence<byte> sequence,
+    public delegate ValueTask<(bool, SequencePosition, TPacket)> PacketFactoryAsync<TPacket>(ReadOnlySequence<byte> sequence,
         IEncryptionProvider? encryptionProvider, CancellationToken cancellationToken);
 
-    public delegate Task ConnectionEventHandler<TPacket>(Connection<TPacket> connection) where TPacket : struct;
+    public delegate ValueTask ConnectionEventHandler<TPacket>(Connection<TPacket> connection) where TPacket : struct;
 
-    public delegate Task PacketEventHandler<TPacket>(Connection<TPacket> connection, TPacket packet) where TPacket : struct;
+    public delegate ValueTask PacketEventHandler<TPacket>(Connection<TPacket> connection, TPacket packet) where TPacket : struct;
 
     public class Connection<TPacket> : IDisposable, IEquatable<Connection<TPacket>> where TPacket : struct
     {
@@ -67,7 +67,7 @@ namespace Disfigure.Net
         ///     Invokes <see cref="Connected" /> event and begins read loop.
         /// </summary>
         /// <param name="cancellationToken"><see cref="CancellationToken" /> to observe.</param>
-        public async Task FinalizeAsync(CancellationToken cancellationToken)
+        public async ValueTask FinalizeAsync(CancellationToken cancellationToken)
         {
             await OnConnected();
 
@@ -82,7 +82,7 @@ namespace Disfigure.Net
 
         private void BeginListen(CancellationToken cancellationToken) => Task.Run(() => ReadLoopAsync(cancellationToken), cancellationToken);
 
-        private async Task ReadLoopAsync(CancellationToken cancellationToken)
+        private async ValueTask ReadLoopAsync(CancellationToken cancellationToken)
         {
             try
             {
@@ -138,7 +138,7 @@ namespace Disfigure.Net
 
         #region Writing Data
 
-        public async Task WriteDirectAsync(ReadOnlyMemory<byte> data, CancellationToken cancellationToken)
+        public async ValueTask WriteDirectAsync(ReadOnlyMemory<byte> data, CancellationToken cancellationToken)
         {
             await _Writer.WriteAsync(data, cancellationToken);
             await _Writer.FlushAsync(cancellationToken);
@@ -146,7 +146,7 @@ namespace Disfigure.Net
             Log.Warning(string.Format(FormatHelper.CONNECTION_LOGGING, RemoteEndPoint, $"DIRECT OUT {data.Length} BYTES"));
         }
 
-        public async Task WriteAsync(TPacket packet, CancellationToken cancellationToken)
+        public async ValueTask WriteAsync(TPacket packet, CancellationToken cancellationToken)
         {
             ReadOnlyMemory<byte> encrypted = await _PacketSerializerAsync(packet, _EncryptionProvider, cancellationToken);
             await _Writer.WriteAsync(encrypted, cancellationToken);
@@ -165,7 +165,7 @@ namespace Disfigure.Net
 
         public event ConnectionEventHandler<TPacket>? Disconnected;
 
-        private async Task OnConnected()
+        private async ValueTask OnConnected()
         {
             if (Connected is { })
             {
@@ -173,7 +173,7 @@ namespace Disfigure.Net
             }
         }
 
-        private async Task OnDisconnected()
+        private async ValueTask OnDisconnected()
         {
             if (Disconnected is { })
             {
@@ -189,7 +189,7 @@ namespace Disfigure.Net
 
         public event PacketEventHandler<TPacket>? PacketReceived;
 
-        private async Task OnPacketWrittenAsync(TPacket packet)
+        private async ValueTask OnPacketWrittenAsync(TPacket packet)
         {
             if (PacketWritten is { })
             {
@@ -197,7 +197,7 @@ namespace Disfigure.Net
             }
         }
 
-        private async Task OnPacketReceivedAsync(TPacket packet)
+        private async ValueTask OnPacketReceivedAsync(TPacket packet)
         {
             if (PacketReceived is { })
             {
