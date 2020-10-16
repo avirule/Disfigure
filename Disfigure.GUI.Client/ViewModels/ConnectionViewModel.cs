@@ -54,7 +54,7 @@ namespace Disfigure.GUI.Client.ViewModels
             }
         }
 
-        private async Task TryAssignIdentity(Connection<Packet> connection, Packet packet)
+        private async ValueTask TryAssignIdentity(Connection<Packet> connection, Packet packet)
         {
             switch (packet.Type)
             {

@@ -21,7 +21,7 @@ namespace Disfigure.Modules
             PacketReceived += PacketReceivedCallbackAsync;
         }
 
-        public async Task<Connection<Packet>> ConnectAsync(IPEndPoint ipEndPoint)
+        public async ValueTask<Connection<Packet>> ConnectAsync(IPEndPoint ipEndPoint)
         {
             TcpClient tcpClient = await ConnectionHelper.ConnectAsync(ipEndPoint, ConnectionHelper.DefaultRetryParameters, CancellationToken);
             Connection<Packet> connection = new Connection<Packet>(tcpClient, new ECDHEncryptionProvider(), Packet.SerializerAsync, Packet.FactoryAsync);
@@ -34,7 +34,7 @@ namespace Disfigure.Modules
 
         #region Events
 
-        private static async Task PacketReceivedCallbackAsync(Connection<Packet> connection, Packet packet)
+        private static async ValueTask PacketReceivedCallbackAsync(Connection<Packet> connection, Packet packet)
         {
             switch (packet.Type)
             {

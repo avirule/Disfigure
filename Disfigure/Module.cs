@@ -42,12 +42,12 @@ namespace Disfigure
             Connected += connection =>
             {
                 Connections.TryAdd(connection.Identity, connection);
-                return Task.CompletedTask;
+                return default;
             };
             Disconnected += connection =>
             {
                 Connections.TryRemove(connection.Identity, out _);
-                return Task.CompletedTask;
+                return default;
             };
         }
 
@@ -79,7 +79,7 @@ namespace Disfigure
 
         public event ConnectionEventHandler<TPacket>? Disconnected;
 
-        protected async Task OnConnected(Connection<TPacket> connection)
+        protected async ValueTask OnConnected(Connection<TPacket> connection)
         {
             if (Connected is { })
             {
@@ -87,7 +87,7 @@ namespace Disfigure
             }
         }
 
-        protected async Task OnDisconnected(Connection<TPacket> connection)
+        protected async ValueTask OnDisconnected(Connection<TPacket> connection)
         {
             if (Disconnected is { })
             {
@@ -103,7 +103,7 @@ namespace Disfigure
 
         public event PacketEventHandler<TPacket>? PacketReceived;
 
-        private async Task OnPacketWrittenAsync(Connection<TPacket> connection, TPacket packet)
+        private async ValueTask OnPacketWrittenAsync(Connection<TPacket> connection, TPacket packet)
         {
             if (PacketWritten is { })
             {
@@ -111,7 +111,7 @@ namespace Disfigure
             }
         }
 
-        private async Task OnPacketReceivedAsync(Connection<TPacket> connection, TPacket packet)
+        private async ValueTask OnPacketReceivedAsync(Connection<TPacket> connection, TPacket packet)
         {
             if (PacketReceived is { })
             {

@@ -39,7 +39,7 @@ namespace Disfigure.Modules
 
         public event PacketEventHandler<Packet>? ServerPacketReceived;
 
-        private async Task OnServerPacketReceived(Connection<Packet> connection, Packet packet)
+        private async ValueTask OnServerPacketReceived(Connection<Packet> connection, Packet packet)
         {
             if (ServerPacketReceived is { })
             {
@@ -55,7 +55,7 @@ namespace Disfigure.Modules
 
         public event ConnectionEventHandler<Packet>? ServerDisconnected;
 
-        private async Task OnServerConnected(Connection<Packet> connection)
+        private async ValueTask OnServerConnected(Connection<Packet> connection)
         {
             if (ServerConnected is { })
             {
@@ -63,7 +63,7 @@ namespace Disfigure.Modules
             }
         }
 
-        private async Task OnServerDisconnected(Connection<Packet> connection)
+        private async ValueTask OnServerDisconnected(Connection<Packet> connection)
         {
             if (ServerDisconnected is { })
             {

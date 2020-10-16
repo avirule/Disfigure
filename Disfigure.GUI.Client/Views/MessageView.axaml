@@ -6,8 +6,15 @@
              x:Class="Disfigure.GUI.Client.Views.MessageView">
 
     <StackPanel Orientation="Vertical">
-        <TextBlock Text="{Binding Sender}" />
-        <TextBlock Text="{Binding UtcTimestampString}" />
+        <StackPanel Orientation="Horizontal">
+            <Border BorderBrush="Red" BorderThickness="3">
+                <TextBlock VerticalAlignment="Center" Margin="0, 0, 15, 0" Text="{Binding Sender}" />
+            </Border>
+            <Border BorderBrush="Red" BorderThickness="3">
+                <TextBlock VerticalAlignment="Center" FontSize="14" Text="{Binding UtcTimestampString}" />
+            </Border>
+        </StackPanel>
+
         <TextBlock Text="{Binding Contents}" />
     </StackPanel>
 </UserControl>
