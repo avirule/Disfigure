@@ -8,6 +8,7 @@ using System;
 using System.IO;
 using System.Net;
 using System.Net.Sockets;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -59,7 +60,7 @@ namespace Disfigure.Modules
                     RegisterConnection(connection);
 
                     await connection.FinalizeAsync(CancellationToken);
-                    await connection.WriteAsync(new Packet(PacketType.Identity, DateTime.UtcNow, Encoding.Unicode.GetBytes(FriendlyName)), CancellationToken);
+                    await connection.WriteAsync(GetIdentityPacket(), CancellationToken);
                 }
             }
             catch (SocketException exception) when (exception.ErrorCode == 10048)
@@ -81,5 +82,16 @@ namespace Disfigure.Modules
         }
 
         #endregion
+
+        private Packet GetIdentityPacket()
+        {
+            Span<byte> content = stackalloc byte[1024];
+
+            bool isClient = false;
+            MemoryMarshal.Write(content, ref isClient);
+            int written = Encoding.Unicode.GetBytes(FriendlyName, content.Slice(sizeof(bool)));
+
+            return new Packet(PacketType.Identity, DateTime.UtcNow, content.Slice(0, sizeof(bool) + written));
+        }
     }
 }

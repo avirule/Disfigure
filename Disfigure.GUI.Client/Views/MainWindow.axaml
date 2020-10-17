@@ -13,43 +13,60 @@
         <vm:ClientModuleViewModel />
     </Window.DataContext>
 
-    <!--<DockPanel DockPanel.Dock="Top" Background="{DynamicResource ThemeHighlight}">
-            <TextBlock DockPanel.Dock="Left" Text="{DynamicResource Title}" Margin="5, 2, 0, 2" />
-        </DockPanel>-->
+    <Border BorderBrush="{DynamicResource ThemeAccent}" BorderThickness="2">
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="0.2*" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
 
-    <Grid>
-        <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="0.2*" />
-            <ColumnDefinition Width="Auto" />
-            <ColumnDefinition Width="*" />
-        </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="*" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
 
-        <Grid.RowDefinitions>
-            <RowDefinition Height="*" />
-            <RowDefinition Height="Auto" />
-        </Grid.RowDefinitions>
+            <ListBox Grid.Column="0" Grid.Row="0" VerticalAlignment="Bottom" Background="Transparent" BorderThickness="0" ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+            </ListBox>
 
-        <ListBox Grid.Column="0" Grid.Row="0" VerticalAlignment="Bottom" Background="Transparent" BorderThickness="0" ScrollViewer.HorizontalScrollBarVisibility="Disabled">
-        </ListBox>
+            <ListBox Grid.Column="2" Grid.Row="0" VerticalAlignment="Bottom" BorderThickness="0" Background="Transparent" DataContext="{Binding SelectedViewModel}"
+                     Items="{Binding Messages}" ScrollViewer.HorizontalScrollBarVisibility="Disabled" ScrollViewer.VerticalScrollBarVisibility="Hidden"
+                     SelectedIndex="{Binding SelectedMessageIndex, Mode=OneWay}">
+                <ListBox.Styles>
+                    <Style Selector="ListBoxItem[IsPointerOver=True] /template/ ContentPresenter">
+                        <Setter Property="Background" Value="Transparent" />
+                    </Style>
+                    <Style Selector="ListBoxItem[IsSelected=True] /template/ ContentPresenter">
+                        <Setter Property="Background" Value="Transparent" />
+                    </Style>
+                </ListBox.Styles>
 
-        <ListBox Grid.Column="2" Grid.Row="0" VerticalAlignment="Bottom" Background="Transparent" BorderThickness="0" Items="{Binding SelectedViewModel.Messages}" ScrollViewer.HorizontalScrollBarVisibility="Disabled">
-            <ListBox.ItemTemplate>
-                <DataTemplate>
-                    <ctrls:MessageView DataContext="{Binding}" />
-                </DataTemplate>
-            </ListBox.ItemTemplate>
-        </ListBox>
+                <ListBox.ItemTemplate>
+                    <DataTemplate>
+                        <ctrls:MessageView DataContext="{Binding}" />
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
 
-        <DropDown Grid.Column="0" Grid.Row="1" Items="{Binding ConnectionViewModels, Mode=OneWay}" SelectedItem="{Binding SelectedViewModel, Mode=TwoWay}" BorderThickness="0">
-            <DropDown.ItemTemplate>
-                <DataTemplate>
-                    <TextBlock Text="{Binding FriendlyName}" />
-                </DataTemplate>
-            </DropDown.ItemTemplate>
-        </DropDown>
+            <Panel Grid.Column="0" Grid.ColumnSpan="3" Grid.Row="1" HorizontalAlignment="Stretch" Height="3" Background="{DynamicResource ThemeAccent}" />
 
-        <TextBlock Grid.Column="1" Grid.Row="1" VerticalAlignment="Center" Margin="5, 0, 0, 0" Text=":>" />
+            <DropDown Grid.Column="0" Grid.Row="2" Items="{Binding ConnectionViewModels, Mode=OneWay}" SelectedItem="{Binding SelectedViewModel, Mode=TwoWay}" BorderThickness="0">
+                <DropDown.ItemTemplate>
+                    <DataTemplate>
+                        <TextBlock Text="{Binding FriendlyName}" />
+                    </DataTemplate>
+                </DropDown.ItemTemplate>
+            </DropDown>
 
-        <ctrls:ControlBoxView Grid.Column="2" Grid.Row="1" DataContext="{Binding ControlBoxViewModel}" HorizontalAlignment="Stretch" />
-    </Grid>
+            <TextBlock Grid.Column="1" Grid.Row="2" VerticalAlignment="Center" Margin="5, 0, 0, 0" Text=":>" />
+
+            <TextBox Grid.Column="2" Grid.Row="2" HorizontalAlignment="Stretch" BorderThickness="0" DataContext="{Binding ControlBoxViewModel}"
+                     CaretBrush="{DynamicResource ThemeForegroundText}" Text="{Binding Content}">
+                <TextBox.KeyBindings>
+                    <KeyBinding Command="{Binding FlushContent}" Gesture="Enter" />
+                </TextBox.KeyBindings>
+            </TextBox>
+        </Grid>
+    </Border>
 </Window>

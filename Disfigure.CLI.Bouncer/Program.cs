@@ -43,7 +43,7 @@ namespace Disfigure.CLI.Bouncer
             }
         }
 
-        private static async Task PacketReceivedCallback(Connection<Packet> connection, Packet packet)
+        private static async ValueTask PacketReceivedCallback(Connection<Packet> connection, Packet packet)
         {
             switch (packet.Type)
             {
@@ -51,14 +51,14 @@ namespace Disfigure.CLI.Bouncer
                     connection.EncryptionProviderAs<ECDHEncryptionProvider>().AssignRemoteKeys(packet.ContentSpan);
                     break;
 
-                case PacketType.Connect when _Module is { }:
+                case PacketType.Connect when _Module is not null:
                     SerializableEndPoint serializableEndPoint = new SerializableEndPoint(packet.ContentSpan);
                     await _Module.EstablishServerConnectionAsync((IPEndPoint)serializableEndPoint, Packet.SerializerAsync, Packet.FactoryAsync);
                     break;
             }
         }
 
-        private static async Task ServerPacketReceivedCallback(Connection<Packet> connection, Packet packet)
+        private static async ValueTask ServerPacketReceivedCallback(Connection<Packet> connection, Packet packet)
         {
             switch (packet.Type)
             {

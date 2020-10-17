@@ -23,7 +23,7 @@ namespace Disfigure.Cryptography
 
         public byte[] PublicKey { get; }
 
-        public bool IsEncryptable => _DerivedKey is { };
+        public bool IsEncryptable => _DerivedKey is not null;
 
         public ECDHEncryptionProvider()
         {

@@ -3,9 +3,9 @@ using Disfigure.Collections;
 using Disfigure.Net;
 using Disfigure.Net.Packets;
 using ReactiveUI;
-using SharpDX.Text;
 using System;
 using System.Collections.ObjectModel;
+using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -13,15 +13,25 @@ namespace Disfigure.GUI.Client.ViewModels
 {
     public class ConnectionViewModel : ViewModelBase
     {
+        private const string _SERVER_MESSAGE_FORMAT = "[{0}] > {1}";
+
+        private readonly Connection<Packet> _Connection;
         private readonly ConcurrentChannel<Packet> _PendingMessages;
 
-        private Connection<Packet> _Connection;
+        private bool _IsRemoteClient;
         private string _FriendlyName;
+        private int _SelectedMessageIndex;
 
         public string FriendlyName
         {
             get => _FriendlyName;
             set { this.RaiseAndSetIfChanged(ref _FriendlyName, value); }
+        }
+
+        public int SelectedMessageIndex
+        {
+            get => _SelectedMessageIndex;
+            set { this.RaiseAndSetIfChanged(ref _SelectedMessageIndex, value); }
         }
 
         public Guid Identity => _Connection.Identity;
@@ -46,21 +56,43 @@ namespace Disfigure.GUI.Client.ViewModels
 
         private async Task AddMessagesDispatched(CancellationToken cancellationToken)
         {
+            void AddMessageAndScroll(MessageViewModel messageViewModel)
+            {
+                Messages.Add(messageViewModel);
+                SelectedMessageIndex = Messages.Count - 1;
+            }
+
             while (!cancellationToken.IsCancellationRequested)
             {
                 Packet packet = await _PendingMessages.TakeAsync(true, cancellationToken);
 
-                await Dispatcher.UIThread.InvokeAsync(() => Messages.Add(new MessageViewModel(packet.Type.ToString(), packet.UtcTimestamp.ToString("G"), Encoding.Unicode.GetString(packet.ContentSpan))));
+                string packetContent = System.Text.Encoding.Unicode.GetString(packet.ContentSpan);
+                string messageContent = _IsRemoteClient ? packetContent : string.Format(_SERVER_MESSAGE_FORMAT, packet.Type, packetContent);
+
+                await Dispatcher.UIThread.InvokeAsync(() => AddMessageAndScroll(new MessageViewModel(FriendlyName, packet.UtcTimestamp.ToString("G"), messageContent)));
             }
         }
 
         private async ValueTask TryAssignIdentity(Connection<Packet> connection, Packet packet)
         {
+            (bool, string) ParseIdentityContent(ReadOnlySpan<byte> content)
+            {
+                bool isClient = MemoryMarshal.Read<bool>(content);
+                string friendlyName = System.Text.Encoding.Unicode.GetString(content.Slice(sizeof(bool)));
+
+                return (isClient, friendlyName);
+            }
+
             switch (packet.Type)
             {
                 case PacketType.Identity:
-                    string deserialized = Encoding.Unicode.GetString(packet.ContentSpan);
-                    await Dispatcher.UIThread.InvokeAsync(() => FriendlyName = deserialized);
+                    (bool isClient, string friendlyName) = ParseIdentityContent(packet.ContentSpan);
+
+                    await Dispatcher.UIThread.InvokeAsync(() =>
+                    {
+                        _IsRemoteClient = isClient;
+                        FriendlyName = friendlyName;
+                    });
                     break;
             }
         }

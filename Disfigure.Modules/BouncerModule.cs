@@ -41,7 +41,7 @@ namespace Disfigure.Modules
 
         private async ValueTask OnServerPacketReceived(Connection<Packet> connection, Packet packet)
         {
-            if (ServerPacketReceived is { })
+            if (ServerPacketReceived is not null)
             {
                 await ServerPacketReceived(connection, packet);
             }
@@ -57,7 +57,7 @@ namespace Disfigure.Modules
 
         private async ValueTask OnServerConnected(Connection<Packet> connection)
         {
-            if (ServerConnected is { })
+            if (ServerConnected is not null)
             {
                 await ServerConnected(connection);
             }
@@ -65,7 +65,7 @@ namespace Disfigure.Modules
 
         private async ValueTask OnServerDisconnected(Connection<Packet> connection)
         {
-            if (ServerDisconnected is { })
+            if (ServerDisconnected is not null)
             {
                 await ServerDisconnected(connection);
             }

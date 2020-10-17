@@ -167,7 +167,7 @@ namespace Disfigure.Net
 
         private async ValueTask OnConnected()
         {
-            if (Connected is { })
+            if (Connected is not null)
             {
                 await Connected(this);
             }
@@ -175,7 +175,7 @@ namespace Disfigure.Net
 
         private async ValueTask OnDisconnected()
         {
-            if (Disconnected is { })
+            if (Disconnected is not null)
             {
                 await Disconnected(this);
             }
@@ -191,7 +191,7 @@ namespace Disfigure.Net
 
         private async ValueTask OnPacketWrittenAsync(TPacket packet)
         {
-            if (PacketWritten is { })
+            if (PacketWritten is not null)
             {
                 await PacketWritten(this, packet);
             }
@@ -199,7 +199,7 @@ namespace Disfigure.Net
 
         private async ValueTask OnPacketReceivedAsync(TPacket packet)
         {
-            if (PacketReceived is { })
+            if (PacketReceived is not null)
             {
                 await PacketReceived(this, packet);
             }

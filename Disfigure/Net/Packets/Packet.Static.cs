@@ -42,7 +42,7 @@ namespace Disfigure.Net.Packets
             ReadOnlyMemory<byte> initializationVector = ReadOnlyMemory<byte>.Empty;
             ReadOnlyMemory<byte> packetData = packet.Serialize();
 
-            if (encryptionProvider is { })
+            if (encryptionProvider is not null)
             {
                 (initializationVector, packetData) = await encryptionProvider!.EncryptAsync(packetData, cancellationToken);
             }

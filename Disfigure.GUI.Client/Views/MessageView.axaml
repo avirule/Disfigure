@@ -2,19 +2,32 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
-             x:Class="Disfigure.GUI.Client.Views.MessageView">
+             xmlns:vm="clr-namespace:Disfigure.GUI.Client.ViewModels;assembly=Disfigure.GUI.Client"
+             x:Class="Disfigure.GUI.Client.Views.MessageView"
+             mc:Ignorable="d">
 
-    <StackPanel Orientation="Vertical">
-        <StackPanel Orientation="Horizontal">
-            <Border BorderBrush="Red" BorderThickness="3">
-                <TextBlock VerticalAlignment="Center" Margin="0, 0, 15, 0" Text="{Binding Sender}" />
-            </Border>
-            <Border BorderBrush="Red" BorderThickness="3">
-                <TextBlock VerticalAlignment="Center" FontSize="14" Text="{Binding UtcTimestampString}" />
-            </Border>
-        </StackPanel>
+    <Grid Margin="0, 3, 0, 3">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="Auto" />
+            <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
 
-        <TextBlock Text="{Binding Contents}" />
-    </StackPanel>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <Border Grid.Column="0" Grid.Row="0" VerticalAlignment="Bottom">
+            <TextBlock Margin="0, 0, 5, 0" Text="{Binding DataContext.FriendlyName, RelativeSource={RelativeSource Mode=FindAncestor, AncestorType={x:Type ListBox}}}"
+                       FontWeight="Bold" />
+        </Border>
+
+        <Border Grid.Column="1" Grid.Row="0" VerticalAlignment="Bottom" IsVisible="{Binding IsPointerOver, RelativeSource={RelativeSource Mode=FindAncestor, AncestorType={x:Type ListBoxItem}}}">
+            <TextBlock FontSize="16" Foreground="{DynamicResource ThemeBackgroundText}" Text="{Binding UtcTimestampString}" />
+        </Border>
+
+        <Border Grid.Column="0" Grid.ColumnSpan="2" Grid.Row="1" VerticalAlignment="Top">
+            <TextBlock Text="{Binding Contents}" />
+        </Border>
+    </Grid>
 </UserControl>

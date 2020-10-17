@@ -36,9 +36,6 @@
         <AutoGen>True</AutoGen>
         <DependentUpon>Resources.resx</DependentUpon>
       </Compile>
-      <Compile Update="Views\ConnectionView.axaml.cs">
-        <DependentUpon>ConnectionView.axaml</DependentUpon>
-      </Compile>
     </ItemGroup>
     <ItemGroup>
       <Folder Include="Models\" />

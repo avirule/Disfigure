@@ -8,7 +8,9 @@ using Disfigure.Modules;
 using Disfigure.Net.Packets;
 using ReactiveUI;
 using System;
+using System.Buffers;
 using System.Collections.ObjectModel;
+using System.Net;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -54,6 +56,8 @@ namespace Disfigure.GUI.Client.ViewModels
             ControlBoxViewModel = new ControlBoxViewModel();
             ControlBoxViewModel.ContentFlushed += MessageBoxContentFlushedCallback;
 
+            Task.Run(() => _ClientModule.ConnectAsync(new IPEndPoint(IPAddress.Parse("127.0.0.1"), 8998)));
+
             Task.Run(() => AddConnectionsDispatched(CancellationToken.None));
         }
 
@@ -68,7 +72,7 @@ namespace Disfigure.GUI.Client.ViewModels
                 switch (parsed)
                 {
                     case Connect connect:
-                        Task.Run(() => _ClientModule.ConnectAsync(new System.Net.IPEndPoint(connect.IPAddress, connect.Port)));
+                        Task.Run(() => _ClientModule.ConnectAsync(new IPEndPoint(connect.IPAddress, connect.Port)));
                         break;
 
                     case Exit exit:

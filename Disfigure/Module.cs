@@ -81,7 +81,7 @@ namespace Disfigure
 
         protected async ValueTask OnConnected(Connection<TPacket> connection)
         {
-            if (Connected is { })
+            if (Connected is not null)
             {
                 await Connected(connection);
             }
@@ -89,7 +89,7 @@ namespace Disfigure
 
         protected async ValueTask OnDisconnected(Connection<TPacket> connection)
         {
-            if (Disconnected is { })
+            if (Disconnected is not null)
             {
                 await Disconnected(connection);
             }
@@ -105,7 +105,7 @@ namespace Disfigure
 
         private async ValueTask OnPacketWrittenAsync(Connection<TPacket> connection, TPacket packet)
         {
-            if (PacketWritten is { })
+            if (PacketWritten is not null)
             {
                 await PacketWritten(connection, packet);
             }
@@ -113,7 +113,7 @@ namespace Disfigure
 
         private async ValueTask OnPacketReceivedAsync(Connection<TPacket> connection, TPacket packet)
         {
-            if (PacketReceived is { })
+            if (PacketReceived is not null)
             {
                 await PacketReceived(connection, packet);
             }

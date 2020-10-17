@@ -24,12 +24,12 @@ namespace Disfigure.CLI.Client
             clientModule.PacketWritten += (connection, packet) =>
             {
                 Log.Information(string.Format(FormatHelper.CONNECTION_LOGGING, connection.RemoteEndPoint, packet.ToString()));
-                return Task.CompletedTask;
+                return default;
             };
             clientModule.PacketReceived += (connection, packet) =>
             {
                 Log.Information(string.Format(FormatHelper.CONNECTION_LOGGING, connection.RemoteEndPoint, packet.ToString()));
-                return Task.CompletedTask;
+                return default;
             };
 
             await clientModule.ConnectAsync(ipEndPoint);
