@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 
 #endregion
 
+
 namespace Disfigure.Collections
 {
     public class ConcurrentChannel<T>
@@ -20,6 +21,7 @@ namespace Disfigure.Collections
                 SingleReader = singleReader,
                 SingleWriter = singleWriter
             });
+
             _Reader = channel.Reader;
             _Writer = channel.Writer;
         }
@@ -28,10 +30,7 @@ namespace Disfigure.Collections
 
         public bool TryTake(out T item) => _Reader.TryRead(out item);
 
-        public async ValueTask AddAsync(T item, CancellationToken cancellationToken = default)
-        {
-            await _Writer.WriteAsync(item, cancellationToken);
-        }
+        public async ValueTask AddAsync(T item, CancellationToken cancellationToken = default) { await _Writer.WriteAsync(item, cancellationToken); }
 
         public async ValueTask<T> TakeAsync(bool waitForItems = true, CancellationToken cancellationToken = default)
         {

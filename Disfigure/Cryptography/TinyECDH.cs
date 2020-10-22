@@ -5,6 +5,7 @@ using System.Runtime.InteropServices;
 
 #endregion
 
+
 namespace Disfigure.Cryptography
 {
     public static class TinyECDH
@@ -22,9 +23,7 @@ namespace Disfigure.Cryptography
             int result = DerivePublicKeyNative(publicKey, privateKey);
 
             if (result == 0) // failure
-            {
                 throw new Exception($"P/Invoke call to {_DLL_NAME} failed.");
-            }
         }
 
         // native signature
@@ -38,9 +37,7 @@ namespace Disfigure.Cryptography
             int result = DeriveSharedKeyNative(privateKey, remotePublicKey, derivedKey);
 
             if (result == 0) // failure
-            {
                 throw new Exception($"P/Invoke call to {_DLL_NAME} failed.");
-            }
         }
     }
 }

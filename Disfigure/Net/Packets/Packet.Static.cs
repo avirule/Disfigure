@@ -1,7 +1,5 @@
 #region
 
-using Disfigure.Cryptography;
-using Serilog;
 using System;
 using System.Buffers;
 using System.Collections.Concurrent;
@@ -9,8 +7,11 @@ using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
+using Disfigure.Cryptography;
+using Serilog;
 
 #endregion
+
 
 namespace Disfigure.Net.Packets
 {
@@ -31,24 +32,24 @@ namespace Disfigure.Net.Packets
 
         public static async ValueTask SendEncryptionKeys(Connection<Packet> connection) =>
             await connection.WriteDirectAsync(SerializePacket(ReadOnlyMemory<byte>.Empty,
-                new Packet(PacketType.EncryptionKeys, DateTime.UtcNow, connection.EncryptionProviderAs<IEncryptionProvider>().PublicKey).Serialize()),
+                    new Packet(PacketType.EncryptionKeys, DateTime.UtcNow, connection.EncryptionProviderAs<IEncryptionProvider>().PublicKey)
+                        .Serialize()),
                 CancellationToken.None);
+
 
         #region PacketSerializerAsync
 
         public static async ValueTask<ReadOnlyMemory<byte>> SerializerAsync(Packet packet, IEncryptionProvider? encryptionProvider,
             CancellationToken cancellationToken)
         {
-            ReadOnlyMemory<byte> initializationVector = ReadOnlyMemory<byte>.Empty;
-            ReadOnlyMemory<byte> packetData = packet.Serialize();
+            ReadOnlyMemory<byte> initializationVector, packetData = packet.Serialize();
 
             if (encryptionProvider is not null)
-            {
                 (initializationVector, packetData) = await encryptionProvider!.EncryptAsync(packetData, cancellationToken);
-            }
             else
             {
-                throw new ArgumentException($"Write call has been received, but the {nameof(IEncryptionProvider)} is in an unusable state.", nameof(encryptionProvider));
+                throw new ArgumentException($"Write call has been received, but the {nameof(IEncryptionProvider)} is in an unusable state.",
+                    nameof(encryptionProvider));
             }
 
             return SerializePacket(initializationVector, packetData);
@@ -71,28 +72,21 @@ namespace Disfigure.Net.Packets
 
         #endregion
 
+
         #region PacketFactoryAsync
 
         public static async ValueTask<(bool, SequencePosition, Packet)> FactoryAsync(ReadOnlySequence<byte> sequence,
             IEncryptionProvider? encryptionProvider, CancellationToken cancellationToken)
         {
-            if (!TryGetData(sequence, out SequencePosition consumed, out ReadOnlyMemory<byte> data))
-            {
-                return (false, consumed, default);
-            }
+            if (!TryGetData(sequence, out SequencePosition consumed, out ReadOnlyMemory<byte> data)) return (false, consumed, default);
             else
             {
                 ReadOnlyMemory<byte> initializationVector = data.Slice(0, IEncryptionProvider.INITIALIZATION_VECTOR_SIZE);
                 ReadOnlyMemory<byte> packetData = data.Slice(IEncryptionProvider.INITIALIZATION_VECTOR_SIZE);
 
                 if (encryptionProvider?.IsEncryptable ?? false)
-                {
                     packetData = await encryptionProvider.DecryptAsync(initializationVector, packetData, cancellationToken);
-                }
-                else
-                {
-                    Log.Warning($"Packet data has been received, but the {nameof(IEncryptionProvider)} is in an unusable state.");
-                }
+                else Log.Warning($"Packet data has been received, but the {nameof(IEncryptionProvider)} is in an unusable state.");
 
                 return (true, consumed, new Packet(packetData));
             }
@@ -106,10 +100,8 @@ namespace Disfigure.Net.Packets
             int length;
 
             // wait until 4 bytes and sequence is long enough to construct packet
-            if ((sequence.Length < sizeof(int)) || (sequence.Length < (length = MemoryMarshal.Read<int>(span))))
-            {
-                return false;
-            }
+            if ((sequence.Length < sizeof(int)) || (sequence.Length < (length = MemoryMarshal.Read<int>(span)))) return false;
+
             // ensure length covers entire valid header
             else if (length < TOTAL_HEADER_LENGTH)
             {
@@ -118,11 +110,9 @@ namespace Disfigure.Net.Packets
                 consumed = sequence.GetPosition(length);
                 return false;
             }
+
             // ensure alignment constant is valid
-            else if (MemoryMarshal.Read<int>(span.Slice(sizeof(int))) != ALIGNMENT_CONSTANT)
-            {
-                throw new PacketMisalignedException();
-            }
+            else if (MemoryMarshal.Read<int>(span.Slice(sizeof(int))) != ALIGNMENT_CONSTANT) throw new PacketMisalignedException();
             else
             {
                 consumed = sequence.GetPosition(length);
@@ -132,6 +122,7 @@ namespace Disfigure.Net.Packets
         }
 
         #endregion
+
 
         #region PingPongLoop
 
@@ -145,10 +136,7 @@ namespace Disfigure.Net.Packets
 
             ValueTask PongPacketCallbackImpl(Connection<Packet> connection, Packet basicPacket)
             {
-                if (basicPacket.Type != PacketType.Pong)
-                {
-                    return default;
-                }
+                if (basicPacket.Type != PacketType.Pong) return default;
 
                 if (!pendingPings.TryGetValue(connection.Identity, out Guid pingIdentity))
                 {
@@ -162,6 +150,7 @@ namespace Disfigure.Net.Packets
                 }
 
                 Guid remotePingIdentity = new Guid(basicPacket.ContentSpan);
+
                 if (remotePingIdentity != pingIdentity)
                 {
                     Log.Warning($"<{connection.RemoteEndPoint}> Received pong, but ping identity didn't match.");
@@ -191,14 +180,12 @@ namespace Disfigure.Net.Packets
                     {
                         Log.Warning(string.Format(FormatHelper.CONNECTION_LOGGING, connection.RemoteEndPoint,
                             "Pending ping timed out. Queueing force disconnect."));
+
                         abandonedConnections.Push(connectionIdentity);
                     }
                 }
 
-                while (abandonedConnections.TryPop(out Guid connectionIdentity))
-                {
-                    module.ForceDisconnect(connectionIdentity);
-                }
+                while (abandonedConnections.TryPop(out Guid connectionIdentity)) module.ForceDisconnect(connectionIdentity);
             }
         }
 

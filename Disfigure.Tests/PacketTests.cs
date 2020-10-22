@@ -1,14 +1,15 @@
 #region
 
-using Disfigure.Cryptography;
-using Disfigure.Net.Packets;
 using System;
 using System.Buffers;
 using System.Threading;
 using System.Threading.Tasks;
+using Disfigure.Cryptography;
+using Disfigure.Net.Packets;
 using Xunit;
 
 #endregion
+
 
 namespace Disfigure.Tests
 {
@@ -23,6 +24,7 @@ namespace Disfigure.Tests
 
             Guid guid = Guid.Parse(guid_value);
             _Packet = new Packet(PacketType.Ping, DateTime.MinValue, new ReadOnlySpan<byte>(guid.ToByteArray()));
+
             _PacketSerialized = new byte[]
             {
                 49,
@@ -110,6 +112,7 @@ namespace Disfigure.Tests
 
             // packet type
             const int packet_type_offset = offset + Packet.OFFSET_PACKET_TYPE;
+
             Assert.Equal
             (
                 _PacketSerialized[packet_type_offset..(packet_type_offset + sizeof(PacketType))],
@@ -118,6 +121,7 @@ namespace Disfigure.Tests
 
             // utc timestamp
             const int utc_timestamp_offset = offset + Packet.OFFSET_TIMESTAMP;
+
             Assert.Equal
             (
                 _PacketSerialized[utc_timestamp_offset..(utc_timestamp_offset + sizeof(long))],
@@ -126,6 +130,7 @@ namespace Disfigure.Tests
 
             // content
             const int content_offset = offset + Packet.HEADER_LENGTH;
+
             Assert.Equal
             (
                 _PacketSerialized[content_offset..],

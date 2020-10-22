@@ -1,14 +1,15 @@
 #region
 
-using Disfigure.Net;
-using Serilog;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using Disfigure.Net;
+using Serilog;
 
 #endregion
+
 
 namespace Disfigure
 {
@@ -24,16 +25,6 @@ namespace Disfigure
         /// </summary>
         protected readonly ConcurrentDictionary<Guid, Connection<TPacket>> Connections;
 
-        /// <summary>
-        ///     <see cref="CancellationToken" /> used for async operations.
-        /// </summary>
-        public CancellationToken CancellationToken => CancellationTokenSource.Token;
-
-        /// <summary>
-        ///     Read-only representation of internal connections dictionary.
-        /// </summary>
-        public IReadOnlyDictionary<Guid, Connection<TPacket>> ReadOnlyConnections => Connections;
-
         protected Module()
         {
             CancellationTokenSource = new CancellationTokenSource();
@@ -44,12 +35,23 @@ namespace Disfigure
                 Connections.TryAdd(connection.Identity, connection);
                 return default;
             };
+
             Disconnected += connection =>
             {
                 Connections.TryRemove(connection.Identity, out _);
                 return default;
             };
         }
+
+        /// <summary>
+        ///     <see cref="CancellationToken" /> used for async operations.
+        /// </summary>
+        public CancellationToken CancellationToken => CancellationTokenSource.Token;
+
+        /// <summary>
+        ///     Read-only representation of internal connections dictionary.
+        /// </summary>
+        public IReadOnlyDictionary<Guid, Connection<TPacket>> ReadOnlyConnections => Connections;
 
         protected virtual void RegisterConnection(Connection<TPacket> connection)
         {
@@ -64,14 +66,12 @@ namespace Disfigure
         /// </summary>
         public void ForceDisconnect(Guid connectionIdentity)
         {
-            if (!Connections.TryRemove(connectionIdentity, out Connection<TPacket>? connection))
-            {
-                return;
-            }
+            if (!Connections.TryRemove(connectionIdentity, out Connection<TPacket>? connection)) return;
 
             connection.Dispose();
             Log.Warning(string.Format(FormatHelper.CONNECTION_LOGGING, connection.RemoteEndPoint, "Connection forcibly disconnected."));
         }
+
 
         #region Connection Events
 
@@ -81,21 +81,16 @@ namespace Disfigure
 
         protected async ValueTask OnConnected(Connection<TPacket> connection)
         {
-            if (Connected is not null)
-            {
-                await Connected(connection);
-            }
+            if (Connected is not null) await Connected(connection);
         }
 
         protected async ValueTask OnDisconnected(Connection<TPacket> connection)
         {
-            if (Disconnected is not null)
-            {
-                await Disconnected(connection);
-            }
+            if (Disconnected is not null) await Disconnected(connection);
         }
 
         #endregion
+
 
         #region Packet Events
 
@@ -105,21 +100,16 @@ namespace Disfigure
 
         private async ValueTask OnPacketWrittenAsync(Connection<TPacket> connection, TPacket packet)
         {
-            if (PacketWritten is not null)
-            {
-                await PacketWritten(connection, packet);
-            }
+            if (PacketWritten is not null) await PacketWritten(connection, packet);
         }
 
         private async ValueTask OnPacketReceivedAsync(Connection<TPacket> connection, TPacket packet)
         {
-            if (PacketReceived is not null)
-            {
-                await PacketReceived(connection, packet);
-            }
+            if (PacketReceived is not null) await PacketReceived(connection, packet);
         }
 
         #endregion
+
 
         #region IDisposable
 
@@ -127,17 +117,11 @@ namespace Disfigure
 
         protected virtual void Dispose(bool disposing)
         {
-            if (!disposing)
-            {
-                return;
-            }
+            if (!disposing) return;
 
             CancellationTokenSource.Cancel();
 
-            foreach ((Guid _, Connection<TPacket> connection) in Connections)
-            {
-                connection?.Dispose();
-            }
+            foreach ((Guid _, Connection<TPacket> connection) in Connections) connection?.Dispose();
 
             CancellationTokenSource.Cancel();
             _Disposed = true;
@@ -145,10 +129,7 @@ namespace Disfigure
 
         public void Dispose()
         {
-            if (_Disposed)
-            {
-                return;
-            }
+            if (_Disposed) return;
 
             Dispose(true);
             GC.SuppressFinalize(this);

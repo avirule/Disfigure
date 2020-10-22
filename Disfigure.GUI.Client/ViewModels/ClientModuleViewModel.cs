@@ -1,5 +1,11 @@
 ﻿#region
 
+using System;
+using System.Collections.ObjectModel;
+using System.Net;
+using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
 using Avalonia.Threading;
 using CommandLine;
 using Disfigure.Collections;
@@ -7,21 +13,19 @@ using Disfigure.GUI.Client.Commands;
 using Disfigure.Modules;
 using Disfigure.Net.Packets;
 using ReactiveUI;
-using System;
-using System.Buffers;
-using System.Collections.ObjectModel;
-using System.Net;
-using System.Text;
-using System.Threading;
-using System.Threading.Tasks;
 
 #endregion
+
 
 namespace Disfigure.GUI.Client.ViewModels
 {
     public class ClientModuleViewModel : ViewModelBase
     {
-        private static readonly Type[] _CommandTypes = new[] { typeof(Connect), typeof(Exit) };
+        private static readonly Type[] _CommandTypes =
+        {
+            typeof(Connect),
+            typeof(Exit)
+        };
 
         private static readonly Parser _Parser = new Parser(settings =>
         {
@@ -30,19 +34,11 @@ namespace Disfigure.GUI.Client.ViewModels
             settings.CaseInsensitiveEnumValues = true;
         });
 
-        private readonly ConcurrentChannel<ConnectionViewModel> _PendingConnectionViewModels;
         private readonly ClientModule _ClientModule;
 
+        private readonly ConcurrentChannel<ConnectionViewModel> _PendingConnectionViewModels;
+
         private ConnectionViewModel? _SelectedViewModel;
-
-        public ObservableCollection<ConnectionViewModel> ConnectionViewModels { get; }
-        public ControlBoxViewModel ControlBoxViewModel { get; }
-
-        public ConnectionViewModel? SelectedViewModel
-        {
-            get => _SelectedViewModel;
-            set { this.RaiseAndSetIfChanged(ref _SelectedViewModel, value); }
-        }
 
         public ClientModuleViewModel()
         {
@@ -60,6 +56,11 @@ namespace Disfigure.GUI.Client.ViewModels
 
             Task.Run(() => AddConnectionsDispatched(CancellationToken.None));
         }
+
+        public ObservableCollection<ConnectionViewModel> ConnectionViewModels { get; }
+        public ControlBoxViewModel ControlBoxViewModel { get; }
+
+        public ConnectionViewModel? SelectedViewModel { get => _SelectedViewModel; set => this.RaiseAndSetIfChanged(ref _SelectedViewModel, value); }
 
         private void MessageBoxContentFlushedCallback(object? sender, string content)
         {
@@ -81,9 +82,8 @@ namespace Disfigure.GUI.Client.ViewModels
                 }
             }
             else
-            {
-                Task.Run(() => SelectedViewModel?.WriteAsync(new Packet(PacketType.Text, DateTime.UtcNow, Encoding.Unicode.GetBytes(content)), CancellationToken.None));
-            }
+                Task.Run(() => SelectedViewModel?.WriteAsync(new Packet(PacketType.Text, DateTime.UtcNow, Encoding.Unicode.GetBytes(content)),
+                    CancellationToken.None));
         }
 
         private async Task AddConnectionsDispatched(CancellationToken cancellationToken)

@@ -1,15 +1,16 @@
 #region
 
-using Disfigure.Cryptography;
-using Disfigure.Net;
-using Disfigure.Net.Packets;
 using System;
 using System.Net;
 using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
+using Disfigure.Cryptography;
+using Disfigure.Net;
+using Disfigure.Net.Packets;
 
 #endregion
+
 
 namespace Disfigure.Modules
 {
@@ -24,13 +25,17 @@ namespace Disfigure.Modules
         public async ValueTask<Connection<Packet>> ConnectAsync(IPEndPoint ipEndPoint)
         {
             TcpClient tcpClient = await ConnectionHelper.ConnectAsync(ipEndPoint, ConnectionHelper.DefaultRetryParameters, CancellationToken);
-            Connection<Packet> connection = new Connection<Packet>(tcpClient, new ECDHEncryptionProvider(), Packet.SerializerAsync, Packet.FactoryAsync);
+
+            Connection<Packet> connection =
+                new Connection<Packet>(tcpClient, new ECDHEncryptionProvider(), Packet.SerializerAsync, Packet.FactoryAsync);
+
             RegisterConnection(connection);
 
             await connection.FinalizeAsync(CancellationToken);
 
             return connection;
         }
+
 
         #region Events
 

@@ -4,7 +4,7 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:vm="clr-namespace:Disfigure.GUI.Client.ViewModels;assembly=Disfigure.GUI.Client"
              x:Class="Disfigure.GUI.Client.Views.MessageView"
-             mc:Ignorable="d">
+             mc:Ignorable="d" d:DataContext="{x:Type vm:MessageViewModel}">
 
     <Grid Margin="0, 3, 0, 3">
         <Grid.ColumnDefinitions>
@@ -18,12 +18,14 @@
         </Grid.RowDefinitions>
 
         <Border Grid.Column="0" Grid.Row="0" VerticalAlignment="Bottom">
-            <TextBlock Margin="0, 0, 5, 0" Text="{Binding DataContext.FriendlyName, RelativeSource={RelativeSource Mode=FindAncestor, AncestorType={x:Type ListBox}}}"
-                       FontWeight="Bold" />
+            <TextBlock Margin="0, 0, 5, 0" FontWeight="SemiBold"
+                       Text="{Binding DataContext.FriendlyName, RelativeSource={RelativeSource Mode=FindAncestor, AncestorType={x:Type ListBox}}}" />
         </Border>
 
-        <Border Grid.Column="1" Grid.Row="0" VerticalAlignment="Bottom" IsVisible="{Binding IsPointerOver, RelativeSource={RelativeSource Mode=FindAncestor, AncestorType={x:Type ListBoxItem}}}">
-            <TextBlock FontSize="16" Foreground="{DynamicResource ThemeBackgroundText}" Text="{Binding UtcTimestampString}" />
+        <Border Grid.Column="1" Grid.Row="0" VerticalAlignment="Bottom"
+                IsVisible="{Binding IsPointerOver, RelativeSource={RelativeSource Mode=FindAncestor, AncestorType={x:Type ListBoxItem}}}">
+            <TextBlock FontSize="16" Foreground="{DynamicResource ThemeBackgroundText}"
+                       Text="{Binding UtcTimestampString}" />
         </Border>
 
         <Border Grid.Column="0" Grid.ColumnSpan="2" Grid.Row="1" VerticalAlignment="Top">

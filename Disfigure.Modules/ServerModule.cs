@@ -1,18 +1,20 @@
 ﻿#region
 
-using Disfigure.Cryptography;
-using Disfigure.Net;
-using Disfigure.Net.Packets;
-using Serilog;
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Net;
 using System.Net.Sockets;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
+using Disfigure.Cryptography;
+using Disfigure.Net;
+using Disfigure.Net.Packets;
+using Serilog;
 
 #endregion
+
 
 namespace Disfigure.Modules
 {
@@ -20,14 +22,29 @@ namespace Disfigure.Modules
     {
         private readonly IPEndPoint _HostAddress;
 
-        public string FriendlyName { get; }
+        private List<string> _Channels;
 
         public ServerModule(IPEndPoint hostAddress, string? friendlyName = null)
         {
             _HostAddress = hostAddress;
+            _Channels = new List<string>();
 
             FriendlyName = friendlyName ?? hostAddress.ToString();
         }
+
+        public string FriendlyName { get; }
+
+        private Packet CreateIdentityPacket()
+        {
+            Span<byte> content = stackalloc byte[1024];
+
+            bool isClient = false;
+            MemoryMarshal.Write(content, ref isClient);
+            int written = Encoding.Unicode.GetBytes(FriendlyName, content.Slice(sizeof(bool)));
+
+            return new Packet(PacketType.Identity, DateTime.UtcNow, content.Slice(0, sizeof(bool) + written));
+        }
+
 
         #region Runtime
 
@@ -57,10 +74,18 @@ namespace Disfigure.Modules
 
                     Connection<Packet> connection = new Connection<Packet>(tcpClient, new ECDHEncryptionProvider(), packetSerializerAsync,
                         packetFactoryAsync);
+
                     RegisterConnection(connection);
 
                     await connection.FinalizeAsync(CancellationToken);
-                    await connection.WriteAsync(GetIdentityPacket(), CancellationToken);
+                    await connection.WriteAsync(CreateIdentityPacket(), CancellationToken);
+
+                    foreach (string channel in _Channels)
+                    {
+                        ReadOnlyMemory<byte> serialized = SerializeChannelIdentity(channel);
+
+                        await connection.WriteAsync(new Packet(PacketType.ChannelIdentity, DateTime.UtcNow, serialized), CancellationToken);
+                    }
                 }
             }
             catch (SocketException exception) when (exception.ErrorCode == 10048)
@@ -81,17 +106,17 @@ namespace Disfigure.Modules
             }
         }
 
-        #endregion
-
-        private Packet GetIdentityPacket()
+        private unsafe ReadOnlyMemory<byte> SerializeChannelIdentity(string channel)
         {
-            Span<byte> content = stackalloc byte[1024];
+            Guid guid = Guid.NewGuid();
 
-            bool isClient = false;
-            MemoryMarshal.Write(content, ref isClient);
-            int written = Encoding.Unicode.GetBytes(FriendlyName, content.Slice(sizeof(bool)));
+            Memory<byte> serialized = new byte[sizeof(Guid) + Encoding.Unicode.GetByteCount(channel)];
+            MemoryMarshal.Write(serialized.Span, ref guid);
+            Encoding.Unicode.GetBytes(channel).CopyTo(serialized.Slice(sizeof(Guid)));
 
-            return new Packet(PacketType.Identity, DateTime.UtcNow, content.Slice(0, sizeof(bool) + written));
+            return serialized;
         }
+
+        #endregion
     }
 }

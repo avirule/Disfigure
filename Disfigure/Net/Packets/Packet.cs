@@ -6,6 +6,7 @@ using System.Text;
 
 #endregion
 
+
 namespace Disfigure.Net.Packets
 {
     public readonly partial struct Packet
@@ -40,6 +41,11 @@ namespace Disfigure.Net.Packets
             content.CopyTo(destination.Slice(HEADER_LENGTH));
 
             Data = data;
+        }
+
+        public Packet(PacketType packetType, DateTime utcTimestamp, ReadOnlyMemory<byte> content)
+        {
+            
         }
 
         public ReadOnlyMemory<byte> Serialize() => Data;

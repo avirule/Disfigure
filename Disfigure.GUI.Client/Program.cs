@@ -2,6 +2,7 @@
 using Avalonia.Logging.Serilog;
 using Avalonia.ReactiveUI;
 using Serilog;
+using Serilog.Events;
 
 namespace Disfigure.GUI.Client
 {
@@ -13,7 +14,7 @@ namespace Disfigure.GUI.Client
         public static void Main(string[] args)
         {
             Log.Logger = new LoggerConfiguration()
-                .WriteTo.Async(config => config.File($"logfile.log")).MinimumLevel.Is(Serilog.Events.LogEventLevel.Verbose)
+                .WriteTo.Async(config => config.File("logfile.log")).MinimumLevel.Is(LogEventLevel.Verbose)
                 .CreateLogger();
 
             BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);

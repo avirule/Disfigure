@@ -1,10 +1,11 @@
 #region
 
+using System.Net;
 using CommandLine;
 using Serilog.Events;
-using System.Net;
 
 #endregion
+
 
 namespace Disfigure.CLI
 {

@@ -16,6 +16,6 @@ namespace Disfigure.Net.Packets
         Administration,
         Operation,
         Identity,
-        ChannelIdentity,
+        ChannelIdentity
     }
 }

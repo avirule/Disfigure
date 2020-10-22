@@ -8,10 +8,7 @@ namespace Disfigure.GUI.Client
 {
     public class App : Application
     {
-        public override void Initialize()
-        {
-            AvaloniaXamlLoader.Load(this);
-        }
+        public override void Initialize() { AvaloniaXamlLoader.Load(this); }
 
         public override void OnFrameworkInitializationCompleted()
         {
@@ -19,7 +16,7 @@ namespace Disfigure.GUI.Client
             {
                 desktop.MainWindow = new MainWindow
                 {
-                    DataContext = new ClientModuleViewModel(),
+                    DataContext = new ClientModuleViewModel()
                 };
             }
 

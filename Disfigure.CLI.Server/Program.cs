@@ -1,17 +1,18 @@
 ﻿#region
 
+using System;
+using System.Net;
+using System.Threading.Tasks;
+using DiagnosticsProviderNS;
 using Disfigure.Cryptography;
 using Disfigure.Diagnostics;
 using Disfigure.Modules;
 using Disfigure.Net;
 using Disfigure.Net.Packets;
 using Serilog;
-using System;
-using System.Net;
-using System.Threading.Tasks;
-using DiagnosticsProviderNS;
 
 #endregion
+
 
 namespace Disfigure.CLI.Server
 {
@@ -34,10 +35,7 @@ namespace Disfigure.CLI.Server
                 module.AcceptConnections(Packet.SerializerAsync, Packet.FactoryAsync);
                 Packet.PingPongLoop(module, TimeSpan.FromSeconds(5d), module.CancellationToken);
 
-                while (!module.CancellationToken.IsCancellationRequested)
-                {
-                    Console.ReadKey();
-                }
+                while (!module.CancellationToken.IsCancellationRequested) Console.ReadKey();
             }
             finally
             {

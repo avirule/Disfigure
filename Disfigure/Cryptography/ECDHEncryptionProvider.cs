@@ -1,13 +1,14 @@
 #region
 
-using Serilog;
 using System;
 using System.IO;
 using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
+using Serilog;
 
 #endregion
+
 
 namespace Disfigure.Cryptography
 {
@@ -21,10 +22,6 @@ namespace Disfigure.Cryptography
 
         private byte[]? _DerivedKey;
 
-        public byte[] PublicKey { get; }
-
-        public bool IsEncryptable => _DerivedKey is not null;
-
         public ECDHEncryptionProvider()
         {
             _EncryptionKeysWait = new ManualResetEventSlim(false);
@@ -36,9 +33,14 @@ namespace Disfigure.Cryptography
             DerivePublicKey();
         }
 
+        public byte[] PublicKey { get; }
+
+        public bool IsEncryptable => _DerivedKey is not null;
+
         public void WaitForRemoteKeys(CancellationToken cancellationToken) => _EncryptionKeysWait.Wait(cancellationToken);
 
         public void WaitForRemoteKeys(TimeSpan timeout) => _EncryptionKeysWait.Wait(timeout);
+
 
         #region Key Operations
 
@@ -65,14 +67,9 @@ namespace Disfigure.Cryptography
 
         public void AssignRemoteKeys(ReadOnlySpan<byte> remotePublicKey)
         {
-            if (IsEncryptable)
-            {
-                Log.Warning("Protocol requires that key exchanges happen ONLY ONCE.");
-            }
+            if (IsEncryptable) Log.Warning("Protocol requires that key exchanges happen ONLY ONCE.");
             else if (remotePublicKey.Length != IEncryptionProvider.PUBLIC_KEY_SIZE)
-            {
                 Log.Warning($"Protocol requires that public keys be {IEncryptionProvider.PUBLIC_KEY_SIZE} bytes.");
-            }
             else
             {
                 byte[] derivedRemoteKey = new byte[IEncryptionProvider.PUBLIC_KEY_SIZE];
@@ -87,6 +84,7 @@ namespace Disfigure.Cryptography
 
         #endregion
 
+
         #region Encrypt / Decrypt
 
         public async Task<(ReadOnlyMemory<byte> initializationVector, ReadOnlyMemory<byte> encrypted)>
@@ -94,14 +92,8 @@ namespace Disfigure.Cryptography
         {
             WaitForRemoteKeys(_EncryptionKeysWaitTimeout);
 
-            if (!IsEncryptable)
-            {
-                throw new CryptographicException("Key exchange has not been completed.");
-            }
-            else if (unencrypted.Length == 0)
-            {
-                return (ReadOnlyMemory<byte>.Empty, unencrypted);
-            }
+            if (!IsEncryptable) throw new CryptographicException("Key exchange has not been completed.");
+            else if (unencrypted.Length == 0) return (ReadOnlyMemory<byte>.Empty, unencrypted);
 
             // DO NOT ADD USING STATEMENT FOR AesCryptoServiceProvider
             // I'm unsure why, but the AesCryptoServiceProvider dispose method
@@ -110,6 +102,7 @@ namespace Disfigure.Cryptography
             AesCryptoServiceProvider aes = new AesCryptoServiceProvider();
             await using MemoryStream cipherBytes = new MemoryStream();
             using ICryptoTransform encryptor = aes.CreateEncryptor(_DerivedKey!, aes.IV);
+
             await using (CryptoStream cryptoStream = new CryptoStream(cipherBytes, encryptor, CryptoStreamMode.Write))
             {
                 await cryptoStream.WriteAsync(unencrypted, cancellationToken);
@@ -123,14 +116,8 @@ namespace Disfigure.Cryptography
         {
             WaitForRemoteKeys(_EncryptionKeysWaitTimeout);
 
-            if (!IsEncryptable)
-            {
-                throw new CryptographicException("Key exchange has not been completed.");
-            }
-            else if (encrypted.Length == 0)
-            {
-                return default;
-            }
+            if (!IsEncryptable) throw new CryptographicException("Key exchange has not been completed.");
+            else if (encrypted.Length == 0) return default;
 
             // DO NOT ADD USING STATEMENT FOR AesCryptoServiceProvider
             // I'm unsure why, but the AesCryptoServiceProvider dispose method
@@ -139,6 +126,7 @@ namespace Disfigure.Cryptography
             AesCryptoServiceProvider aes = new AesCryptoServiceProvider();
             await using MemoryStream cipherBytes = new MemoryStream();
             using ICryptoTransform decryptor = aes.CreateDecryptor(_DerivedKey!, initializationVector.ToArray());
+
             await using (CryptoStream cryptoStream = new CryptoStream(cipherBytes, decryptor, CryptoStreamMode.Write))
             {
                 await cryptoStream.WriteAsync(encrypted, cancellationToken);

@@ -1,10 +1,11 @@
 #region
 
-using CommandLine;
 using System;
 using System.Collections.Generic;
+using CommandLine;
 
 #endregion
+
 
 namespace Disfigure.CLI
 {
@@ -13,6 +14,7 @@ namespace Disfigure.CLI
         public static T Parse<T>(IEnumerable<string> args) where T : class
         {
             T? parsed = null;
+
             Parser parser = new Parser(settings =>
             {
                 settings.HelpWriter = Console.Error;
@@ -22,10 +24,7 @@ namespace Disfigure.CLI
 
             parser.ParseArguments<T>(args).WithParsed(obj => parsed = obj);
 
-            if (parsed is null)
-            {
-                throw new ArgumentException($"Could not parse type {typeof(T)} from given arguments.");
-            }
+            if (parsed is null) throw new ArgumentException($"Could not parse type {typeof(T)} from given arguments.");
 
             return parsed;
         }

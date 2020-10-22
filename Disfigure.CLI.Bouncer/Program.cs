@@ -1,18 +1,19 @@
 ﻿#region
 
+using System;
+using System.Net;
+using System.Threading;
+using System.Threading.Tasks;
+using DiagnosticsProviderNS;
 using Disfigure.Cryptography;
 using Disfigure.Diagnostics;
 using Disfigure.Modules;
 using Disfigure.Net;
 using Disfigure.Net.Packets;
 using Serilog;
-using System;
-using System.Net;
-using System.Threading;
-using System.Threading.Tasks;
-using DiagnosticsProviderNS;
 
 #endregion
+
 
 namespace Disfigure.CLI.Bouncer
 {
@@ -37,10 +38,7 @@ namespace Disfigure.CLI.Bouncer
             _Module.AcceptConnections(Packet.SerializerAsync, Packet.FactoryAsync);
             Packet.PingPongLoop(_Module, TimeSpan.FromSeconds(5d), _Module.CancellationToken);
 
-            while (!_Module.CancellationToken.IsCancellationRequested)
-            {
-                Console.ReadLine();
-            }
+            while (!_Module.CancellationToken.IsCancellationRequested) Console.ReadLine();
         }
 
         private static async ValueTask PacketReceivedCallback(Connection<Packet> connection, Packet packet)

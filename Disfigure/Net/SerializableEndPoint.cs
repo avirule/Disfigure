@@ -8,6 +8,7 @@ using System.Runtime.InteropServices;
 
 #endregion
 
+
 namespace Disfigure.Net
 {
     public readonly struct SerializableEndPoint

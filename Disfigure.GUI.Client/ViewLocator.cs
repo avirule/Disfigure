@@ -1,10 +1,10 @@
 // Copyright (c) The Avalonia Project. All rights reserved.
 // Licensed under the MIT license. See licence.md file in the project root for full license information.
 
+using System;
 using Avalonia.Controls;
 using Avalonia.Controls.Templates;
 using Disfigure.GUI.Client.ViewModels;
-using System;
 
 namespace Disfigure.GUI.Client
 {
@@ -14,13 +14,10 @@ namespace Disfigure.GUI.Client
 
         public IControl Build(object data)
         {
-            var name = data.GetType().FullName!.Replace("ViewModel", "View");
-            var type = Type.GetType(name);
+            string? name = data.GetType().FullName!.Replace("ViewModel", "View");
+            Type? type = Type.GetType(name);
 
-            if (type != null)
-            {
-                return (Control)Activator.CreateInstance(type)!;
-            }
+            if (type != null) return (Control)Activator.CreateInstance(type)!;
             else
             {
                 return new TextBlock
@@ -30,9 +27,6 @@ namespace Disfigure.GUI.Client
             }
         }
 
-        public bool Match(object data)
-        {
-            return data is ViewModelBase;
-        }
+        public bool Match(object data) => data is ViewModelBase;
     }
 }

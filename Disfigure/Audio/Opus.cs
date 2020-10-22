@@ -4,6 +4,7 @@ using System;
 
 #endregion
 
+
 namespace Disfigure.Audio
 {
     public static class Opus

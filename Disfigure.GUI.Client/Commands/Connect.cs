@@ -1,5 +1,5 @@
-﻿using CommandLine;
-using System.Net;
+﻿using System.Net;
+using CommandLine;
 
 namespace Disfigure.GUI.Client.Commands
 {

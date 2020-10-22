@@ -1,26 +1,19 @@
 #region
 
-using Serilog;
 using System;
 using System.Net;
 using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
+using Serilog;
 
 #endregion
+
 
 namespace Disfigure.Net
 {
     public static class ConnectionHelper
     {
-        public readonly struct RetryParameters
-        {
-            public readonly int Retries;
-            public readonly TimeSpan Delay;
-
-            public RetryParameters(int retries, long delayMilliseconds) => (Retries, Delay) = (retries, TimeSpan.FromMilliseconds(delayMilliseconds));
-        }
-
         /// <summary>
         ///     Default retry parameters.
         /// </summary>
@@ -66,6 +59,14 @@ namespace Disfigure.Net
             }
 
             return tcpClient;
+        }
+
+        public readonly struct RetryParameters
+        {
+            public readonly int Retries;
+            public readonly TimeSpan Delay;
+
+            public RetryParameters(int retries, long delayMilliseconds) => (Retries, Delay) = (retries, TimeSpan.FromMilliseconds(delayMilliseconds));
         }
     }
 }

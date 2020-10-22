@@ -7,6 +7,7 @@ using DiagnosticsProviderNS;
 
 #endregion
 
+
 namespace Disfigure.Diagnostics
 {
     public class ConstructionTime : TimeSpanDiagnosticData
@@ -24,14 +25,14 @@ namespace Disfigure.Diagnostics
         private readonly List<ConstructionTime> _ConstructionTimes;
         private readonly List<DecryptionTime> _DecryptionTimes;
 
-        public IReadOnlyList<ConstructionTime> ConstructionTimes => _ConstructionTimes;
-        public IReadOnlyList<DecryptionTime> DecryptionTimes => _DecryptionTimes;
-
         public PacketDiagnosticGroup()
         {
             _ConstructionTimes = new List<ConstructionTime>();
             _DecryptionTimes = new List<DecryptionTime>();
         }
+
+        public IReadOnlyList<ConstructionTime> ConstructionTimes => _ConstructionTimes;
+        public IReadOnlyList<DecryptionTime> DecryptionTimes => _DecryptionTimes;
 
         public void CommitData<TDataType>(IDiagnosticData<TDataType> data)
         {

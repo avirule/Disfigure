@@ -8,7 +8,7 @@ namespace Disfigure.GUI.Client.Views
     {
         public MainWindow()
         {
-            this.InitializeComponent();
+            InitializeComponent();
 #if DEBUG
             this.AttachDevTools();
 #endif
@@ -16,9 +16,6 @@ namespace Disfigure.GUI.Client.Views
             // HasSystemDecorations = false;
         }
 
-        private void InitializeComponent()
-        {
-            AvaloniaXamlLoader.Load(this);
-        }
+        private void InitializeComponent() { AvaloniaXamlLoader.Load(this); }
     }
 }

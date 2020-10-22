@@ -1,15 +1,16 @@
 #region
 
-using Disfigure.Cryptography;
-using Disfigure.Net;
-using Disfigure.Net.Packets;
 using System;
 using System.Collections.Concurrent;
 using System.Net;
 using System.Net.Sockets;
 using System.Threading.Tasks;
+using Disfigure.Cryptography;
+using Disfigure.Net;
+using Disfigure.Net.Packets;
 
 #endregion
+
 
 namespace Disfigure.Modules
 {
@@ -24,8 +25,10 @@ namespace Disfigure.Modules
             PacketSerializerAsync<Packet> packetSerializerAsync, PacketFactoryAsync<Packet> packetFactoryAsync)
         {
             TcpClient tcpClient = await ConnectionHelper.ConnectAsync(ipEndPoint, ConnectionHelper.DefaultRetryParameters, CancellationToken);
+
             Connection<Packet> connection = new Connection<Packet>(tcpClient, new ECDHEncryptionProvider(), packetSerializerAsync,
                 packetFactoryAsync);
+
             connection.Connected += OnServerConnected;
             connection.Disconnected += OnServerDisconnected;
             connection.PacketReceived += OnServerPacketReceived;
@@ -35,19 +38,18 @@ namespace Disfigure.Modules
             return connection;
         }
 
+
         #region Server PacketReceived Events
 
         public event PacketEventHandler<Packet>? ServerPacketReceived;
 
         private async ValueTask OnServerPacketReceived(Connection<Packet> connection, Packet packet)
         {
-            if (ServerPacketReceived is not null)
-            {
-                await ServerPacketReceived(connection, packet);
-            }
+            if (ServerPacketReceived is not null) await ServerPacketReceived(connection, packet);
         }
 
         #endregion
+
 
         #region Server Connection Events
 
@@ -57,18 +59,12 @@ namespace Disfigure.Modules
 
         private async ValueTask OnServerConnected(Connection<Packet> connection)
         {
-            if (ServerConnected is not null)
-            {
-                await ServerConnected(connection);
-            }
+            if (ServerConnected is not null) await ServerConnected(connection);
         }
 
         private async ValueTask OnServerDisconnected(Connection<Packet> connection)
         {
-            if (ServerDisconnected is not null)
-            {
-                await ServerDisconnected(connection);
-            }
+            if (ServerDisconnected is not null) await ServerDisconnected(connection);
         }
 
         #endregion

@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 
 #endregion
 
+
 namespace Disfigure.Cryptography
 {
     public interface IEncryptionProvider

@@ -1,9 +1,5 @@
 #region
 
-using Disfigure.Cryptography;
-using Disfigure.Diagnostics;
-using Disfigure.Net.Packets;
-using Serilog;
 using System;
 using System.Buffers;
 using System.Diagnostics;
@@ -14,8 +10,13 @@ using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
 using DiagnosticsProviderNS;
+using Disfigure.Cryptography;
+using Disfigure.Diagnostics;
+using Disfigure.Net.Packets;
+using Serilog;
 
 #endregion
+
 
 namespace Disfigure.Net
 {
@@ -32,22 +33,12 @@ namespace Disfigure.Net
     public class Connection<TPacket> : IDisposable, IEquatable<Connection<TPacket>> where TPacket : struct
     {
         private readonly TcpClient _Client;
+        private readonly IEncryptionProvider? _EncryptionProvider;
+        private readonly PacketFactoryAsync<TPacket> _PacketFactoryAsync;
+        private readonly PacketSerializerAsync<TPacket> _PacketSerializerAsync;
+        private readonly PipeReader _Reader;
         private readonly NetworkStream _Stream;
         private readonly PipeWriter _Writer;
-        private readonly PipeReader _Reader;
-        private readonly IEncryptionProvider? _EncryptionProvider;
-        private readonly PacketSerializerAsync<TPacket> _PacketSerializerAsync;
-        private readonly PacketFactoryAsync<TPacket> _PacketFactoryAsync;
-
-        /// <summary>
-        ///     Unique identity of the <see cref="Connection{TPacket}" />.
-        /// </summary>
-        public Guid Identity { get; }
-
-        /// <summary>
-        ///     <see cref="EndPoint" /> the internal <see cref="TcpClient" /> is connected to.
-        /// </summary>
-        public EndPoint RemoteEndPoint => _Client.Client.RemoteEndPoint;
 
         public Connection(TcpClient client, IEncryptionProvider? encryptionProvider, PacketSerializerAsync<TPacket> packetSerializerAsync,
             PacketFactoryAsync<TPacket> packetFactoryAsync)
@@ -64,6 +55,16 @@ namespace Disfigure.Net
         }
 
         /// <summary>
+        ///     Unique identity of the <see cref="Connection{TPacket}" />.
+        /// </summary>
+        public Guid Identity { get; }
+
+        /// <summary>
+        ///     <see cref="EndPoint" /> the internal <see cref="TcpClient" /> is connected to.
+        /// </summary>
+        public EndPoint RemoteEndPoint => _Client.Client.RemoteEndPoint;
+
+        /// <summary>
         ///     Invokes <see cref="Connected" /> event and begins read loop.
         /// </summary>
         /// <param name="cancellationToken"><see cref="CancellationToken" /> to observe.</param>
@@ -77,6 +78,7 @@ namespace Disfigure.Net
         public TEncryptionProvider EncryptionProviderAs<TEncryptionProvider>() where TEncryptionProvider : class, IEncryptionProvider
             => _EncryptionProvider as TEncryptionProvider
                ?? throw new InvalidCastException($"Cannot cast {typeof(IEncryptionProvider)} to {typeof(TEncryptionProvider)}");
+
 
         #region Reading Data
 
@@ -99,6 +101,7 @@ namespace Disfigure.Net
                     {
                         Log.Error(string.Format(FormatHelper.CONNECTION_LOGGING, RemoteEndPoint,
                             "Received no data from reader. This is likely a connection error, so the loop will halt."));
+
                         break;
                     }
 
@@ -136,6 +139,7 @@ namespace Disfigure.Net
 
         #endregion
 
+
         #region Writing Data
 
         public async ValueTask WriteDirectAsync(ReadOnlyMemory<byte> data, CancellationToken cancellationToken)
@@ -159,6 +163,7 @@ namespace Disfigure.Net
 
         #endregion
 
+
         #region Connection Events
 
         public event ConnectionEventHandler<TPacket>? Connected;
@@ -167,21 +172,16 @@ namespace Disfigure.Net
 
         private async ValueTask OnConnected()
         {
-            if (Connected is not null)
-            {
-                await Connected(this);
-            }
+            if (Connected is not null) await Connected(this);
         }
 
         private async ValueTask OnDisconnected()
         {
-            if (Disconnected is not null)
-            {
-                await Disconnected(this);
-            }
+            if (Disconnected is not null) await Disconnected(this);
         }
 
         #endregion
+
 
         #region Packet Events
 
@@ -191,21 +191,16 @@ namespace Disfigure.Net
 
         private async ValueTask OnPacketWrittenAsync(TPacket packet)
         {
-            if (PacketWritten is not null)
-            {
-                await PacketWritten(this, packet);
-            }
+            if (PacketWritten is not null) await PacketWritten(this, packet);
         }
 
         private async ValueTask OnPacketReceivedAsync(TPacket packet)
         {
-            if (PacketReceived is not null)
-            {
-                await PacketReceived(this, packet);
-            }
+            if (PacketReceived is not null) await PacketReceived(this, packet);
         }
 
         #endregion
+
 
         #region IDisposable
 
@@ -213,10 +208,7 @@ namespace Disfigure.Net
 
         protected virtual void Dispose(bool disposing)
         {
-            if (!disposing)
-            {
-                return;
-            }
+            if (!disposing) return;
 
             _Client.Dispose();
             _Stream.Dispose();
@@ -226,10 +218,7 @@ namespace Disfigure.Net
 
         public void Dispose()
         {
-            if (_Disposed)
-            {
-                return;
-            }
+            if (_Disposed) return;
 
             Dispose(true);
             GC.SuppressFinalize(this);
@@ -237,39 +226,25 @@ namespace Disfigure.Net
 
         #endregion
 
+
         #region IEquatable<Connection>
 
         public bool Equals(Connection<TPacket>? other)
         {
-            if (ReferenceEquals(null, other))
-            {
-                return false;
-            }
+            if (ReferenceEquals(null, other)) return false;
 
-            if (ReferenceEquals(this, other))
-            {
-                return true;
-            }
+            if (ReferenceEquals(this, other)) return true;
 
             return Identity.Equals(other.Identity);
         }
 
         public override bool Equals(object? obj)
         {
-            if (ReferenceEquals(null, obj))
-            {
-                return false;
-            }
+            if (ReferenceEquals(null, obj)) return false;
 
-            if (ReferenceEquals(this, obj))
-            {
-                return true;
-            }
+            if (ReferenceEquals(this, obj)) return true;
 
-            if (obj.GetType() != GetType())
-            {
-                return false;
-            }
+            if (obj.GetType() != GetType()) return false;
 
             return Equals((Connection<TPacket>)obj);
         }
