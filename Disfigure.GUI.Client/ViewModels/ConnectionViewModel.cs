@@ -1,14 +1,19 @@
-﻿using System;
+﻿#region
+
+using System;
 using System.Collections.ObjectModel;
+using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Avalonia.Threading;
-using Disfigure.Collections;
 using Disfigure.Net;
 using Disfigure.Net.Packets;
 using ReactiveUI;
+
+#endregion
+
 
 namespace Disfigure.GUI.Client.ViewModels
 {
@@ -17,78 +22,79 @@ namespace Disfigure.GUI.Client.ViewModels
         private const string _SERVER_MESSAGE_FORMAT = "[{0}] > {1}";
 
         private readonly Connection<Packet> _Connection;
-        private readonly ConcurrentChannel<Packet> _PendingMessages;
-        private string _FriendlyName;
 
+        private string _FriendlyName;
         private bool _IsRemoteClient;
-        private int _SelectedMessageIndex;
+
+        public string FriendlyName { get => _FriendlyName; set => this.RaiseAndSetIfChanged(ref _FriendlyName, value); }
+        public ObservableCollection<ChannelViewModel> Channels { get; }
+        public Guid Identity => _Connection.Identity;
 
         public ConnectionViewModel(Connection<Packet> connection)
         {
-            _PendingMessages = new ConcurrentChannel<Packet>(true, false);
             _FriendlyName = string.Empty;
-
-            Messages = new ObservableCollection<MessageViewModel>();
             _Connection = connection;
-            connection.PacketReceived += TryAssignIdentity;
-            _Connection.PacketReceived += async (connection, packet) => await _PendingMessages.AddAsync(packet);
-            _Connection.PacketWritten += async (connection, packet) => await _PendingMessages.AddAsync(packet);
+            _Connection.PacketReceived += PacketReceivedCallback;
+            _Connection.PacketWritten += PacketReceivedCallback;
 
+            Channels = new ObservableCollection<ChannelViewModel>();
             FriendlyName = connection.RemoteEndPoint.ToString() ?? "invalid address";
-
-            Task.Run(() => AddMessagesDispatched(CancellationToken.None));
         }
 
-        public string FriendlyName { get => _FriendlyName; set => this.RaiseAndSetIfChanged(ref _FriendlyName, value); }
+        private ChannelViewModel GetChannel(Guid identity) => Channels.First(channel => channel.Identity.Equals(identity));
 
-        public int SelectedMessageIndex { get => _SelectedMessageIndex; set => this.RaiseAndSetIfChanged(ref _SelectedMessageIndex, value); }
-
-        public Guid Identity => _Connection.Identity;
-
-        public ObservableCollection<MessageViewModel> Messages { get; }
-
-        private async Task AddMessagesDispatched(CancellationToken cancellationToken)
+        private async ValueTask PacketReceivedCallback(Connection<Packet> connection, Packet packet)
         {
-            void AddMessageAndScroll(MessageViewModel messageViewModel)
+            static (bool, string) ParseIdentityImpl(Packet packet)
             {
-                Messages.Add(messageViewModel);
-                SelectedMessageIndex = Messages.Count - 1;
+                ReadOnlySpan<byte> content = packet.ContentSpan;
+                return (MemoryMarshal.Read<bool>(content), Encoding.Unicode.GetString(content.Slice(sizeof(bool))));
             }
 
-            while (!cancellationToken.IsCancellationRequested)
+            static unsafe (Guid, Guid, MessageViewModel) ParseTextPacketImpl(Packet packet)
             {
-                Packet packet = await _PendingMessages.TakeAsync(true, cancellationToken);
+                ReadOnlySpan<byte> content = packet.ContentSpan;
+                Guid channelID = MemoryMarshal.Read<Guid>(content);
+                Guid senderID = MemoryMarshal.Read<Guid>(content.Slice(sizeof(Guid)));
 
-                string packetContent = Encoding.Unicode.GetString(packet.ContentSpan);
-                string messageContent = _IsRemoteClient ? packetContent : string.Format(_SERVER_MESSAGE_FORMAT, packet.Type, packetContent);
+                MessageViewModel messageViewModel = new MessageViewModel("FriendlyName", packet.UtcTimestamp.ToString("G"),
+                    Encoding.Unicode.GetString(content.Slice(sizeof(Guid) * 2)));
 
-                await Dispatcher.UIThread.InvokeAsync(() =>
-                    AddMessageAndScroll(new MessageViewModel(FriendlyName, packet.UtcTimestamp.ToString("G"), messageContent)));
+                return (channelID, senderID, messageViewModel);
             }
-        }
 
-        private async ValueTask TryAssignIdentity(Connection<Packet> connection, Packet packet)
-        {
-            static (bool, string) ParseIdentityContent(ReadOnlySpan<byte> content)
+            static unsafe (Guid, string) ParseChannelIdentityImpl(Packet packet)
             {
-                bool isClient = MemoryMarshal.Read<bool>(content);
-                string friendlyName = Encoding.Unicode.GetString(content.Slice(sizeof(bool)));
-
-                return (isClient, friendlyName);
+                ReadOnlySpan<byte> content = packet.ContentSpan;
+                Guid channelID = MemoryMarshal.Read<Guid>(content);
+                string channelName = Encoding.Unicode.GetString(content.Slice(sizeof(Guid)));
+                return (channelID, channelName);
             }
 
             switch (packet.Type)
             {
                 case PacketType.Identity:
-                    (bool isClient, string friendlyName) = ParseIdentityContent(packet.ContentSpan);
+                    (bool isRemoteClient, string friendlyName) = ParseIdentityImpl(packet);
 
                     await Dispatcher.UIThread.InvokeAsync(() =>
                     {
-                        _IsRemoteClient = isClient;
+                        _IsRemoteClient = isRemoteClient;
                         FriendlyName = friendlyName;
                     });
 
                     break;
+                case PacketType.ChannelIdentity:
+                {
+                    (Guid channelID, string channelName) = ParseChannelIdentityImpl(packet);
+                    await Dispatcher.UIThread.InvokeAsync(() => Channels.Add(new ChannelViewModel(channelID, channelName)));
+                    break;
+                }
+                case PacketType.Text:
+                {
+                    (Guid channelID, Guid senderID, MessageViewModel messageViewModel) = ParseTextPacketImpl(packet);
+                    await Dispatcher.UIThread.InvokeAsync(() => GetChannel(channelID).Messages.Add(messageViewModel));
+                    break;
+                }
             }
         }
 

@@ -21,13 +21,15 @@ namespace Disfigure.Modules
     public class ServerModule : Module<Packet>
     {
         private readonly IPEndPoint _HostAddress;
-
-        private List<string> _Channels;
+        private readonly List<string> _Channels;
 
         public ServerModule(IPEndPoint hostAddress, string? friendlyName = null)
         {
             _HostAddress = hostAddress;
-            _Channels = new List<string>();
+            _Channels = new List<string>
+            {
+                "test1", "test2"
+            };
 
             FriendlyName = friendlyName ?? hostAddress.ToString();
         }
@@ -82,9 +84,8 @@ namespace Disfigure.Modules
 
                     foreach (string channel in _Channels)
                     {
-                        ReadOnlyMemory<byte> serialized = SerializeChannelIdentity(channel);
-
-                        await connection.WriteAsync(new Packet(PacketType.ChannelIdentity, DateTime.UtcNow, serialized), CancellationToken);
+                        await connection.WriteAsync(new Packet(PacketType.ChannelIdentity, DateTime.UtcNow, SerializeChannelIdentity(channel)),
+                            CancellationToken);
                     }
                 }
             }
@@ -106,12 +107,12 @@ namespace Disfigure.Modules
             }
         }
 
-        private unsafe ReadOnlyMemory<byte> SerializeChannelIdentity(string channel)
+        private static unsafe ReadOnlySpan<byte> SerializeChannelIdentity(string channel)
         {
             Guid guid = Guid.NewGuid();
 
-            Memory<byte> serialized = new byte[sizeof(Guid) + Encoding.Unicode.GetByteCount(channel)];
-            MemoryMarshal.Write(serialized.Span, ref guid);
+            Span<byte> serialized = new byte[sizeof(Guid) + Encoding.Unicode.GetByteCount(channel)];
+            MemoryMarshal.Write(serialized, ref guid);
             Encoding.Unicode.GetBytes(channel).CopyTo(serialized.Slice(sizeof(Guid)));
 
             return serialized;
