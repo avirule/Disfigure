@@ -18,7 +18,7 @@ using Serilog;
 
 namespace Disfigure.Modules
 {
-    public class ServerModule : Module<Packet>
+    public class ServerModule : Module
     {
         private readonly IPEndPoint _HostAddress;
         private readonly List<string> _Channels;
@@ -26,9 +26,11 @@ namespace Disfigure.Modules
         public ServerModule(IPEndPoint hostAddress, string? friendlyName = null)
         {
             _HostAddress = hostAddress;
+
             _Channels = new List<string>
             {
-                "test1", "test2"
+                "test1",
+                "test2"
             };
 
             FriendlyName = friendlyName ?? hostAddress.ToString();
@@ -44,7 +46,7 @@ namespace Disfigure.Modules
             MemoryMarshal.Write(content, ref isClient);
             int written = Encoding.Unicode.GetBytes(FriendlyName, content.Slice(sizeof(bool)));
 
-            return new Packet(PacketType.Identity, DateTime.UtcNow, content.Slice(0, sizeof(bool) + written));
+            return Packet.Create(PacketType.Identity, DateTime.UtcNow, content.Slice(0, sizeof(bool) + written));
         }
 
 
@@ -56,11 +58,9 @@ namespace Disfigure.Modules
         /// <remarks>
         ///     This is run on the ThreadPool.
         /// </remarks>
-        public void AcceptConnections(PacketSerializerAsync<Packet> packetSerializerAsync, PacketFactoryAsync<Packet> packetFactoryAsync) =>
-            Task.Run(() => AcceptConnectionsInternal(packetSerializerAsync, packetFactoryAsync));
+        public void AcceptConnections() => Task.Run(AcceptConnectionsInternal);
 
-        private async Task AcceptConnectionsInternal(PacketSerializerAsync<Packet> packetSerializerAsync,
-            PacketFactoryAsync<Packet> packetFactoryAsync)
+        private async Task AcceptConnectionsInternal()
         {
             try
             {
@@ -74,8 +74,7 @@ namespace Disfigure.Modules
                     TcpClient tcpClient = await listener.AcceptTcpClientAsync();
                     Log.Information(string.Format(FormatHelper.CONNECTION_LOGGING, tcpClient.Client.RemoteEndPoint, "Connection accepted."));
 
-                    Connection<Packet> connection = new Connection<Packet>(tcpClient, new ECDHEncryptionProvider(), packetSerializerAsync,
-                        packetFactoryAsync);
+                    Connection connection = new Connection(tcpClient, new ECDHEncryptionProvider());
 
                     RegisterConnection(connection);
 
@@ -84,7 +83,7 @@ namespace Disfigure.Modules
 
                     foreach (string channel in _Channels)
                     {
-                        await connection.WriteAsync(new Packet(PacketType.ChannelIdentity, DateTime.UtcNow, SerializeChannelIdentity(channel)),
+                        await connection.WriteAsync(Packet.Create(PacketType.ChannelIdentity, DateTime.UtcNow, SerializeChannelIdentity(channel)),
                             CancellationToken);
                     }
                 }

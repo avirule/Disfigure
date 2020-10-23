@@ -21,7 +21,7 @@ namespace Disfigure.GUI.Client.ViewModels
     {
         private const string _SERVER_MESSAGE_FORMAT = "[{0}] > {1}";
 
-        private readonly Connection<Packet> _Connection;
+        private readonly Connection _Connection;
 
         private string _FriendlyName;
         private bool _IsRemoteClient;
@@ -30,7 +30,7 @@ namespace Disfigure.GUI.Client.ViewModels
         public ObservableCollection<ChannelViewModel> Channels { get; }
         public Guid Identity => _Connection.Identity;
 
-        public ConnectionViewModel(Connection<Packet> connection)
+        public ConnectionViewModel(Connection connection)
         {
             _FriendlyName = string.Empty;
             _Connection = connection;
@@ -43,7 +43,7 @@ namespace Disfigure.GUI.Client.ViewModels
 
         private ChannelViewModel GetChannel(Guid identity) => Channels.First(channel => channel.Identity.Equals(identity));
 
-        private async ValueTask PacketReceivedCallback(Connection<Packet> connection, Packet packet)
+        private async ValueTask PacketReceivedCallback(Connection connection, Packet packet)
         {
             static (bool, string) ParseIdentityImpl(Packet packet)
             {

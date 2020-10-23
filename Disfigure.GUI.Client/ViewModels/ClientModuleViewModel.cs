@@ -82,7 +82,7 @@ namespace Disfigure.GUI.Client.ViewModels
                 }
             }
             else
-                Task.Run(() => SelectedViewModel?.WriteAsync(new Packet(PacketType.Text, DateTime.UtcNow, Encoding.Unicode.GetBytes(content)),
+                Task.Run(() => SelectedViewModel?.WriteAsync(Packet.Create(PacketType.Text, DateTime.UtcNow, Encoding.Unicode.GetBytes(content)),
                     CancellationToken.None));
         }
 

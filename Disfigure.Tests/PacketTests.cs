@@ -23,7 +23,7 @@ namespace Disfigure.Tests
             const string guid_value = "50dfb8f5-78c9-4053-a573-8b0659648893";
 
             Guid guid = Guid.Parse(guid_value);
-            _Packet = new Packet(PacketType.Ping, DateTime.MinValue, new ReadOnlySpan<byte>(guid.ToByteArray()));
+            _Packet = Packet.Create(PacketType.Ping, DateTime.MinValue, new ReadOnlySpan<byte>(guid.ToByteArray()));
 
             _PacketSerialized = new byte[]
             {

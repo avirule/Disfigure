@@ -41,7 +41,7 @@ namespace Disfigure.CLI.Bouncer
             while (!_Module.CancellationToken.IsCancellationRequested) Console.ReadLine();
         }
 
-        private static async ValueTask PacketReceivedCallback(Connection<Packet> connection, Packet packet)
+        private static async ValueTask PacketReceivedCallback(Connection connection, Packet packet)
         {
             switch (packet.Type)
             {
@@ -56,7 +56,7 @@ namespace Disfigure.CLI.Bouncer
             }
         }
 
-        private static async ValueTask ServerPacketReceivedCallback(Connection<Packet> connection, Packet packet)
+        private static async ValueTask ServerPacketReceivedCallback(Connection connection, Packet packet)
         {
             switch (packet.Type)
             {
@@ -65,7 +65,7 @@ namespace Disfigure.CLI.Bouncer
                     break;
 
                 case PacketType.Ping:
-                    await connection.WriteAsync(new Packet(PacketType.Pong, DateTime.UtcNow, packet.ContentSpan), CancellationToken.None);
+                    await connection.WriteAsync(Packet.Create(PacketType.Pong, DateTime.UtcNow, packet.ContentSpan), CancellationToken.None);
                     break;
             }
         }

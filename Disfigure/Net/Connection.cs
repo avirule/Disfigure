@@ -7,6 +7,7 @@ using System.IO;
 using System.IO.Pipelines;
 using System.Net;
 using System.Net.Sockets;
+using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
 using DiagnosticsProviderNS;
@@ -20,42 +21,31 @@ using Serilog;
 
 namespace Disfigure.Net
 {
-    public delegate ValueTask<ReadOnlyMemory<byte>> PacketSerializerAsync<in TPacket>(TPacket packet, IEncryptionProvider? encryptionProvider,
-        CancellationToken cancellationToken);
+    public delegate ValueTask ConnectionEventHandler(Connection connection);
 
-    public delegate ValueTask<(bool, SequencePosition, TPacket)> PacketFactoryAsync<TPacket>(ReadOnlySequence<byte> sequence,
-        IEncryptionProvider? encryptionProvider, CancellationToken cancellationToken);
+    public delegate ValueTask PacketEventHandler(Connection connection, Packet packet);
 
-    public delegate ValueTask ConnectionEventHandler<TPacket>(Connection<TPacket> connection) where TPacket : struct;
-
-    public delegate ValueTask PacketEventHandler<TPacket>(Connection<TPacket> connection, TPacket packet) where TPacket : struct;
-
-    public class Connection<TPacket> : IDisposable, IEquatable<Connection<TPacket>> where TPacket : struct
+    public class Connection : IDisposable, IEquatable<Connection>
     {
         private readonly TcpClient _Client;
         private readonly IEncryptionProvider? _EncryptionProvider;
-        private readonly PacketFactoryAsync<TPacket> _PacketFactoryAsync;
-        private readonly PacketSerializerAsync<TPacket> _PacketSerializerAsync;
         private readonly PipeReader _Reader;
         private readonly NetworkStream _Stream;
         private readonly PipeWriter _Writer;
 
-        public Connection(TcpClient client, IEncryptionProvider? encryptionProvider, PacketSerializerAsync<TPacket> packetSerializerAsync,
-            PacketFactoryAsync<TPacket> packetFactoryAsync)
+        public Connection(TcpClient client, IEncryptionProvider? encryptionProvider)
         {
             _Client = client;
             _Stream = _Client.GetStream();
             _Writer = PipeWriter.Create(_Stream);
             _Reader = PipeReader.Create(_Stream);
             _EncryptionProvider = encryptionProvider;
-            _PacketSerializerAsync = packetSerializerAsync;
-            _PacketFactoryAsync = packetFactoryAsync;
 
             Identity = Guid.NewGuid();
         }
 
         /// <summary>
-        ///     Unique identity of the <see cref="Connection{TPacket}" />.
+        ///     Unique identity of the <see cref="Connection" />.
         /// </summary>
         public Guid Identity { get; }
 
@@ -107,8 +97,7 @@ namespace Disfigure.Net
 
                     stopwatch.Restart();
 
-                    (bool success, SequencePosition consumed, TPacket packet) = await _PacketFactoryAsync(sequence, _EncryptionProvider,
-                        cancellationToken);
+                    (bool success, SequencePosition consumed, Packet packet) = await ReadPacketAsync(sequence, cancellationToken);
 
                     if (success)
                     {
@@ -137,10 +126,83 @@ namespace Disfigure.Net
             }
         }
 
+        private async ValueTask<(bool, SequencePosition, Packet)> ReadPacketAsync(ReadOnlySequence<byte> sequence, CancellationToken cancellationToken)
+        {
+            static bool TryGetDataImpl(ReadOnlySequence<byte> sequence, out SequencePosition consumed, out ReadOnlyMemory<byte> data)
+            {
+                ReadOnlySpan<byte> span = sequence.FirstSpan;
+                consumed = sequence.Start;
+                data = ReadOnlyMemory<byte>.Empty;
+                int length;
+
+                // wait until 4 bytes and sequence is long enough to construct packet
+                if ((sequence.Length < sizeof(int)) || (sequence.Length < (length = MemoryMarshal.Read<int>(span)))) return false;
+
+                // ensure length covers entire valid header
+                else if (length < Packet.TOTAL_HEADER_LENGTH)
+                {
+                    // if not, print warning and throw away data
+                    Log.Warning("Received packet with invalid header format (too short).");
+                    consumed = sequence.GetPosition(length);
+                    return false;
+                }
+
+                // ensure alignment constant is valid
+                else if (MemoryMarshal.Read<int>(span.Slice(sizeof(int))) != Packet.ALIGNMENT_CONSTANT) throw new PacketMisalignedException();
+                else
+                {
+                    consumed = sequence.GetPosition(length);
+                    data = sequence.Slice(sizeof(int) + sizeof(int)).First;
+                    return true;
+                }
+            }
+
+            if (!TryGetDataImpl(sequence, out SequencePosition consumed, out ReadOnlyMemory<byte> data)) return (false, consumed, default);
+            else
+            {
+                ReadOnlyMemory<byte> initializationVector = data.Slice(0, IEncryptionProvider.INITIALIZATION_VECTOR_SIZE);
+                ReadOnlyMemory<byte> packetData = data.Slice(IEncryptionProvider.INITIALIZATION_VECTOR_SIZE);
+
+                if (_EncryptionProvider?.IsEncryptable ?? false) packetData = await _EncryptionProvider.DecryptAsync(initializationVector, packetData, cancellationToken);
+                else Log.Warning($"Packet data has been received, but the {nameof(IEncryptionProvider)} is in an unusable state.");
+
+                return (true, consumed, new Packet(packetData));
+            }
+        }
+
         #endregion
 
 
         #region Writing Data
+
+        private static ReadOnlyMemory<byte> SerializePacket(ReadOnlyMemory<byte> initializationVector, ReadOnlyMemory<byte> packetData)
+        {
+            int alignmentConstant = Packet.ALIGNMENT_CONSTANT;
+            int length = Packet.ENCRYPTION_HEADER_LENGTH + packetData.Length;
+            Memory<byte> data = new byte[length];
+            Span<byte> dataSpan = data.Span;
+
+            MemoryMarshal.Write(dataSpan.Slice(Packet.OFFSET_DATA_LENGTH), ref length);
+            MemoryMarshal.Write(dataSpan.Slice(Packet.OFFSET_ALIGNMENT_CONSTANT), ref alignmentConstant);
+            initializationVector.CopyTo(data.Slice(Packet.OFFSET_INITIALIZATION_VECTOR));
+            packetData.CopyTo(data.Slice(Packet.ENCRYPTION_HEADER_LENGTH));
+
+            return data;
+        }
+
+        private async ValueTask<ReadOnlyMemory<byte>> EncryptPacket(Packet packet, CancellationToken cancellationToken)
+        {
+            ReadOnlyMemory<byte> initializationVector, packetData = packet.Serialize();
+
+            if (_EncryptionProvider is not null) (initializationVector, packetData) = await _EncryptionProvider!.EncryptAsync(packetData, cancellationToken);
+            else
+            {
+                throw new ArgumentException($"Write call has been received, but the {nameof(IEncryptionProvider)} is in an unusable state.",
+                    nameof(_EncryptionProvider));
+            }
+
+            return SerializePacket(initializationVector, packetData);
+        }
 
         public async ValueTask WriteDirectAsync(ReadOnlyMemory<byte> data, CancellationToken cancellationToken)
         {
@@ -150,9 +212,9 @@ namespace Disfigure.Net
             Log.Warning(string.Format(FormatHelper.CONNECTION_LOGGING, RemoteEndPoint, $"DIRECT OUT {data.Length} BYTES"));
         }
 
-        public async ValueTask WriteAsync(TPacket packet, CancellationToken cancellationToken)
+        public async ValueTask WriteAsync(Packet packet, CancellationToken cancellationToken)
         {
-            ReadOnlyMemory<byte> encrypted = await _PacketSerializerAsync(packet, _EncryptionProvider, cancellationToken);
+            ReadOnlyMemory<byte> encrypted = await EncryptPacket(packet, cancellationToken);
             await _Writer.WriteAsync(encrypted, cancellationToken);
             await _Writer.FlushAsync(cancellationToken);
 
@@ -161,14 +223,28 @@ namespace Disfigure.Net
             await OnPacketWrittenAsync(packet);
         }
 
+        public async ValueTask SendEncryptionKeys(CancellationToken cancellationToken)
+        {
+            if (_EncryptionProvider is not null)
+            {
+                await WriteDirectAsync(SerializePacket(ReadOnlyMemory<byte>.Empty,
+                    Packet.Create(PacketType.EncryptionKeys, DateTime.UtcNow, _EncryptionProvider?.PublicKey).Serialize()), cancellationToken);
+            }
+            else
+            {
+                throw new ArgumentException($"Write call has been received, but the {nameof(IEncryptionProvider)} is in an unusable state.",
+                    nameof(_EncryptionProvider));
+            }
+        }
+
         #endregion
 
 
         #region Connection Events
 
-        public event ConnectionEventHandler<TPacket>? Connected;
+        public event ConnectionEventHandler? Connected;
 
-        public event ConnectionEventHandler<TPacket>? Disconnected;
+        public event ConnectionEventHandler? Disconnected;
 
         private async ValueTask OnConnected()
         {
@@ -185,16 +261,16 @@ namespace Disfigure.Net
 
         #region Packet Events
 
-        public event PacketEventHandler<TPacket>? PacketWritten;
+        public event PacketEventHandler? PacketWritten;
 
-        public event PacketEventHandler<TPacket>? PacketReceived;
+        public event PacketEventHandler? PacketReceived;
 
-        private async ValueTask OnPacketWrittenAsync(TPacket packet)
+        private async ValueTask OnPacketWrittenAsync(Packet packet)
         {
             if (PacketWritten is not null) await PacketWritten(this, packet);
         }
 
-        private async ValueTask OnPacketReceivedAsync(TPacket packet)
+        private async ValueTask OnPacketReceivedAsync(Packet packet)
         {
             if (PacketReceived is not null) await PacketReceived(this, packet);
         }
@@ -229,7 +305,7 @@ namespace Disfigure.Net
 
         #region IEquatable<Connection>
 
-        public bool Equals(Connection<TPacket>? other)
+        public bool Equals(Connection? other)
         {
             if (ReferenceEquals(null, other)) return false;
 
@@ -246,15 +322,15 @@ namespace Disfigure.Net
 
             if (obj.GetType() != GetType()) return false;
 
-            return Equals((Connection<TPacket>)obj);
+            return Equals((Connection)obj);
         }
 
         public override int GetHashCode() => Identity.GetHashCode();
 
-        public static bool operator ==(Connection<TPacket>? left, Connection<TPacket>? right) =>
+        public static bool operator ==(Connection? left, Connection? right) =>
             Equals(left, right);
 
-        public static bool operator !=(Connection<TPacket>? left, Connection<TPacket>? right) =>
+        public static bool operator !=(Connection? left, Connection? right) =>
             !Equals(left, right);
 
         #endregion
