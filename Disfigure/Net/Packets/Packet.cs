@@ -3,7 +3,6 @@
 using System;
 using System.Runtime.InteropServices;
 using System.Text;
-using Microsoft.VisualBasic;
 
 #endregion
 
@@ -13,13 +12,41 @@ namespace Disfigure.Net.Packets
     public readonly partial struct Packet
     {
         public ReadOnlyMemory<byte> Data { get; }
+        public PacketType Type { get; }
+        public DateTime UtcTimestamp { get; }
 
-        public PacketType Type => MemoryMarshal.Read<PacketType>(Data.Span.Slice(OFFSET_PACKET_TYPE));
-        public DateTime UtcTimestamp => MemoryMarshal.Read<DateTime>(Data.Span.Slice(OFFSET_TIMESTAMP));
         public ReadOnlyMemory<byte> ContentMemory => Data.Slice(HEADER_LENGTH);
-        public ReadOnlySpan<byte> ContentSpan => Data.Span.Slice(HEADER_LENGTH);
+        public ReadOnlySpan<byte> ContentSpan => Data.Slice(HEADER_LENGTH).Span;
 
-        public Packet(ReadOnlyMemory<byte> data) => Data = data;
+        public Packet(ReadOnlyMemory<byte> data)
+        {
+            ReadOnlySpan<byte> destination = data.Span;
+
+            Type = MemoryMarshal.Read<PacketType>(destination.Slice(OFFSET_PACKET_TYPE));
+            UtcTimestamp = MemoryMarshal.Read<DateTime>(destination.Slice(OFFSET_TIMESTAMP));
+
+            Data = data;
+        }
+
+        public Packet(PacketType packetType, DateTime utcTimestamp, ReadOnlySpan<byte> content)
+        {
+            Type = packetType;
+            UtcTimestamp = utcTimestamp;
+
+            Memory<byte> data = new byte[HEADER_LENGTH + content.Length];
+            Span<byte> destination = data.Span;
+
+            MemoryMarshal.Write(destination.Slice(OFFSET_PACKET_TYPE), ref packetType);
+            MemoryMarshal.Write(destination.Slice(OFFSET_TIMESTAMP), ref utcTimestamp);
+            content.CopyTo(destination.Slice(HEADER_LENGTH));
+
+            Data = data;
+        }
+
+        public Packet(PacketType packetType, DateTime utcTimestamp, ReadOnlyMemory<byte> content)
+        {
+            
+        }
 
         public ReadOnlyMemory<byte> Serialize() => Data;
 

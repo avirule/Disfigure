@@ -16,17 +16,17 @@ namespace Disfigure.Modules
 {
     public class BouncerModule : ServerModule
     {
-        private readonly ConcurrentDictionary<Guid, Connection> _ServerConnections;
+        private readonly ConcurrentDictionary<Guid, Connection<Packet>> _ServerConnections;
 
         public BouncerModule(IPEndPoint hostAddress) : base(hostAddress) =>
-            _ServerConnections = new ConcurrentDictionary<Guid, Connection>();
+            _ServerConnections = new ConcurrentDictionary<Guid, Connection<Packet>>();
 
-        public async Task<Connection> EstablishServerConnectionAsync(IPEndPoint ipEndPoint,
-            PacketSerializerAsync packetSerializerAsync, PacketFactoryAsync packetFactoryAsync)
+        public async Task<Connection<Packet>> EstablishServerConnectionAsync(IPEndPoint ipEndPoint,
+            PacketSerializerAsync<Packet> packetSerializerAsync, PacketFactoryAsync<Packet> packetFactoryAsync)
         {
             TcpClient tcpClient = await ConnectionHelper.ConnectAsync(ipEndPoint, ConnectionHelper.DefaultRetryParameters, CancellationToken);
 
-            Connection connection = new Connection(tcpClient, new ECDHEncryptionProvider(), packetSerializerAsync,
+            Connection<Packet> connection = new Connection<Packet>(tcpClient, new ECDHEncryptionProvider(), packetSerializerAsync,
                 packetFactoryAsync);
 
             connection.Connected += OnServerConnected;
@@ -41,9 +41,9 @@ namespace Disfigure.Modules
 
         #region Server PacketReceived Events
 
-        public event PacketEventHandler? ServerPacketReceived;
+        public event PacketEventHandler<Packet>? ServerPacketReceived;
 
-        private async ValueTask OnServerPacketReceived(Connection connection, Packet packet)
+        private async ValueTask OnServerPacketReceived(Connection<Packet> connection, Packet packet)
         {
             if (ServerPacketReceived is not null) await ServerPacketReceived(connection, packet);
         }
@@ -53,16 +53,16 @@ namespace Disfigure.Modules
 
         #region Server Connection Events
 
-        public event ConnectionEventHandler? ServerConnected;
+        public event ConnectionEventHandler<Packet>? ServerConnected;
 
-        public event ConnectionEventHandler? ServerDisconnected;
+        public event ConnectionEventHandler<Packet>? ServerDisconnected;
 
-        private async ValueTask OnServerConnected(Connection connection)
+        private async ValueTask OnServerConnected(Connection<Packet> connection)
         {
             if (ServerConnected is not null) await ServerConnected(connection);
         }
 
-        private async ValueTask OnServerDisconnected(Connection connection)
+        private async ValueTask OnServerDisconnected(Connection<Packet> connection)
         {
             if (ServerDisconnected is not null) await ServerDisconnected(connection);
         }

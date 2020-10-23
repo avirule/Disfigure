@@ -14,7 +14,7 @@ using Disfigure.Net.Packets;
 
 namespace Disfigure.Modules
 {
-    public class ClientModule : Module
+    public class ClientModule : Module<Packet>
     {
         public ClientModule()
         {
@@ -22,12 +22,12 @@ namespace Disfigure.Modules
             PacketReceived += PacketReceivedCallbackAsync;
         }
 
-        public async ValueTask<Connection> ConnectAsync(IPEndPoint ipEndPoint)
+        public async ValueTask<Connection<Packet>> ConnectAsync(IPEndPoint ipEndPoint)
         {
             TcpClient tcpClient = await ConnectionHelper.ConnectAsync(ipEndPoint, ConnectionHelper.DefaultRetryParameters, CancellationToken);
 
-            Connection connection =
-                new Connection(tcpClient, new ECDHEncryptionProvider(), Packet.SerializerAsync, Packet.FactoryAsync);
+            Connection<Packet> connection =
+                new Connection<Packet>(tcpClient, new ECDHEncryptionProvider(), Packet.SerializerAsync, Packet.FactoryAsync);
 
             RegisterConnection(connection);
 
@@ -39,7 +39,7 @@ namespace Disfigure.Modules
 
         #region Events
 
-        private static async ValueTask PacketReceivedCallbackAsync(Connection connection, Packet packet)
+        private static async ValueTask PacketReceivedCallbackAsync(Connection<Packet> connection, Packet packet)
         {
             switch (packet.Type)
             {
@@ -48,7 +48,7 @@ namespace Disfigure.Modules
                     break;
 
                 case PacketType.Ping:
-                    await connection.WriteAsync(Packet.Create(PacketType.Pong, DateTime.UtcNow, packet.ContentSpan), CancellationToken.None);
+                    await connection.WriteAsync(new Packet(PacketType.Pong, DateTime.UtcNow, packet.ContentSpan), CancellationToken.None);
                     break;
             }
         }

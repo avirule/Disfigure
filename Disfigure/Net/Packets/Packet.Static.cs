@@ -30,45 +30,111 @@ namespace Disfigure.Net.Packets
 
         public const int TOTAL_HEADER_LENGTH = ENCRYPTION_HEADER_LENGTH + HEADER_LENGTH;
 
-        public static Packet Create(PacketType packetType, DateTime utcTimestamp, ReadOnlySpan<byte> content)
-        {
-            Memory<byte> data = new byte[HEADER_LENGTH + content.Length];
-            Span<byte> destination = data.Span;
-
-            MemoryMarshal.Write(destination.Slice(OFFSET_PACKET_TYPE), ref packetType);
-            MemoryMarshal.Write(destination.Slice(OFFSET_TIMESTAMP), ref utcTimestamp);
-            content.CopyTo(destination.Slice(HEADER_LENGTH));
-
-            return new Packet(data);
-        }
-
+        public static async ValueTask SendEncryptionKeys(Connection<Packet> connection) =>
+            await connection.WriteDirectAsync(SerializePacket(ReadOnlyMemory<byte>.Empty,
+                    new Packet(PacketType.EncryptionKeys, DateTime.UtcNow, connection.EncryptionProviderAs<IEncryptionProvider>().PublicKey)
+                        .Serialize()),
+                CancellationToken.None);
 
 
         #region PacketSerializerAsync
 
+        public static async ValueTask<ReadOnlyMemory<byte>> SerializerAsync(Packet packet, IEncryptionProvider? encryptionProvider,
+            CancellationToken cancellationToken)
+        {
+            ReadOnlyMemory<byte> initializationVector, packetData = packet.Serialize();
 
+            if (encryptionProvider is not null)
+                (initializationVector, packetData) = await encryptionProvider!.EncryptAsync(packetData, cancellationToken);
+            else
+            {
+                throw new ArgumentException($"Write call has been received, but the {nameof(IEncryptionProvider)} is in an unusable state.",
+                    nameof(encryptionProvider));
+            }
+
+            return SerializePacket(initializationVector, packetData);
+        }
+
+        private static ReadOnlyMemory<byte> SerializePacket(ReadOnlyMemory<byte> initializationVector, ReadOnlyMemory<byte> packetData)
+        {
+            int alignmentConstant = ALIGNMENT_CONSTANT;
+            int length = ENCRYPTION_HEADER_LENGTH + packetData.Length;
+            Memory<byte> data = new byte[length];
+            Span<byte> dataSpan = data.Span;
+
+            MemoryMarshal.Write(dataSpan.Slice(OFFSET_DATA_LENGTH), ref length);
+            MemoryMarshal.Write(dataSpan.Slice(OFFSET_ALIGNMENT_CONSTANT), ref alignmentConstant);
+            initializationVector.CopyTo(data.Slice(OFFSET_INITIALIZATION_VECTOR));
+            packetData.CopyTo(data.Slice(ENCRYPTION_HEADER_LENGTH));
+
+            return data;
+        }
 
         #endregion
 
 
         #region PacketFactoryAsync
 
+        public static async ValueTask<(bool, SequencePosition, Packet)> FactoryAsync(ReadOnlySequence<byte> sequence,
+            IEncryptionProvider? encryptionProvider, CancellationToken cancellationToken)
+        {
+            if (!TryGetData(sequence, out SequencePosition consumed, out ReadOnlyMemory<byte> data)) return (false, consumed, default);
+            else
+            {
+                ReadOnlyMemory<byte> initializationVector = data.Slice(0, IEncryptionProvider.INITIALIZATION_VECTOR_SIZE);
+                ReadOnlyMemory<byte> packetData = data.Slice(IEncryptionProvider.INITIALIZATION_VECTOR_SIZE);
 
+                if (encryptionProvider?.IsEncryptable ?? false)
+                    packetData = await encryptionProvider.DecryptAsync(initializationVector, packetData, cancellationToken);
+                else Log.Warning($"Packet data has been received, but the {nameof(IEncryptionProvider)} is in an unusable state.");
+
+                return (true, consumed, new Packet(packetData));
+            }
+        }
+
+        private static bool TryGetData(ReadOnlySequence<byte> sequence, out SequencePosition consumed, out ReadOnlyMemory<byte> data)
+        {
+            ReadOnlySpan<byte> span = sequence.FirstSpan;
+            consumed = sequence.Start;
+            data = ReadOnlyMemory<byte>.Empty;
+            int length;
+
+            // wait until 4 bytes and sequence is long enough to construct packet
+            if ((sequence.Length < sizeof(int)) || (sequence.Length < (length = MemoryMarshal.Read<int>(span)))) return false;
+
+            // ensure length covers entire valid header
+            else if (length < TOTAL_HEADER_LENGTH)
+            {
+                // if not, print warning and throw away data
+                Log.Warning("Received packet with invalid header format (too short).");
+                consumed = sequence.GetPosition(length);
+                return false;
+            }
+
+            // ensure alignment constant is valid
+            else if (MemoryMarshal.Read<int>(span.Slice(sizeof(int))) != ALIGNMENT_CONSTANT) throw new PacketMisalignedException();
+            else
+            {
+                consumed = sequence.GetPosition(length);
+                data = sequence.Slice(sizeof(int) + sizeof(int)).First;
+                return true;
+            }
+        }
 
         #endregion
 
 
         #region PingPongLoop
 
-        public static void PingPongLoop(Module module, TimeSpan pingInterval, CancellationToken cancellationToken) =>
+        public static void PingPongLoop(Module<Packet> module, TimeSpan pingInterval, CancellationToken cancellationToken) =>
             Task.Run(async () => await PingPongLoopAsync(module, pingInterval, cancellationToken), cancellationToken);
 
-        private static async ValueTask PingPongLoopAsync(Module module, TimeSpan pingInterval, CancellationToken cancellationToken)
+        private static async ValueTask PingPongLoopAsync(Module<Packet> module, TimeSpan pingInterval, CancellationToken cancellationToken)
         {
             ConcurrentDictionary<Guid, Guid> pendingPings = new ConcurrentDictionary<Guid, Guid>();
             Stack<Guid> abandonedConnections = new Stack<Guid>();
 
-            ValueTask PongPacketCallbackImpl(Connection connection, Packet basicPacket)
+            ValueTask PongPacketCallbackImpl(Connection<Packet> connection, Packet basicPacket)
             {
                 if (basicPacket.Type != PacketType.Pong) return default;
 
@@ -101,13 +167,14 @@ namespace Disfigure.Net.Packets
             {
                 await Task.Delay(pingInterval, cancellationToken);
 
-                foreach ((Guid connectionIdentity, Connection connection) in module.ReadOnlyConnections)
+                foreach ((Guid connectionIdentity, Connection<Packet> connection) in module.ReadOnlyConnections)
                 {
                     Guid pingIdentity = Guid.NewGuid();
 
                     if (pendingPings.TryAdd(connectionIdentity, pingIdentity))
                     {
-                        await connection.WriteAsync(Create(PacketType.Ping, DateTime.UtcNow, pingIdentity.ToByteArray()), cancellationToken);
+                        await connection.WriteAsync(new Packet(PacketType.Ping, DateTime.UtcNow, pingIdentity.ToByteArray()),
+                            cancellationToken);
                     }
                     else
                     {
