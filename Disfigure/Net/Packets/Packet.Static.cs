@@ -33,8 +33,7 @@ namespace Disfigure.Net.Packets
         public static async ValueTask SendEncryptionKeys(Connection<Packet> connection) =>
             await connection.WriteDirectAsync(SerializePacket(ReadOnlyMemory<byte>.Empty,
                     new Packet(PacketType.EncryptionKeys, DateTime.UtcNow, connection.EncryptionProviderAs<IEncryptionProvider>().PublicKey)
-                        .Serialize()),
-                CancellationToken.None);
+                        .Serialize()), CancellationToken.None);
 
 
         #region PacketSerializerAsync

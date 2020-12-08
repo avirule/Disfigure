@@ -43,11 +43,6 @@ namespace Disfigure.Net.Packets
             Data = data;
         }
 
-        public Packet(PacketType packetType, DateTime utcTimestamp, ReadOnlyMemory<byte> content)
-        {
-            
-        }
-
         public ReadOnlyMemory<byte> Serialize() => Data;
 
         public override string ToString()

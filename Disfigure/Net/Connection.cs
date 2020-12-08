@@ -36,8 +36,8 @@ namespace Disfigure.Net
         private readonly IEncryptionProvider? _EncryptionProvider;
         private readonly PacketFactoryAsync<TPacket> _PacketFactoryAsync;
         private readonly PacketSerializerAsync<TPacket> _PacketSerializerAsync;
-        private readonly PipeReader _Reader;
         private readonly NetworkStream _Stream;
+        private readonly PipeReader _Reader;
         private readonly PipeWriter _Writer;
 
         public Connection(TcpClient client, IEncryptionProvider? encryptionProvider, PacketSerializerAsync<TPacket> packetSerializerAsync,
